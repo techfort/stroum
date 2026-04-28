@@ -1,0 +1,12 @@
+-- Example with streams and outcomes
+f:validate num =>
+  check(num)
+  | .ok    => save(num) @ "valid"
+  | .error => report_error(num) @ "errors"
+
+validate(42) @ "done"
+
+| .timeout => log("Timeout occurred") @ "errors"
+
+on @"valid" |> |:x| => print(x)
+on @"errors" |> |:e| => log(e)

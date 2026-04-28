@@ -1,0 +1,16 @@
+-- Stroum IO Module
+-- File and path operations
+
+f:read_file path => __builtin_read_file(path)
+f:write_file path content => __builtin_write_file(path, content)
+f:append_file path content => __builtin_append_file(path, content)
+f:file_exists path => __builtin_file_exists(path)
+f:delete_file path => __builtin_delete_file(path)
+f:list_dir path => __builtin_list_dir(path)
+f:make_dir path => __builtin_make_dir(path)
+f:read_lines path => __builtin_read_lines(path)
+f:write_lines path lines => __builtin_write_lines(path, lines)
+f:path_join base part => __builtin_path_join(base, part)
+f:path_basename path => __builtin_path_basename(path)
+f:path_dirname path => __builtin_path_dirname(path)
+f:path_ext path => __builtin_path_ext(path)

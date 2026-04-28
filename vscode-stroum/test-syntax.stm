@@ -1,0 +1,214 @@
+-- Stroum Syntax Highlighting Test
+-- This file demonstrates all syntax elements
+
+-- ============================================================================
+-- Module Imports
+-- ============================================================================
+
+i:core
+i:core add, mul, println
+i:core as c
+i:"./utils.stm"
+i:"./math.stm" as math
+i:"../shared/helpers.stm" square, cube
+
+-- ============================================================================
+-- Function Definitions
+-- ============================================================================
+
+f:simple_function x => x
+
+f:multi_param_function a b c => add(a, add(b, c))
+
+rec f:recursive_fibonacci n =>
+  n
+    |> eq(0)
+  | .true  => 0
+  | .false => add(recursive_fibonacci(sub(n, 1)), 1)
+
+-- ============================================================================
+-- Pipe Chains
+-- ============================================================================
+
+f:pipe_example data =>
+  data
+    |> validate()
+    |> transform()
+    |> save()
+
+f:complex_pipe value =>
+  value
+    |> mul(2)
+    |> add(10)
+    |> debug("After processing")
+
+-- ============================================================================
+-- Outcome Matching
+-- ============================================================================
+
+f:outcome_example input =>
+  input
+    |> process()
+  | .ok      => handle_success()
+  | .error   => handle_error()
+  | .timeout => handle_timeout()
+
+-- ============================================================================
+-- Stream Operations
+-- ============================================================================
+
+f:stream_emit data =>
+  data
+    |> validate()
+    |> save() @ "success"
+
+f:stream_redirect result =>
+  result @> "output_stream"
+
+f:emission_contract user ~> @"found", @"not_found" =>
+  lookup(user) @ "found"
+  | .empty => () @ "not_found"
+
+-- ============================================================================
+-- On Handlers
+-- ============================================================================
+
+on @"success" |> |:result| => print(result)
+
+on @"errors" |> |:error| => log(error) |> report()
+
+on @"timeout" |> |:msg| => retry(msg)
+
+-- ============================================================================
+-- Parallel Composition
+-- ============================================================================
+
+f:parallel_fetch =>
+  fetch(primary) PP fetch(secondary)
+    |> merge()
+
+f:parallel_with_gather urls =>
+  fetch(first_url) PP fetch(second_url)
+    |> combine()
+    |> save() @ "done"
+
+-- ============================================================================
+-- Lambda Expressions
+-- ============================================================================
+
+f:map_example list =>
+  list
+    |> map(|:x| => mul(x, 2))
+    |> filter(|:x| => gt(x, 10))
+
+f:reduce_example numbers =>
+  numbers
+    |> reduce(|:acc n| => add(acc, n), 0)
+
+-- ============================================================================
+-- Bindings
+-- ============================================================================
+
+b:constant_value = 42
+
+b:computed_binding = add(10, 20)
+
+-- ============================================================================
+-- Structs
+-- ============================================================================
+
+s:User {
+  id: Int,
+  name: String,
+  email: String
+}
+
+s:Response {
+  status: Int,
+  data: Payload,
+  error: Maybe
+}
+
+-- ============================================================================
+-- Type Names
+-- ============================================================================
+
+f:typed_function user:User => ProcessedUser
+
+f:with_types request:Request response:Response => Result
+
+-- ============================================================================
+-- Literals
+-- ============================================================================
+
+f:number_literals =>
+  add(42, 3.14159)
+
+f:string_literals =>
+  concat("hello", "world")
+
+f:boolean_literals =>
+  and(true, false)
+
+-- ============================================================================
+-- Stream Termination
+-- ============================================================================
+
+f:terminate_stream =>
+  process() @ "stream" XX
+
+-- ============================================================================
+-- Partial Pipe
+-- ============================================================================
+
+f:partial_example data =>
+  data
+    |?> might_fail()
+    |> handle_result()
+
+-- ============================================================================
+-- Complex Example
+-- ============================================================================
+
+f:full_example input ~> @"success", @"error" =>
+  input
+    |> validate()
+  | .valid => 
+      input
+        |> transform()
+        |> save() @ "success"
+  | .invalid =>
+      log("Invalid input") @ "error"
+
+on @"success" |> |:data| =>
+  data
+    |> format()
+    |> print()
+
+on @"error" |> |:err| =>
+  err
+    |> report()
+    |> alert()
+
+-- ============================================================================
+-- Comments and Strings
+-- ============================================================================
+
+-- Single line comment
+
+-- Another comment with special chars: |> => @ ~>
+
+f:string_examples =>
+  concat("String with \"escapes\"", "and\nnewlines")
+
+-- ============================================================================
+-- Stdlib Functions
+-- ============================================================================
+
+f:stdlib_demo =>
+  42
+    |> abs()
+    |> mul(2)
+    |> add(10)
+    |> debug("Result")
+    |> print()

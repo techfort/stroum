@@ -1,0 +1,15 @@
+-- Example with parallel composition and stream handlers
+
+f:fetch url ~> @"ok", @"fail" =>
+  http_get(url) @"ok"
+  | .error => @"fail"
+
+-- Parallel fetch from two sources
+fetch("api.example.com/users") PP fetch("api.example.com/posts")
+  |> merge_data
+  @"processed"
+
+| .fail => log_error() @"errors"
+
+-- Stream handler
+on @"errors" |> |:e| => store_error(e) @"audit"

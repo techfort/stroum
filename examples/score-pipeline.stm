@@ -1,0 +1,102 @@
+-- Score evaluation pipeline
+-- Demonstrates tagged values: production, inline handling, and stream routing.
+-- Rule: all function/binding definitions first, primary expressions next,
+--       then route/on contingencies last.
+
+-- ============================================================================
+-- Definitions
+-- ============================================================================
+
+-- evaluate: tags its result so callers know which outcome they received.
+f:evaluate score =>
+  if gte(score, 90) then .distinction score
+  else if gte(score, 70) then .pass score
+  else if gte(score, 50) then .borderline score
+  else .fail score
+
+-- Per-outcome handlers: each receives the unwrapped inner value.
+f:on_distinction n =>
+  println(concat("  Distinction  : ", to_string(n)))
+
+f:on_pass n =>
+  println(concat("  Pass         : ", to_string(n)))
+
+f:on_borderline n =>
+  println(concat("  Borderline   : ", to_string(n)))
+
+f:on_fail n =>
+  println(concat("  FAIL         : ", to_string(n)))
+
+-- dispatch: accepts a tagged value and routes to the right handler.
+-- Works both when called inline and when used as a route target.
+f:dispatch result =>
+  result
+  | .distinction => on_distinction
+  | .pass        => on_pass
+  | .borderline  => on_borderline
+  | .fail        => on_fail
+
+-- rate_temp: uses multi-word string literal tags.
+f:rate_temp c =>
+  if gt(c, 36) then ."too hot" c
+  else if lt(c, 10) then ."too cold" c
+  else ."just right" c
+
+-- ============================================================================
+-- Pattern A: Inline outcome handling at the call site
+-- | .tag => handler runs immediately; handler receives the unwrapped value.
+-- ============================================================================
+
+println("=== A: Inline handling ===")
+
+evaluate(95)
+| .distinction => on_distinction
+| .pass        => on_pass
+| .borderline  => on_borderline
+| .fail        => on_fail
+
+evaluate(45)
+| .distinction => on_distinction
+| .pass        => on_pass
+| .borderline  => on_borderline
+| .fail        => on_fail
+
+-- ============================================================================
+-- Pattern B: String literal tags (multi-word outcomes)
+-- ============================================================================
+
+println("=== B: String literal tags ===")
+
+rate_temp(39)
+| ."just right" => |:n| => println(concat("  Comfortable : ", to_string(n)))
+| ."too hot"    => |:n| => println(concat("  Too hot     : ", to_string(n)))
+| ."too cold"   => |:n| => println(concat("  Too cold    : ", to_string(n)))
+
+rate_temp(22)
+| ."just right" => |:n| => println(concat("  Comfortable : ", to_string(n)))
+| ."too hot"    => |:n| => println(concat("  Too hot     : ", to_string(n)))
+| ."too cold"   => |:n| => println(concat("  Too cold    : ", to_string(n)))
+
+rate_temp(4)
+| ."just right" => |:n| => println(concat("  Comfortable : ", to_string(n)))
+| ."too hot"    => |:n| => println(concat("  Too hot     : ", to_string(n)))
+| ."too cold"   => |:n| => println(concat("  Too cold    : ", to_string(n)))
+
+-- ============================================================================
+-- Pattern C: Stream routing
+-- Tagged values are emitted wholesale onto a stream.
+-- The route declaration picks them up and dispatches via f:dispatch.
+-- The handler receives { outcome, value } and dispatch unwraps it.
+-- ============================================================================
+
+println("=== C: Stream routing ===")
+
+evaluate(85) @ "scores"
+evaluate(62) @ "scores"
+evaluate(38) @ "scores"
+
+-- ============================================================================
+-- Contingencies: route/on declarations must come last
+-- ============================================================================
+
+route @"scores" |> dispatch

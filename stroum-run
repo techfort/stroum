@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Stroum Runner - Execute .stm files directly
+# Usage: ./stroum-run <file.stm>
+
+set -e
+
+INPUTFILE="$1"
+
+if [ -z "$INPUTFILE" ]; then
+  echo "Usage: stroum-run <file.stm>"
+  echo "Example: stroum-run examples/simple-exec.stm"
+  exit 1
+fi
+
+if [ ! -f "$INPUTFILE" ]; then
+  echo "Error: File not found: $INPUTFILE"
+  exit 1
+fi
+
+echo "🚀 Executing Stroum file: $INPUTFILE"
+echo ""
+
+# Create temp directory
+TEMPDIR=$(mktemp -d)
+BASENAME=$(basename "$INPUTFILE" .stm)
+trap "rm -rf $TEMPDIR" EXIT
+
+# Step 1: Transpile
+echo "📝 Transpiling to TypeScript..."
+if ! npm run dev --silent -- compile "$INPUTFILE" -o "$TEMPDIR/$BASENAME.ts" 2>&1; then
+  echo "❌ Transpilation failed"
+  exit 1
+fi
+
+if [ ! -f "$TEMPDIR/$BASENAME.ts" ]; then
+  echo "❌ Transpilation failed - output file not created"
+  exit 1
+fi
+
+# Step 2: Copy stdlib runtime to temp directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/stdlib/stdlib-runtime.ts" ]; then
+  cp "$SCRIPT_DIR/stdlib/stdlib-runtime.ts" "$TEMPDIR/"
+fi
+
+# Step 3: Compile TS to JS using project's TypeScript
+echo "📝 Compiling to JavaScript..."
+cd "$SCRIPT_DIR" && ./node_modules/.bin/tsc \
+  "$TEMPDIR/$BASENAME.ts" \
+  "$TEMPDIR/stroum-runtime.ts" \
+  "$TEMPDIR/stdlib-runtime.ts" \
+  --outDir "$TEMPDIR" \
+  --module commonjs \
+  --target es2020 \
+  --moduleResolution node \
+  --skipLibCheck 2>&1 | head -5 || true
+
+if [ ! -f "$TEMPDIR/$BASENAME.js" ]; then
+  echo "⚠️  TypeScript compilation had issues, but continuing..."
+fi
+
+# Step 4: Create executable wrapper
+echo "📝 Creating runtime wrapper..."
+
+cat > "$TEMPDIR/run.js" << 'EOF'
+// Stroum Execution Wrapper
+const Module = require('module');
+const originalRequire = Module.prototype.require;
+const fs = require('fs');
+
+// Intercept require to provide runtime
+Module.prototype.require = function(id) {
+  if (id === './stroum-runtime') {
+    // Load the compiled runtime
+    return originalRequire.apply(this, ['./stroum-runtime.js']);
+  }
+  return originalRequire.apply(this, arguments);
+};
+
+// Load stdlib and make functions globally available
+let stdlib = {};
+if (fs.existsSync('./stdlib-runtime.js')) {
+  try {
+    stdlib = require('./stdlib-runtime.js');
+    // Export all stdlib functions globally
+    Object.keys(stdlib).forEach(key => {
+      global[key] = stdlib[key];
+    });
+  } catch (err) {
+    console.error('[WARN] Could not load stdlib:', err.message);
+  }
+}
+
+// Legacy aliases (fallback implementations)
+if (!global.multiply) global.multiply = async (a, b) => a * b;
+if (!global.plus) global.plus = async (a, b) => a + b;
+if (!global.minus) global.minus = async (a, b) => a - b;
+if (!global.divide) global.divide = async (a, b) => a / b;
+if (!global.gt) global.gt = async (a, b) => a > b;
+if (!global.gte) global.gte = async (a, b) => a >= b;
+if (!global.lt) global.lt = async (a, b) => a < b;
+if (!global.eq) global.eq = async (a, b) => a === b;
+if (!global.print) global.print = async (v) => { console.log(v); return v; };
+if (!global.log) global.log = async (v) => { console.log('[LOG]', v); return v; };
+
+// Ensure stdlib functions have fallbacks
+if (!global.__builtin_mul) global.__builtin_mul = global.multiply;
+if (!global.__builtin_add) global.__builtin_add = global.plus;
+if (!global.__builtin_sub) global.__builtin_sub = global.minus;
+if (!global.__builtin_div) global.__builtin_div = global.divide;
+if (!global.__builtin_gt) global.__builtin_gt = global.gt;
+if (!global.__builtin_min) global.__builtin_min = async (a, b) => Math.min(a, b);
+if (!global.__builtin_max) global.__builtin_max = async (a, b) => Math.max(a, b);
+if (!global.__builtin_abs) global.__builtin_abs = async (n) => Math.abs(n);
+if (!global.__builtin_pow) global.__builtin_pow = async (a, b) => Math.pow(a, b);
+if (!global.__builtin_debug) global.__builtin_debug = async (value, label) => {
+  console.log(`[DEBUG ${label}]:`, value);
+  return value;
+};
+
+// Mock external functions (for examples)
+global.fetch = async (url) => ({ url, data: 'mock' });
+global.json_parse = async (s) => ({ outcome: 'ok', value: JSON.parse(s) });
+global.validate = async (d) => ({ outcome: 'ok', data: d });
+global.normalise = async (d) => d;
+global.merge = async (a) => ({ merged: a });
+global.store = async (d) => { console.log('[STORE]', d); return { stored: true }; };
+global.notify = async (m) => { console.log('[NOTIFY]', m); return { notified: true }; };
+global.console_log = async (v) => { console.log('[TRACE]', v); return v; };
+global.check = async (v) => ({ outcome: 'ok', value: v });
+global.save = async (v) => { console.log('[SAVE]', v); return v; };
+global.report_error = async (v) => { console.log('[ERROR]', v); return v; };
+global.primary = 'primary-url';
+global.secondary = 'secondary-url';
+
+// Aliases for convenience
+global.mul = global.__builtin_mul || global.multiply;
+global.add = global.__builtin_add || global.plus;
+global.sub = global.__builtin_sub || global.minus;
+global.div = global.__builtin_div || global.divide;
+global.min = global.__builtin_min;
+global.max = global.__builtin_max;
+global.abs = global.__builtin_abs;
+global.pow = global.__builtin_pow;
+global.debug = global.__builtin_debug;
+
+console.log('═══════════════════════════════════════════════════════════════');
+console.log('                    STROUM PROGRAM OUTPUT');
+console.log('═══════════════════════════════════════════════════════════════\n');
+
+// Load and run the compiled program
+EOF
+
+echo "require('./$BASENAME.js');" >> "$TEMPDIR/run.js"
+echo "" >> "$TEMPDIR/run.js"
+echo "setTimeout(() => {" >> "$TEMPDIR/run.js"
+echo "  console.log('\n═══════════════════════════════════════════════════════════════');" >> "$TEMPDIR/run.js"
+echo "  console.log('✅ Execution complete!');" >> "$TEMPDIR/run.js"
+echo "}, 100);" >> "$TEMPDIR/run.js"
+
+# Step 4: Execute
+echo "📝 Executing..."
+echo ""
+cd "$TEMPDIR" && node run.js 2>&1 | grep -v "ExperimentalWarning" || true

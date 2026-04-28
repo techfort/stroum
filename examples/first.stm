@@ -1,0 +1,15 @@
+f:test x => x
+
+f:negate x => mul(x, sub(0, 1))
+
+:ok "ok"
+:negative "negative"
+
+-- Two independent calls: each emits its value onto @"ok"
+test(5) @ ok
+test(sub(0, 3)) @ ok
+sub(0, 10) @ negative
+
+-- Route: each emitted value flows through negate, then prints
+route @"ok" |> negate |> to_string |> println
+route @ negative |> to_string |> concat("Received negative: ", _) |> println

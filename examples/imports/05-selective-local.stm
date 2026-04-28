@@ -1,0 +1,11 @@
+-- Example 5: Selective imports from local file
+-- Import only specific functions from another module
+
+i:"./math-utils.stm" square, double
+
+f:main => 
+  double(5)
+  |> square()
+  |> println()
+
+main()

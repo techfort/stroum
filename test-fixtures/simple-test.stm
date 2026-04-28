@@ -1,0 +1,17 @@
+-- Simple test program
+f:pub_on_results data =>
+  data @ "results"
+
+f:pub_on_failure error =>
+  error @ "failure"
+
+-- Execute
+pub_on_results(42)
+pub_on_failure("Something went wrong")
+pub_on_failure("Another error")
+pub_on_results(420)
+pub_on_results(421)
+
+-- Subscribe to streams to see results
+on @"results" |> |:value| => println(concat("Got result: ", to_string(value)))
+on @"failure" |> |:err| => println(concat("Got error: ", to_string(err)))

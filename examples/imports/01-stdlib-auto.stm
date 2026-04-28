@@ -1,0 +1,9 @@
+-- Example 1: Using stdlib functions without explicit import
+-- The stdlib is automatically imported, so all functions are available
+
+f:main => 
+  add(5, 3)
+  |> mul(2)
+  |> println()
+
+main()

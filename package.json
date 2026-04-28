@@ -1,0 +1,29 @@
+{
+  "name": "stroum",
+  "version": "1.0.0",
+  "description": "Stroum functional, pipe-first, stream-oriented programming language transpiler",
+  "main": "dist/index.js",
+  "bin": {
+    "stroum": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && cp src/runtime-template.ts dist/ && mkdir -p dist/stdlib && cp stdlib/*.ts dist/stdlib/ && node stdlib/build-stdlib.cjs",
+    "test": "jest",
+    "dev": "ts-node src/cli.ts"
+  },
+  "keywords": [
+    "transpiler",
+    "functional",
+    "streams"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0"
+  }
+}

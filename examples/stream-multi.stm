@@ -1,0 +1,24 @@
+-- Stream Inspection - Multiple Emissions Example
+-- Shows how to track multiple values flowing through different streams
+
+-- Functions that emit to streams
+f:square x => mul(x, x) @ "squares"
+f:is_even x => eq(mod(x, 2), 0) @ "checks"
+
+-- Wrapper that processes and emits multiple times
+f:process_batch =>
+  square(3)
+  |> square(4)
+  |> square(5)
+  |> is_even(10)
+  |> is_even(15)
+
+-- Run the batch
+process_batch()
+
+-- Subscribe to individual streams
+on @"squares" |> |:n| => println(concat("SQUARE: ", to_string(n)))
+on @"checks" |> |:bool| => println(concat("EVEN?: ", to_string(bool)))
+
+-- Use __trace to see everything
+on @"__trace" |> |:ev| => debug(ev, "ALL STREAMS")

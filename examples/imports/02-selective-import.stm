@@ -1,0 +1,11 @@
+-- Example 2: Selective imports from stdlib
+-- Import only the functions you need
+
+i:core add, mul, println
+
+f:main => 
+  add(5, 3)
+  |> mul(2)
+  |> println()
+
+main()

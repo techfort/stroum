@@ -1,0 +1,19 @@
+-- Stream Inspection Example
+-- Shows how to inspect stream contents using handlers and __trace
+
+-- Functions that emit to different streams
+f:double x => mul(x, 2) @ "numbers"
+f:triple x => mul(x, 3) @ "numbers"
+f:validate x => gt(x, 15) @ "validations"
+
+-- Test with double
+double(7)
+
+-- Subscribe to specific streams
+on @"numbers" |> |:val| => println(concat("  → numbers stream: ", to_string(val)))
+on @"validations" |> |:val| => println(concat("  → validations stream: ", to_string(val)))
+
+-- Use __trace to see ALL stream activity with full details
+on @"__trace" |> |:event| => debug(event, "TRACE")
+
+

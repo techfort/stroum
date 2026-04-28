@@ -1,0 +1,5 @@
+-- Simple Stroum example
+f:double n => multiply(n, 2)
+
+:nums [1, 2, 3, 4, 5]
+nums |> filter(|:v| => gt(v, 2)) |> map(|:v| => double(v)) @"results"

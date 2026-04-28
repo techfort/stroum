@@ -1,0 +1,15 @@
+-- E2E Example: Simple Pipeline
+
+f:double x => multiply(x, 2)
+
+f:add a b => plus(a, b)
+
+f:process data =>
+  validate(data)
+  | .ok    => save @ "saved"
+  | .error => log @ "errors"
+
+on @"saved" |> |:item| => notify(item)
+on @"errors" |> |:err| => report(err)
+
+fetch("api/data") |> process @ "results"

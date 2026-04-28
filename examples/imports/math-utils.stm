@@ -1,0 +1,10 @@
+-- Helper module: math utilities
+-- This module can be imported by other Stroum files
+
+f:square x => mul(x, x)
+
+f:cube x => mul(mul(x, x), x)
+
+f:double x => mul(x, 2)
+
+f:triple x => mul(x, 3)

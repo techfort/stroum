@@ -1,0 +1,11 @@
+-- Example 4: Importing from a local file
+-- Import functions from another Stroum file
+
+i:"./math-utils.stm"
+
+f:main => 
+  square(5)
+  |> add(cube(2))
+  |> println()
+
+main()

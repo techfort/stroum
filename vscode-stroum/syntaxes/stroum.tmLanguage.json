@@ -1,0 +1,159 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Stroum",
+  "scopeName": "source.stroum",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#sigils" },
+    { "include": "#operators" },
+    { "include": "#numbers" },
+    { "include": "#booleans" },
+    { "include": "#types" },
+    { "include": "#stream-names" },
+    { "include": "#lambda" },
+    { "include": "#functions" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.stroum",
+          "match": "--.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.stroum",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.stroum",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.stroum",
+          "match": "\\b(rec|on|ret)\\b"
+        }
+      ]
+    },
+    "sigils": {
+      "patterns": [
+        {
+          "name": "meta.function.definition.stroum",
+          "match": "(f:)([a-z_][a-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.operator.sigil.function.stroum" },
+            "2": { "name": "entity.name.function.definition.stroum" }
+          }
+        },
+        {
+          "name": "meta.binding.definition.stroum",
+          "match": "(b:)([a-z_][a-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.operator.sigil.binding.stroum" },
+            "2": { "name": "variable.other.binding.stroum" }
+          }
+        },
+        {
+          "name": "meta.struct.definition.stroum",
+          "match": "(s:)([A-Z][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.operator.sigil.struct.stroum" },
+            "2": { "name": "entity.name.type.struct.stroum" }
+          }
+        },
+        {
+          "name": "meta.import.definition.stroum",
+          "match": "(i:)([a-z][a-z0-9_]*|\"[^\"]+\")",
+          "captures": {
+            "1": { "name": "keyword.operator.sigil.import.stroum" },
+            "2": { "name": "string.quoted.module-path.stroum" }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.pipe.stroum",
+          "match": "\\|>|\\|\\?>"
+        },
+        {
+          "name": "keyword.operator.arrow.stroum",
+          "match": "=>|->|~>"
+        },
+        {
+          "name": "keyword.operator.composition.stroum",
+          "match": "\\b(PP|XX)\\b"
+        },
+        {
+          "name": "keyword.operator.stream.stroum",
+          "match": "@>?|\\|"
+        },
+        {
+          "name": "keyword.operator.outcome.stroum",
+          "match": "\\."
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.stroum",
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "booleans": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.stroum",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "entity.name.type.stroum",
+          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    },
+    "stream-names": {
+      "patterns": [
+        {
+          "name": "string.quoted.stream.stroum",
+          "match": "@\"[^\"]+\""
+        }
+      ]
+    },
+    "lambda": {
+      "patterns": [
+        {
+          "name": "keyword.operator.lambda.stroum",
+          "match": "\\|:[a-z_][a-z0-9_]*\\|"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.call.stroum",
+          "match": "\\b[a-z_][a-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

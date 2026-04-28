@@ -1,0 +1,25 @@
+-- Stream Feedback Example
+-- Demonstrates conditional routing via stream handlers
+
+-- Check if positive, emit boolean
+f:is_positive x => gt(x, 0) @ "checks"
+
+-- Process a number
+f:process x => is_positive(x)
+
+-- Create negative number helper  
+f:neg x => sub(0, x)
+
+-- Run tests
+f:main =>
+  process(5)
+  |> process(neg(3))
+  |> process(10)
+
+main()
+
+-- Stream handlers that do conditional routing
+on @"checks" |> |:result| => println(concat("Is positive: ", to_string(result)))
+
+-- Trace all activity
+on @"__trace" |> |:ev| => debug(ev, "STREAM")

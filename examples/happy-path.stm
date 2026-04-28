@@ -1,0 +1,38 @@
+-- Happy Path with Rescue: op1 -> fail_handler -> op2 -> op3
+--
+-- Pattern:
+--   op1 emits on @"ok" (success) or @"fail" (failure)
+--   fail_handler rescues the value and re-emits on @"ok"
+--   The @"ok" route continues to op2 -> op3
+--
+-- Flow:
+--   success input:  op1 -> @"ok" -> op2 -> op3
+--   failing input:  op1 -> @"fail" -> fail_handler -> @"ok" -> op2 -> op3
+
+-- op1: validates input. Positive numbers pass, negative numbers fail.
+f:op1 x =>
+  if gt(x, 0) then x @ "ok" else x @ "fail"
+
+-- op2: doubles the value
+f:op2 x => mul(x, 2)
+
+-- op3: formats and prints the final result
+f:op3 x => println(concat("Final result: ", to_string(x)))
+
+-- fail_handler: rescues a negative number by making it positive, re-emits on @"ok"
+-- debug() passes the value through so we can log without breaking the chain
+f:fail_handler x =>
+  debug(mul(x, sub(0, 1)), "rescued") @ "ok"
+
+-- Primary expression: run four values through op1
+op1(10)
+op1(sub(0, 3))
+op1(7)
+op1(sub(0, 12))
+
+-- Happy path: @"ok" values flow through op2 -> op3
+route @"ok" |> op2 |> op3
+
+-- Rescue path: @"fail" values are rescued and re-emitted on @"ok"
+-- Because emit() is async, the @"ok" route fully completes before continuing
+on @"fail" |> |:x| => fail_handler(x)

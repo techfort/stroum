@@ -1,0 +1,107 @@
+{
+  "Function Definition": {
+    "prefix": "fn",
+    "body": [
+      "f:${1:function_name} ${2:param} => ${3:body}"
+    ],
+    "description": "Create a function definition"
+  },
+  "Function with Multiple Parameters": {
+    "prefix": "fnm",
+    "body": [
+      "f:${1:function_name} ${2:param1} ${3:param2} => ${4:body}"
+    ],
+    "description": "Create a function with multiple parameters"
+  },
+  "Pipe Chain": {
+    "prefix": "pipe",
+    "body": [
+      "${1:value}",
+      "  |> ${2:function1}()",
+      "  |> ${3:function2}()"
+    ],
+    "description": "Create a pipe chain"
+  },
+  "Outcome Match": {
+    "prefix": "match",
+    "body": [
+      "${1:expression}",
+      "| .${2:ok}    => ${3:success_handler}",
+      "| .${4:error} => ${5:error_handler}"
+    ],
+    "description": "Create an outcome match"
+  },
+  "On Handler": {
+    "prefix": "on",
+    "body": [
+      "on @\"${1:stream_name}\" |> |:${2:value}| => ${3:handler}"
+    ],
+    "description": "Create a stream handler"
+  },
+  "Lambda": {
+    "prefix": "lambda",
+    "body": [
+      "|:${1:param}| => ${2:body}"
+    ],
+    "description": "Create a lambda expression"
+  },
+  "Parallel Composition": {
+    "prefix": "pp",
+    "body": [
+      "${1:expr1} PP ${2:expr2}"
+    ],
+    "description": "Parallel composition"
+  },
+  "Stream Emit": {
+    "prefix": "emit",
+    "body": [
+      "${1:expression} @ \"${2:stream_name}\""
+    ],
+    "description": "Emit to stream"
+  },
+  "Binding": {
+    "prefix": "bind",
+    "body": [
+      "b:${1:binding_name} = ${2:value}"
+    ],
+    "description": "Create a binding"
+  },
+  "Struct": {
+    "prefix": "struct",
+    "body": [
+      "s:${1:StructName} {",
+      "  ${2:field1}: ${3:Type1},",
+      "  ${4:field2}: ${5:Type2}",
+      "}"
+    ],
+    "description": "Create a struct definition"
+  },
+  "Import Module": {
+    "prefix": "imp",
+    "body": [
+      "i:${1:module}"
+    ],
+    "description": "Import a module"
+  },
+  "Import Local File": {
+    "prefix": "impf",
+    "body": [
+      "i:\"${1:./file.stm}\""
+    ],
+    "description": "Import a local file"
+  },
+  "Import Selective": {
+    "prefix": "imps",
+    "body": [
+      "i:${1:module} ${2:fn1}, ${3:fn2}"
+    ],
+    "description": "Selective import"
+  },
+  "Import Qualified": {
+    "prefix": "impq",
+    "body": [
+      "i:${1:module} as ${2:alias}"
+    ],
+    "description": "Qualified import with alias"
+  }
+}

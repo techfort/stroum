@@ -1,0 +1,47 @@
+-- Stroum Standard Library - Examples
+-- Demonstrates stdlib usage
+
+-- Example 1: Math operations
+f:calculate_area radius =>
+  radius
+    |> mul(radius)
+    |> mul(3.14159)
+    |> debug("Area")
+
+-- Example 2: String operations
+f:format_name first last =>
+  first
+    |> concat(" ")
+    |> concat(last)
+    |> upper()
+    |> debug("Formatted name")
+
+-- Example 3: List processing
+f:sum_squares numbers =>
+  numbers
+    |> map(|:n| => mul(n, n))
+    |> reduce(|:acc n| => add(acc, n), 0)
+    |> debug("Sum of squares")
+
+-- Example 4: Conditional logic
+f:classify_number n =>
+  n
+    |> gt(0)
+  | .true  => print("Positive")
+  | .false => print("Non-positive")
+
+-- Example 5: String manipulation
+f:process_text text =>
+  text
+    |> trim()
+    |> lower()
+    |> split(" ")
+    |> filter(|:word| => gt(length(word), 3))
+    |> join(", ")
+    |> debug("Filtered words")
+
+-- Run examples
+calculate_area(5.0)
+format_name("john", "doe")
+-- sum_squares([1, 2, 3, 4, 5])  -- Would need array literal support
+print("Standard library examples complete!")

@@ -1,0 +1,41 @@
+-- Stroum Comprehensive Demo
+-- Showcases: functions, pipes, conditionals, and streams
+
+-- === Mathematical Functions ===
+
+rec f:factorial n =>
+  if eq(n, 0) then 1
+  else if eq(n, 1) then 1
+  else mul(n, factorial(sub(n, 1)))
+
+f:is_even n => eq(mod(n, 2), 0)
+
+-- === Temperature Classification (Stream Routing) ===
+
+f:c_to_f c => add(mul(c, div(9, 5)), 32)
+
+f:classify_temp c =>
+  if gt(c_to_f(c), 100) then c @ "hot"
+  else if gt(c_to_f(c), 60) then c @ "comfortable"
+  else c @ "cold"
+
+-- === Main ===
+
+f:run =>
+  println("=== Stroum Feature Demo ===")
+  println("Math Functions:")
+  println(concat("factorial(5) = ", to_string(factorial(5))))
+  println(concat("is 42 even?   ", if is_even(42) then "yes" else "no"))
+  println(concat("abs(-15)     = ", to_string(abs(sub(0, 15)))))
+  println("")
+  println("Temperature Classification (stream handlers below):")
+  classify_temp(38)
+  classify_temp(20)
+  classify_temp(sub(0, 5))
+  classify_temp(5)
+
+run()
+
+on @"hot"         |> |:c| => println(concat("  HOT         (", concat(to_string(c), "°C)")))
+on @"comfortable" |> |:c| => println(concat("  COMFORTABLE (", concat(to_string(c), "°C)")))
+on @"cold"        |> |:c| => println(concat("  COLD        (", concat(to_string(c), "°C)")))

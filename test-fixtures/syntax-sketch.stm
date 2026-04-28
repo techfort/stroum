@@ -1,0 +1,51 @@
+-- pure function, no stream annotation needed
+f:double n => multiply(n, 2)
+f:add a b => add(a, b)
+
+-- multi-path function
+f:fetch_user id ~> @"found", @"not_found", @"err" =>
+  lookup(id) @"found"
+  | .empty => @"not_found"
+  | .err   => @"err"
+
+-- pipe chain
+:nums [1, 2, 3]
+nums |> filter(|:v| => gt(v, 0)) |> map(|:v| => multiply(v, 2)) @"ok"
+
+-- fold
+:total fold(nums, 0, |:acc, :v| => add(acc, v)) @"ok"
+
+-- parallel, all-or-nothing
+fetch(url_a) PP fetch(url_b) |> merge @"ok"
+| .fail => notify() @"errors"
+
+-- parallel, partial
+fetch(url_a) PP fetch(url_b) |?> merge @"ok"
+| .fail => handle_partial() @"partial"
+
+-- fan-out emit
+process(data) @("ok", "audit")
+
+-- redirect (transparent rejoin)
+fetch_user(id)
+| .not_found => create_guest() @>"found"
+| .err       => alert()        @"critical"
+
+-- stream termination
+final_op() @("ok", "audit")XX
+
+-- on handlers
+on @"errors"  |> |:e| => store(e)   @"audit"
+on @"api.*"   |> |:e| => log(e)
+on @"__trace" |> |:e| => visualize(e)
+
+-- recursive
+rec f:fib n =>
+  lte(n, 1) |> if_true(n, add(fib(subtract(n, 1)), fib(subtract(n, 2))))
+
+-- struct
+s:User {
+  name: String
+  age:  Int
+}
+:user User { name: "Joe", age: 47 }

@@ -1,0 +1,52 @@
+{
+  "name": "stroum",
+  "displayName": "Stroum",
+  "description": "Syntax highlighting and language support for Stroum programming language",
+  "version": "1.1.0",
+  "publisher": "stroum",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stroum/stroum"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "stroum",
+    "functional",
+    "streams",
+    "pipes"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "stroum",
+        "aliases": [
+          "Stroum",
+          "stroum"
+        ],
+        "extensions": [
+          ".stm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "stroum",
+        "scopeName": "source.stroum",
+        "path": "./syntaxes/stroum.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "stroum",
+        "path": "./snippets/stroum.json"
+      }
+    ]
+  }
+}

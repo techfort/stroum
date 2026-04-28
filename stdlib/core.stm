@@ -1,0 +1,91 @@
+-- Stroum Standard Library - Core Module
+-- Version 1.0.0
+--
+-- Basic utility functions for common operations
+
+-- ============================================================================
+-- Arithmetic Operations
+-- ============================================================================
+
+f:add a b => __builtin_add(a, b)
+f:sub a b => __builtin_sub(a, b)
+f:mul a b => __builtin_mul(a, b)
+f:div a b => __builtin_div(a, b)
+f:mod a b => __builtin_mod(a, b)
+f:pow a b => __builtin_pow(a, b)
+f:abs n => __builtin_abs(n)
+f:min a b => __builtin_min(a, b)
+f:max a b => __builtin_max(a, b)
+
+-- ============================================================================
+-- Comparison Operations
+-- ============================================================================
+
+f:eq a b => __builtin_eq(a, b)
+f:neq a b => __builtin_neq(a, b)
+f:gt a b => __builtin_gt(a, b)
+f:gte a b => __builtin_gte(a, b)
+f:lt a b => __builtin_lt(a, b)
+f:lte a b => __builtin_lte(a, b)
+
+-- ============================================================================
+-- Logic Operations
+-- ============================================================================
+
+f:and a b => __builtin_and(a, b)
+f:or a b => __builtin_or(a, b)
+f:not a => __builtin_not(a)
+
+-- ============================================================================
+-- String Operations
+-- ============================================================================
+
+f:concat a b => __builtin_concat(a, b)
+f:length s => __builtin_length(s)
+f:upper s => __builtin_upper(s)
+f:lower s => __builtin_lower(s)
+f:trim s => __builtin_trim(s)
+f:split s delim => __builtin_split(s, delim)
+f:join arr delim => __builtin_join(arr, delim)
+f:starts_with s prefix => __builtin_starts_with(s, prefix)
+f:ends_with s suffix => __builtin_ends_with(s, suffix)
+f:contains s substr => __builtin_contains(s, substr)
+
+-- ============================================================================
+-- List Operations
+-- ============================================================================
+
+f:map fn list => __builtin_map(fn, list)
+f:filter fn list => __builtin_filter(fn, list)
+f:reduce fn init list => __builtin_reduce(fn, init, list)
+f:head list => __builtin_head(list)
+f:tail list => __builtin_tail(list)
+f:take n list => __builtin_take(n, list)
+f:drop n list => __builtin_drop(n, list)
+f:reverse list => __builtin_reverse(list)
+f:sort list => __builtin_sort(list)
+f:is_empty list => __builtin_is_empty(list)
+
+-- ============================================================================
+-- I/O Operations
+-- ============================================================================
+
+f:print value => __builtin_print(value)
+f:println value => __builtin_println(value)
+f:debug value label => __builtin_debug(value, label)
+f:trace message => __builtin_trace(message)
+
+-- ============================================================================
+-- Type Conversion
+-- ============================================================================
+
+f:to_string value => __builtin_to_string(value)
+f:to_int value => __builtin_to_int(value)
+f:to_float value => __builtin_to_float(value)
+
+-- ============================================================================
+-- Error Handling
+-- ============================================================================
+
+f:error message => __builtin_error(message)
+f:try_catch fn fallback => __builtin_try_catch(fn, fallback)

@@ -1,0 +1,41 @@
+-- Stream Feedback Loop Example
+-- Demonstrates conditional routing and re-processing through streams
+
+-- Helper: create negative number
+f:neg x => sub(0, x)
+
+-- Check and emit to different streams based on sign
+f:emit_to_ok x => x @ "ok"
+f:emit_to_negative x => x @ "negative"
+
+-- Checker: returns boolean
+f:is_positive x => gt(x, 0)
+
+-- Entry point: check and route
+f:test x => is_positive(x) @ "routing"
+
+-- Run some tests
+f:main =>
+  test(5)
+  |> test(neg(3))
+  |> test(10)
+  |> test(neg(7))
+
+main()
+
+-- CONDITIONAL ROUTING via stream handlers:
+-- When routing decision arrives, emit to appropriate stream
+on @"routing" |> |:is_pos| =>
+  println(concat("Routing decision: ", to_string(is_pos)))
+
+-- Handler for negative values: flip sign and retest
+on @"negative" |> |:x| =>
+  test(neg(x))
+
+-- Handler for ok values: just print
+on @"ok" |> |:x| =>
+  println(concat("OK: ", to_string(x)))
+
+-- Debug all stream activity
+on @"__trace" |> |:ev| =>
+  debug(ev, "TRACE")

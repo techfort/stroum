@@ -1,0 +1,73 @@
+-- Stroum Demo: Showcasing Key Features
+-- A comprehensive example of pipes, functions, conditionals, and streams
+
+-- Temperature converter with validation
+f:celsius_to_fahrenheit c =>
+  add(mul(c, div(9, 5)), 32)
+
+-- Classify temperature readings
+f:classify_temp f =>
+  if gt(f, 100) then f @ "hot"
+  else if gt(f, 60) then f @ "comfortable"
+  else f @ "cold"
+
+-- Format temperature string
+f:format_temp f =>
+  concat(to_string(f), "°F")
+
+-- Wrapper functions to emit temperatures to streams
+f:test_temp1 => classify_temp(celsius_to_fahrenheit(38))
+f:test_temp2 => classify_temp(celsius_to_fahrenheit(20))
+f:test_temp3 => classify_temp(celsius_to_fahrenheit(sub(0, 5)))
+f:test_temp4 => classify_temp(celsius_to_fahrenheit(15))
+
+-- Process all temperatures
+f:process_temps =>
+  test_temp1()
+  |> test_temp2()
+  |> test_temp3()
+  |> test_temp4()
+
+-- Calculate factorial (recursive style with if/then/else)
+f:factorial n =>
+  if eq(n, 0) then 1
+  else if eq(n, 1) then 1
+  else mul(n, factorial(sub(n, 1)))
+
+-- Check if number is even
+f:is_even n =>
+  eq(mod(n, 2), 0)
+
+-- Main execution pipeline
+f:main =>
+  println("=== Temperature Analysis (watch stream handlers below) ===")
+  |> process_temps()
+
+f:run_number_demo =>
+  println("=== Number Processing ===")
+  |> println(concat("factorial(5) = ", to_string(factorial(5))))
+  |> println(concat("factorial(0) = ", to_string(factorial(0))))
+  |> println(concat("10 squared = ", to_string(mul(10, 10))))
+  |> println(concat("is 42 even? ", if is_even(42) then "yes" else "no"))
+  |> println(concat("is 17 even? ", if is_even(17) then "yes" else "no"))
+
+f:run_string_demo =>
+  println("=== String Operations ===")
+  |> println(concat("Hello", concat(" ", "World")))
+  |> println(concat("Stroum is ", concat("functional", " and stream-based")))
+  |> println("=== Demo Complete! ===")
+
+-- Execute the demos
+f:execute_all =>
+  main()
+  |> run_number_demo()
+  |> run_string_demo()
+
+execute_all()
+
+-- Stream handlers for temperature classification
+on @"hot" |> |:temp| => println(concat("🔥 HOT: ", concat(format_temp(temp), " - Stay hydrated!")))
+
+on @"comfortable" |> |:temp| => println(concat("☀️  COMFORTABLE: ", concat(format_temp(temp), " - Perfect weather!")))
+
+on @"cold" |> |:temp| => println(concat("❄️  COLD: ", concat(format_temp(temp), " - Bundle up!")))

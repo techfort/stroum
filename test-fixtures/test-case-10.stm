@@ -1,0 +1,16 @@
+-- Test case 10: full program shape
+f:parse raw ~> @"ok", @"fail" =>
+  json_parse(raw) @"ok"
+  | .fail => @"fail"
+
+f:transform data ~> @"clean", @"rejected" =>
+  data |> normalise |> validate @"clean"
+  | .invalid => @"rejected"
+
+fetch(primary) PP fetch(secondary) |> merge |> parse |> transform @"clean"
+
+| .fail     => log()    @"errors"
+| .rejected => notify() @"rejected"
+
+on @"errors"  |> |:e| => store(e)
+on @"__trace" |> |:e| => console_log(e)

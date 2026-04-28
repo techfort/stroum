@@ -1,0 +1,16 @@
+-- if/then/else: Conditional Stream Routing Demo
+-- This demonstrates your desired pattern!
+
+-- Route to different streams based on condition
+f:test x =>
+  if gt(x, 0) then x @ "ok" else x @ "negative"
+
+-- Execute: run four values through test
+test(10)
+test(sub(0, 5))
+test(20)
+test(sub(0, 8))
+
+-- Subscribe to streams - this is where you see the routed values!
+on @"ok" |> |:x| => println(concat("✓ Went to OK stream: ", to_string(x)))
+on @"negative" |> |:x| => println(concat("✗ Went to NEGATIVE stream: ", to_string(x)))

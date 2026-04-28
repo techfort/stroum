@@ -1,0 +1,22 @@
+-- Stream Feedback Loop with if/then/else
+-- Demonstrates conditional routing with re-processing
+
+-- Negate a number
+f:negate x => mul(x, sub(0, 1))
+
+-- Test function: route positive to "ok", negative gets negated and retested
+f:test x =>
+  if gt(x, 0) then x @ "ok" else x @ "negative"
+
+-- Execute: run four values through test
+test(5)
+test(sub(0, 3))
+test(10)
+test(sub(0, 7))
+
+-- Stream handler for negative values: flip sign and retest!
+-- This creates the feedback loop you wanted
+on @"negative" |> |:x| => test(negate(x))
+
+-- Final destination for positive values
+on @"ok" |> |:x| => println(concat("✓ Final OK: ", to_string(x)))

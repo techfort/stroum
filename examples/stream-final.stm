@@ -1,0 +1,23 @@
+-- Stream Inspection Example
+-- Demonstrates inspecting stream contents after program execution
+
+-- Functions that emit to named streams
+f:calc_double x => mul(x, 2) @ "results"
+f:calc_triple x => mul(x, 3) @ "results"
+f:is_large x => gt(x, 50) @ "checks"
+
+-- Main function that executes operations
+f:main =>
+  calc_double(10)
+  |> calc_triple(20)
+  |> is_large(100)
+
+-- Execute main
+main()
+
+-- Subscribe to specific streams to see what they contain
+on @"results" |> |:value| => println(concat("Result: ", to_string(value)))
+on @"checks" |> |:value| => println(concat("Check: ", to_string(value)))
+
+-- Subscribe to __trace to see ALL stream activity
+on @"__trace" |> |:event| => debug(event, "TRACE")

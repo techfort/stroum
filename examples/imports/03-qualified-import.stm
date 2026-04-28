@@ -1,0 +1,11 @@
+-- Example 3: Qualified imports from stdlib
+-- Import with an alias to avoid name conflicts
+
+i:core as c
+
+f:main => 
+  c:add(5, 3)
+  |> c:mul(2)
+  |> c:println()
+
+main()

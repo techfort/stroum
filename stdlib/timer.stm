@@ -1,0 +1,8 @@
+-- Stroum Timer Module
+-- Time, delays, and date formatting
+
+f:sleep ms => __builtin_sleep(ms)
+f:now => __builtin_now()
+f:timestamp => __builtin_timestamp()
+f:elapsed start => __builtin_elapsed(start)
+f:format_date ms locale => __builtin_format_date(ms, locale)

@@ -1,0 +1,10 @@
+-- Stroum Process Module
+-- Shell command execution and environment operations
+
+f:exec cmd => __builtin_exec(cmd)
+f:exec_lines cmd => __builtin_exec_lines(cmd)
+f:env_get name => __builtin_env_get(name)
+f:env_get_or name fallback => __builtin_env_get_or(name, fallback)
+f:env_keys => __builtin_env_keys()
+f:cwd => __builtin_cwd()
+f:exit_process code => __builtin_exit_process(code)

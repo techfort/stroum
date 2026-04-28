@@ -1,0 +1,14 @@
+-- Streams Example: Data Processing Pipeline
+-- Demonstrates pipes and function composition
+
+f:double n => mul(n, 2)
+
+f:add_ten n => add(n, 10)
+
+f:process_data data =>
+  data
+  |> double()
+  |> add_ten()
+  |> println()
+
+process_data(21)
