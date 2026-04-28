@@ -198,7 +198,7 @@ function compileCommand(args: string[]) {
 
 function runCommand(args: string[]) {
   const inputFile = args[0];
-  
+
   if (!inputFile) {
     console.error(colorize('Error:', 'red') + ' input file required');
     console.error('Usage: stroum run <input.stm>');
@@ -210,27 +210,124 @@ function runCommand(args: string[]) {
     process.exit(1);
   }
 
-  // Use the stroum-run script
-  const scriptPath = path.join(__dirname, '..', 'stroum-run');
-  
-  if (!fs.existsSync(scriptPath)) {
-    console.error(colorize('Error:', 'red') + ' stroum-run script not found');
-    console.error('Make sure stroum-run is in the project root directory');
+  const os = require('os');
+  const absoluteInputFile = path.resolve(inputFile);
+  const basename = path.basename(inputFile, '.stm');
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stroum-'));
+
+  // Cleanup on exit
+  const cleanup = () => { try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {} };
+  process.on('exit', cleanup);
+  process.on('SIGINT', () => { cleanup(); process.exit(130); });
+
+  console.log(colorize(`🚀 Executing Stroum file: ${inputFile}`, 'cyan'));
+  console.log('');
+
+  // Step 1: Transpile to temp dir
+  console.log('📝 Transpiling to TypeScript...');
+  const stdlibPath = path.join(__dirname, '..', 'stdlib');
+  const outputTs = path.join(tempDir, `${basename}.ts`);
+
+  try {
+    const resolver = new ModuleResolver(stdlibPath);
+    resolver.loadModule(absoluteInputFile);
+    const modules = resolver.getModulesInOrder();
+
+    const validator = new Validator(stdlibPath);
+    const allIssues: any[] = [];
+    for (const mod of modules) {
+      const issues = validator.validate(mod.module, mod.filePath);
+      allIssues.push(...issues.map((i: any) => ({ ...i, file: mod.filePath })));
+    }
+
+    const errors = allIssues.filter((i: any) => i.type === 'error');
+    const warnings = allIssues.filter((i: any) => i.type === 'warning');
+
+    for (const w of warnings) {
+      const loc = w.file ? `${path.relative(process.cwd(), w.file)}:` : '';
+      console.error(colorize('[warning]', 'yellow') + ` ${loc}line ${w.location.line}, col ${w.location.column}: ${w.message}`);
+    }
+    for (const e of errors) {
+      const loc = e.file ? `${path.relative(process.cwd(), e.file)}:` : '';
+      console.error(colorize('[error]', 'red') + ` ${loc}line ${e.location.line}, col ${e.location.column}: ${e.message}`);
+    }
+    if (errors.length > 0) {
+      console.error(colorize(`Validation failed with ${errors.length} error(s)`, 'red'));
+      cleanup();
+      process.exit(1);
+    }
+
+    const transpiler = new Transpiler(stdlibPath);
+    for (const mod of modules) {
+      const tsCode = transpiler.transpile(mod.module, mod.filePath);
+      const outFile = mod.filePath === absoluteInputFile
+        ? outputTs
+        : path.join(tempDir, path.basename(mod.filePath, '.stm') + '.ts');
+      fs.writeFileSync(outFile, tsCode);
+    }
+    Transpiler.emitRuntime(tempDir);
+
+    console.log(colorize('✓', 'green') + ' Transpilation successful');
+    if (modules.length > 1) console.log(`  ${modules.length - 1} imported module(s) compiled`);
+    console.log(`  Runtime: ${colorize(path.join(tempDir, 'stroum-runtime.ts'), 'cyan')}`);
+  } catch (err: any) {
+    console.error(colorize('Error:', 'red'), err.message);
+    cleanup();
     process.exit(1);
   }
 
-  // Execute stroum-run
-  const child = spawn(scriptPath, [inputFile], {
-    stdio: 'inherit',
-    shell: true
-  });
+  // Step 2: Compile TS → JS
+  console.log('📝 Compiling to JavaScript...');
+  const tscPath = path.join(__dirname, '..', 'node_modules', '.bin', 'tsc');
+  const tscArgs = [
+    outputTs,
+    path.join(tempDir, 'stroum-runtime.ts'),
+    path.join(tempDir, 'stdlib-runtime.ts'),
+    '--outDir', tempDir,
+    '--module', 'commonjs',
+    '--target', 'es2020',
+    '--moduleResolution', 'node',
+    '--esModuleInterop', 'true',
+    '--skipLibCheck',
+  ];
 
-  child.on('exit', (code) => {
+  const tscResult = require('child_process').spawnSync(tscPath, tscArgs, {
+    cwd: __dirname,
+    encoding: 'utf-8',
+  });
+  if (tscResult.stdout) process.stderr.write(tscResult.stdout);
+  if (tscResult.stderr) process.stderr.write(tscResult.stderr);
+
+  // Step 3: Execute
+  console.log('📝 Executing...');
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('                    STROUM PROGRAM OUTPUT');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('');
+
+  const outputJs = path.join(tempDir, `${basename}.js`);
+  if (!fs.existsSync(outputJs)) {
+    console.error(colorize('Error:', 'red') + ' Compilation produced no output. Check TypeScript errors above.');
+    cleanup();
+    process.exit(1);
+  }
+
+  const nodeResult = spawn('node', [outputJs], { stdio: 'inherit', cwd: tempDir });
+  nodeResult.on('exit', (code) => {
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    if (code === 0) {
+      console.log(colorize('✅ Execution complete!', 'green'));
+    } else {
+      console.log(colorize(`❌ Process exited with code ${code}`, 'red'));
+    }
+    cleanup();
     process.exit(code || 0);
   });
-
-  child.on('error', (err) => {
+  nodeResult.on('error', (err) => {
     console.error(colorize('Error:', 'red'), err.message);
+    cleanup();
     process.exit(1);
   });
 }
