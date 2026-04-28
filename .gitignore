@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Examples: compiled output (keep only .stm source files)
+examples/**/*.ts
+examples/**/*.js
+
+# OS
+.DS_Store
