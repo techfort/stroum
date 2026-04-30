@@ -313,7 +313,9 @@ function runCommand(args: string[]) {
     process.exit(1);
   }
 
-  const nodeResult = spawn('node', [outputJs], { stdio: 'inherit', cwd: tempDir });
+  // Run with the original cwd so relative paths in the program resolve correctly.
+  // Module imports (require('./stroum-runtime')) resolve relative to the .js file, not cwd.
+  const nodeResult = spawn('node', [outputJs], { stdio: 'inherit' });
   nodeResult.on('exit', (code) => {
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');

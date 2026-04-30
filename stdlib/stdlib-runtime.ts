@@ -390,6 +390,30 @@ export async function __builtin_path_ext(filePath: string): Promise<string> {
   return _path.extname(filePath);
 }
 
+// Watch a file for changes; calls callback(content) on every save.
+// Debounced to 100ms to avoid double-fires from editors.
+// Returns a Promise that never resolves — keeps the process alive.
+export async function __builtin_watch_file(filePath: string, callback: (content: string) => Promise<void>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const watcher = _fs.watch(filePath, (eventType) => {
+      if (eventType !== 'change') return;
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(async () => {
+        try {
+          const content = await _fs.promises.readFile(filePath, 'utf-8');
+          await callback(content);
+        } catch (err) {
+          reject(err);
+        }
+      }, 100);
+    });
+    watcher.on('error', reject);
+    process.on('SIGINT', () => { watcher.close(); resolve(); });
+    process.on('SIGTERM', () => { watcher.close(); resolve(); });
+  });
+}
+
 export const read_file = __builtin_read_file;
 export const write_file = __builtin_write_file;
 export const append_file = __builtin_append_file;
@@ -403,6 +427,7 @@ export const path_join = __builtin_path_join;
 export const path_basename = __builtin_path_basename;
 export const path_dirname = __builtin_path_dirname;
 export const path_ext = __builtin_path_ext;
+export const watch_file = __builtin_watch_file;
 
 // ============================================================================
 // Process Operations (available via i:process)

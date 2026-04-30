@@ -13,8 +13,8 @@ f:neg x => sub(0, x)
 -- Run tests
 f:main =>
   process(5)
-  |> process(neg(3))
-  |> process(10)
+  process(neg(3))
+  process(10)
 
 main()
 

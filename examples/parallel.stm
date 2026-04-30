@@ -1,15 +1,12 @@
 -- Example with parallel composition and stream handlers
 
-f:fetch url ~> @"ok", @"fail" =>
-  http_get(url) @"ok"
-  | .error => @"fail"
+f:compute_a x => mul(x, x) @ "results"
+f:compute_b x => add(x, 10) @ "results"
+f:merge result => println(concat("Result: ", to_string(result)))
 
--- Parallel fetch from two sources
-fetch("api.example.com/users") PP fetch("api.example.com/posts")
-  |> merge_data
-  @"processed"
+-- Parallel computation from two sources
+compute_a(5) PP compute_b(5) |> merge @ "processed"
 
-| .fail => log_error() @"errors"
-
--- Stream handler
-on @"errors" |> |:e| => store_error(e) @"audit"
+-- Stream handlers
+on @"results" |> |:v| => println(concat("Stream value: ", to_string(v)))
+on @"processed" |> |:v| => println(concat("Processed: ", to_string(v)))

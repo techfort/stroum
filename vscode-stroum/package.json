@@ -9,8 +9,14 @@
     "type": "git",
     "url": "https://github.com/stroum/stroum"
   },
+  "main": "./out/extension.js",
+  "extensionKind": ["workspace"],
+  "activationEvents": [
+    "onLanguage:stroum",
+    "onStartupFinished"
+  ],
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.116.0"
   },
   "categories": [
     "Programming Languages"
@@ -48,5 +54,16 @@
         "path": "./snippets/stroum.json"
       }
     ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
   }
 }

@@ -4,6 +4,10 @@ node_modules/
 # Build output
 dist/
 
+# VS Code extension build output
+vscode-stroum/out/
+vscode-stroum/*.vsix
+
 # Stdlib compiled outputs (generated from .stm files)
 stdlib/*.js
 
@@ -17,3 +21,6 @@ test-fixtures/*.js
 
 # OS
 .DS_Store
+
+# Runtime-generated example outputs
+examples/change-log.txt

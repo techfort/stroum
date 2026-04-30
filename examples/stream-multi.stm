@@ -8,10 +8,10 @@ f:is_even x => eq(mod(x, 2), 0) @ "checks"
 -- Wrapper that processes and emits multiple times
 f:process_batch =>
   square(3)
-  |> square(4)
-  |> square(5)
-  |> is_even(10)
-  |> is_even(15)
+  square(4)
+  square(5)
+  is_even(10)
+  is_even(15)
 
 -- Run the batch
 process_batch()

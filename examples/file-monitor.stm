@@ -1,0 +1,35 @@
+-- File Monitor Example
+-- Watches a file for changes, speaks a notification via `say`,
+-- and appends each changed snapshot to a log file.
+
+i:io
+i:process
+i:timer
+
+-- Paths
+:watched_file "examples/watched.txt"
+:log_file "examples/change-log.txt"
+
+-- Build a timestamped log entry from the changed content
+f:format_entry content =>
+  concat("[", concat(timestamp(), concat("]\n", concat(content, "\n---\n"))))
+
+-- Speak a notification via Windows TTS (WSL-compatible)
+f:notify_speech msg =>
+  exec(concat("powershell.exe -NoProfile -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('", concat(msg, "')\"")))
+
+-- Handle a change: log it to disk, speak the notification, print status
+f:handle_change content =>
+  append_file(log_file, format_entry(content))
+  notify_speech("change detected")
+  println(concat("[monitor] change logged at ", timestamp()))
+
+-- Route raw file content into the change stream
+f:on_file_change content => content @ "change"
+
+-- Start the monitor (blocks until SIGINT / Ctrl-C)
+println("[monitor] watching examples/watched.txt — edit and save to trigger")
+watch_file(watched_file, |:content| => on_file_change(content))
+
+-- React to each change event
+on @"change" |> |:content| => handle_change(content)

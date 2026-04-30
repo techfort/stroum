@@ -24,9 +24,9 @@ f:test_temp4 => classify_temp(celsius_to_fahrenheit(15))
 -- Process all temperatures
 f:process_temps =>
   test_temp1()
-  |> test_temp2()
-  |> test_temp3()
-  |> test_temp4()
+  test_temp2()
+  test_temp3()
+  test_temp4()
 
 -- Calculate factorial (recursive style with if/then/else)
 f:factorial n =>
@@ -41,27 +41,20 @@ f:is_even n =>
 -- Main execution pipeline
 f:main =>
   println("=== Temperature Analysis (watch stream handlers below) ===")
-  |> process_temps()
+  process_temps()
 
-f:run_number_demo =>
-  println("=== Number Processing ===")
-  |> println(concat("factorial(5) = ", to_string(factorial(5))))
-  |> println(concat("factorial(0) = ", to_string(factorial(0))))
-  |> println(concat("10 squared = ", to_string(mul(10, 10))))
-  |> println(concat("is 42 even? ", if is_even(42) then "yes" else "no"))
-  |> println(concat("is 17 even? ", if is_even(17) then "yes" else "no"))
+f:run_number_demo n =>
+  println(concat("factorial: ", to_string(factorial(n))))
 
-f:run_string_demo =>
-  println("=== String Operations ===")
-  |> println(concat("Hello", concat(" ", "World")))
-  |> println(concat("Stroum is ", concat("functional", " and stream-based")))
-  |> println("=== Demo Complete! ===")
+f:run_string_demo name =>
+  concat("Hello ", name)
+  |> println
 
 -- Execute the demos
 f:execute_all =>
   main()
-  |> run_number_demo()
-  |> run_string_demo()
+  run_number_demo(5)
+  run_string_demo("World")
 
 execute_all()
 

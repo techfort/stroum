@@ -101,7 +101,7 @@ export class Transpiler {
           io: [
             'read_file', 'write_file', 'append_file', 'file_exists', 'delete_file',
             'list_dir', 'make_dir', 'read_lines', 'write_lines',
-            'path_join', 'path_basename', 'path_dirname', 'path_ext',
+            'path_join', 'path_basename', 'path_dirname', 'path_ext', 'watch_file',
           ],
           process: [
             'exec', 'exec_lines', 'env_get', 'env_get_or', 'env_keys', 'cwd', 'exit_process',
@@ -448,6 +448,9 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
         const args = handler.args.map(a => this.transpileExpression(a));
         return `await ${handler.callee}(${args.length > 0 ? args.join(', ') : ''})`;
       }
+    } else if (handler.type === 'PipeExpression') {
+      // Inline pipe/emit expression (e.g. save(data) @ "stream") — transpile and await directly
+      return `await (${this.transpileExpression(handler)})`;
     } else {
       // Lambda or other expression — call with inner value
       return `await (${this.transpileExpression(handler)})(${innerVar})`;

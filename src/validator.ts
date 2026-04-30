@@ -296,14 +296,20 @@ export class Validator {
 
   private validateExpression(expr: AST.Expression): void {
     switch (expr.type) {
-      case 'Identifier':
+      case 'Identifier': {
         // Check if identifier is available (local binding, parameter, import, or stdlib)
         const name = expr.name;
+        // `_` is the pipe placeholder; `__outcome_value__` and `__builtin_*` are synthetic
+        if (name === '_' || name === '__outcome_value__' || name.startsWith('__builtin_')) break;
         if (!this.isFunctionAvailable(name) && name !== this.currentFunctionName) {
-          // Don't error on identifiers - they might be values, not function calls
-          // Only error on actual function calls (CallExpression)
+          this.addError(
+            `Undefined identifier: '${name}'. ` +
+            `It is not defined as a binding, function, parameter, or import.`,
+            expr.location
+          );
         }
         break;
+      }
       case 'NumberLiteral':
       case 'StringLiteral':
       case 'BooleanLiteral':

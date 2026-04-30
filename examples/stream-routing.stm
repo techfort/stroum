@@ -17,25 +17,21 @@ f:test x => is_positive(x) @ "routing"
 -- Run some tests
 f:main =>
   test(5)
-  |> test(neg(3))
-  |> test(10)
-  |> test(neg(7))
+  test(neg(3))
+  test(10)
+  test(neg(7))
 
 main()
 
 -- CONDITIONAL ROUTING via stream handlers:
 -- When routing decision arrives, emit to appropriate stream
-on @"routing" |> |:is_pos| =>
-  println(concat("Routing decision: ", to_string(is_pos)))
+on @"routing" |> |:is_pos| => println(concat("Routing decision: ", to_string(is_pos)))
 
 -- Handler for negative values: flip sign and retest
-on @"negative" |> |:x| =>
-  test(neg(x))
+on @"negative" |> |:x| => test(neg(x))
 
 -- Handler for ok values: just print
-on @"ok" |> |:x| =>
-  println(concat("OK: ", to_string(x)))
+on @"ok" |> |:x| => println(concat("OK: ", to_string(x)))
 
 -- Debug all stream activity
-on @"__trace" |> |:ev| =>
-  debug(ev, "TRACE")
+on @"__trace" |> |:ev| => debug(ev, "TRACE")

@@ -9,8 +9,8 @@ f:is_large x => gt(x, 50) @ "checks"
 -- Main function that executes operations
 f:main =>
   calc_double(10)
-  |> calc_triple(20)
-  |> is_large(100)
+  |> calc_triple
+  |> is_large
 
 -- Execute main
 main()

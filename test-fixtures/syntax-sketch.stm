@@ -12,9 +12,6 @@ f:fetch_user id ~> @"found", @"not_found", @"err" =>
 :nums [1, 2, 3]
 nums |> filter(|:v| => gt(v, 0)) |> map(|:v| => multiply(v, 2)) @"ok"
 
--- fold
-:total fold(nums, 0, |:acc, :v| => add(acc, v)) @"ok"
-
 -- parallel, all-or-nothing
 fetch(url_a) PP fetch(url_b) |> merge @"ok"
 | .fail => notify() @"errors"
@@ -33,6 +30,7 @@ fetch_user(id)
 
 -- stream termination
 final_op() @("ok", "audit")XX
+nums |> foldt(|:acc, :n| => add(acc, n), 0) @("sum", "audit")XX
 
 -- on handlers
 on @"errors"  |> |:e| => store(e)   @"audit"
