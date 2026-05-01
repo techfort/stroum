@@ -17,8 +17,8 @@ f:process_batch =>
 process_batch()
 
 -- Subscribe to individual streams
-on @"squares" |> |:n| => println(concat("SQUARE: ", to_string(n)))
-on @"checks" |> |:bool| => println(concat("EVEN?: ", to_string(bool)))
+on @"squares" |> |:n| => println("SQUARE: #{n}")
+on @"checks" |> |:bool| => println("EVEN?: #{bool}")
 
 -- Use __trace to see everything
 on @"__trace" |> |:ev| => debug(ev, "ALL STREAMS")

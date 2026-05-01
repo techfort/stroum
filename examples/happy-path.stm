@@ -17,7 +17,7 @@ f:op1 x =>
 f:op2 x => mul(x, 2)
 
 -- op3: formats and prints the final result
-f:op3 x => println(concat("Final result: ", to_string(x)))
+f:op3 x => println("Final result: #{x}")
 
 -- fail_handler: rescues a negative number by making it positive, re-emits on @"ok"
 -- debug() passes the value through so we can log without breaking the chain

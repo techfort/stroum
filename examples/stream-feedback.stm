@@ -19,7 +19,7 @@ f:main =>
 main()
 
 -- Stream handlers that do conditional routing
-on @"checks" |> |:result| => println(concat("Is positive: ", to_string(result)))
+on @"checks" |> |:result| => println("Is positive: #{result}")
 
 -- Trace all activity
 on @"__trace" |> |:ev| => debug(ev, "STREAM")

@@ -5,10 +5,10 @@ f:classify x =>
   else .zero x
 
 f:handle_positive n =>
-  println(concat("Positive: ", to_string(n)))
+  println("Positive: #{n}")
 
 f:handle_negative n =>
-  println(concat("Negative: ", to_string(n)))
+  println("Negative: #{n}")
 
 f:handle_zero n =>
   println("Got zero!")
@@ -35,11 +35,11 @@ classify(0)
 | .zero => handle_zero
 
 rate_temp(40)
-| ."just right" => |:n| => println(concat("Comfortable: ", to_string(n)))
-| ."too hot"    => |:n| => println(concat("Too hot: ", to_string(n)))
-| ."too cold"   => |:n| => println(concat("Too cold: ", to_string(n)))
+| ."just right" => |:n| => println("Comfortable: #{n}")
+| ."too hot"    => |:n| => println("Too hot: #{n}")
+| ."too cold"   => |:n| => println("Too cold: #{n}")
 
 rate_temp(22)
-| ."just right" => |:n| => println(concat("Comfortable: ", to_string(n)))
-| ."too hot"    => |:n| => println(concat("Too hot: ", to_string(n)))
-| ."too cold"   => |:n| => println(concat("Too cold: ", to_string(n)))
+| ."just right" => |:n| => println("Comfortable: #{n}")
+| ."too hot"    => |:n| => println("Too hot: #{n}")
+| ."too cold"   => |:n| => println("Too cold: #{n}")

@@ -1,8 +1,8 @@
 -- E2E Example: Simple Pipeline
 
 
-f:notify item => println(concat("Notification: ", to_string(item)))
-f:report err => println(concat("Error Reported: ", to_string(err)))
+f:notify item => println("Notification: #{item}")
+f:report err => println("Error Reported: #{err}")
 f:fetch url =>
   -- Simulate fetching data from an API
   if eq(url, "api/data") then [1, 2, 3, 4, 5]
@@ -15,12 +15,12 @@ f:validate data =>
 
 f:save data =>
   -- Simulate saving data
-  println(concat("Data saved: ", to_string(data)))
+  println("Data saved: #{data}")
   data
 
 f:log err =>
   -- Simulate logging an error
-  println(concat("Logged error: ", to_string(err)))
+  println("Logged error: #{err}")
   err
 
 

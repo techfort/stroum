@@ -12,5 +12,5 @@ test(20)
 test(sub(0, 8))
 
 -- Subscribe to streams - this is where you see the routed values!
-on @"ok" |> |:x| => println(concat("✓ Went to OK stream: ", to_string(x)))
-on @"negative" |> |:x| => println(concat("✗ Went to NEGATIVE stream: ", to_string(x)))
+on @"ok" |> |:x| => println("✓ Went to OK stream: #{x}")
+on @"negative" |> |:x| => println("✗ Went to NEGATIVE stream: #{x}")

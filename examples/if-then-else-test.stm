@@ -9,12 +9,12 @@ f:classify x =>
   if gt(x, 0) then x @ "positive" else x @ "negative"
 
 -- Execute
-println(concat("abs(5) = ", to_string(abs_value(5))))
-println(concat("abs(-7) = ", to_string(abs_value(sub(0, 7)))))
+println("abs(5) = #{abs_value(5)}")
+println("abs(-7) = #{abs_value(sub(0, 7))}")
 classify(10)
 classify(sub(0, 5))
 classify(20)
 
 -- Subscribe to streams
-on @"positive" |> |:x| => println(concat("POSITIVE: ", to_string(x)))
-on @"negative" |> |:x| => println(concat("NEGATIVE: ", to_string(x)))
+on @"positive" |> |:x| => println("POSITIVE: #{x}")
+on @"negative" |> |:x| => println("NEGATIVE: #{x}")

@@ -10,8 +10,8 @@ f:validate x => gt(x, 15) @ "validations"
 double(7)
 
 -- Subscribe to specific streams
-on @"numbers" |> |:val| => println(concat("  → numbers stream: ", to_string(val)))
-on @"validations" |> |:val| => println(concat("  → validations stream: ", to_string(val)))
+on @"numbers" |> |:val| => println("  → numbers stream: #{val}")
+on @"validations" |> |:val| => println("  → validations stream: #{val}")
 
 -- Use __trace to see ALL stream activity with full details
 on @"__trace" |> |:event| => debug(event, "TRACE")

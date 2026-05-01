@@ -314,6 +314,13 @@ export class Validator {
       case 'StringLiteral':
       case 'BooleanLiteral':
         break;
+      case 'InterpolatedStringLiteral':
+        for (const seg of expr.segments) {
+          if (seg.kind === 'expr') {
+            this.validateExpression(seg.expression);
+          }
+        }
+        break;
       case 'ListLiteral':
         for (const elem of expr.elements) {
           this.validateExpression(elem);
@@ -588,6 +595,11 @@ export class Validator {
         case 'StringLiteral':
         case 'BooleanLiteral':
           // Literals don't contain identifiers
+          break;
+        case 'InterpolatedStringLiteral':
+          e.segments.forEach(seg => {
+            if (seg.kind === 'expr') collect(seg.expression);
+          });
           break;
         case 'CallExpression':
           // callee is a string

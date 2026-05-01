@@ -183,4 +183,19 @@ f:baz y =>
       expect(errors.length).toBe(0);
     });
   });
+
+  describe('string interpolation', () => {
+    it('should pass when interpolated identifiers are defined', () => {
+      const issues = validate('f:greet name => "Hello #{name}"');
+      const errors = issues.filter(i => i.type === 'error');
+      expect(errors.length).toBe(0);
+    });
+
+    it('should error on undefined identifier inside interpolation', () => {
+      const issues = validate('"Hello #{ghost}"');
+      const errors = issues.filter(i => i.type === 'error');
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].message).toContain('ghost');
+    });
+  });
 });

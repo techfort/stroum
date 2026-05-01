@@ -16,16 +16,16 @@ f:evaluate score =>
 
 -- Per-outcome handlers: each receives the unwrapped inner value.
 f:on_distinction n =>
-  println(concat("  Distinction  : ", to_string(n)))
+  println("  Distinction  : #{n}")
 
 f:on_pass n =>
-  println(concat("  Pass         : ", to_string(n)))
+  println("  Pass         : #{n}")
 
 f:on_borderline n =>
-  println(concat("  Borderline   : ", to_string(n)))
+  println("  Borderline   : #{n}")
 
 f:on_fail n =>
-  println(concat("  FAIL         : ", to_string(n)))
+  println("  FAIL         : #{n}")
 
 -- dispatch: accepts a tagged value and routes to the right handler.
 -- Works both when called inline and when used as a route target.
@@ -68,19 +68,19 @@ evaluate(45)
 println("=== B: String literal tags ===")
 
 rate_temp(39)
-| ."just right" => |:n| => println(concat("  Comfortable : ", to_string(n)))
-| ."too hot"    => |:n| => println(concat("  Too hot     : ", to_string(n)))
-| ."too cold"   => |:n| => println(concat("  Too cold    : ", to_string(n)))
+| ."just right" => |:n| => println("  Comfortable : #{n}")
+| ."too hot"    => |:n| => println("  Too hot     : #{n}")
+| ."too cold"   => |:n| => println("  Too cold    : #{n}")
 
 rate_temp(22)
-| ."just right" => |:n| => println(concat("  Comfortable : ", to_string(n)))
-| ."too hot"    => |:n| => println(concat("  Too hot     : ", to_string(n)))
-| ."too cold"   => |:n| => println(concat("  Too cold    : ", to_string(n)))
+| ."just right" => |:n| => println("  Comfortable : #{n}")
+| ."too hot"    => |:n| => println("  Too hot     : #{n}")
+| ."too cold"   => |:n| => println("  Too cold    : #{n}")
 
 rate_temp(4)
-| ."just right" => |:n| => println(concat("  Comfortable : ", to_string(n)))
-| ."too hot"    => |:n| => println(concat("  Too hot     : ", to_string(n)))
-| ."too cold"   => |:n| => println(concat("  Too cold    : ", to_string(n)))
+| ."just right" => |:n| => println("  Comfortable : #{n}")
+| ."too hot"    => |:n| => println("  Too hot     : #{n}")
+| ."too cold"   => |:n| => println("  Too cold    : #{n}")
 
 -- ============================================================================
 -- Pattern C: Stream routing

@@ -9,13 +9,13 @@ f:sign x =>
   if gt(x, 0) then 1 else sub(0, 1)
 
 -- Execute
-println(concat("sign(5) = ", to_string(sign(5))))
-println(concat("sign(-3) = ", to_string(sign(sub(0, 3)))))
+println("sign(5) = #{sign(5)}")
+println("sign(-3) = #{sign(sub(0, 3))}")
 classify(10)
 classify(sub(0, 5))
 classify(20)
 classify(sub(0, 8))
 
 -- Subscribe to see what went to each stream
-on @"positive" |> |:x| => println(concat("✓ Positive: ", to_string(x)))
-on @"negative" |> |:x| => println(concat("✗ Negative: ", to_string(x)))
+on @"positive" |> |:x| => println("✓ Positive: #{x}")
+on @"negative" |> |:x| => println("✗ Negative: #{x}")

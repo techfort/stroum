@@ -7,7 +7,7 @@ i:timer
 
 -- Helper: log a labelled value
 f:log label value =>
-  println(concat(label, to_string(value)))
+  println("#{label}#{value}")
 
 -- Write a temp file then read it back
 write_file("/tmp/stroum-demo.txt", "Hello from Stroum!\nLine two.") |> log("Wrote file: ", _)
@@ -18,5 +18,5 @@ exec("ls -lh /tmp/stroum-demo.txt") |> println
 exec("cat /tmp/stroum-demo.txt") |> println
 
 -- Timing
-now() |> to_string |> log("Start epoch ms: ", _)
+now() |> log("Start epoch ms: ", _)
 timestamp() |> log("Timestamp: ", _)

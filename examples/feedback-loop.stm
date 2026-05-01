@@ -19,4 +19,4 @@ test(sub(0, 7))
 on @"negative" |> |:x| => test(negate(x))
 
 -- Final destination for positive values
-on @"ok" |> |:x| => println(concat("✓ Final OK: ", to_string(x)))
+on @"ok" |> |:x| => println("✓ Final OK: #{x}")

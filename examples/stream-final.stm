@@ -16,8 +16,8 @@ f:main =>
 main()
 
 -- Subscribe to specific streams to see what they contain
-on @"results" |> |:value| => println(concat("Result: ", to_string(value)))
-on @"checks" |> |:value| => println(concat("Check: ", to_string(value)))
+on @"results" |> |:value| => println("Result: #{value}")
+on @"checks" |> |:value| => println("Check: #{value}")
 
 -- Subscribe to __trace to see ALL stream activity
 on @"__trace" |> |:event| => debug(event, "TRACE")

@@ -1,5 +1,6 @@
 import { Token, TokenType, SourceLocation } from './types';
 import * as AST from './ast';
+import { Lexer } from './lexer';
 
 export class Parser {
   private tokens: Token[];
@@ -257,6 +258,11 @@ export class Parser {
   // ============================================================================
   // Expressions
   // ============================================================================
+
+  /** Public entry point used by sub-parsers (e.g. string interpolation). */
+  public parseSingleExpression(): AST.Expression {
+    return this.parseExpression(false);
+  }
 
   private parseExpression(parseOutcomeMatches: boolean = true): AST.Expression {
     return this.parseParallelOrPipe(parseOutcomeMatches);
@@ -606,16 +612,62 @@ export class Parser {
     };
   }
 
-  private parseStringLiteral(): AST.StringLiteral {
+  private parseStringLiteral(): AST.StringLiteral | AST.InterpolatedStringLiteral {
     const location = this.currentLocation();
     const token = this.consume(TokenType.STRING, 'Expected string');
-    const hasInterpolation = token.value.includes('#{');
+    if (token.value.includes('#{')) {
+      return this.parseInterpolatedSegments(token.value, location);
+    }
     return {
       type: 'StringLiteral',
       location,
       value: token.value,
-      hasInterpolation
+      hasInterpolation: false
     };
+  }
+
+  private parseInterpolatedSegments(raw: string, location: SourceLocation): AST.InterpolatedStringLiteral {
+    const segments: AST.InterpolationSegment[] = [];
+    let pos = 0;
+
+    while (pos < raw.length) {
+      const interStart = raw.indexOf('#{', pos);
+      if (interStart === -1) {
+        if (pos < raw.length) {
+          segments.push({ kind: 'text', value: raw.slice(pos) });
+        }
+        break;
+      }
+
+      if (interStart > pos) {
+        segments.push({ kind: 'text', value: raw.slice(pos, interStart) });
+      }
+
+      // Find the matching closing } using brace depth counting
+      let depth = 1;
+      let i = interStart + 2;
+      while (i < raw.length && depth > 0) {
+        if (raw[i] === '{') depth++;
+        else if (raw[i] === '}') depth--;
+        if (depth > 0) i++;
+      }
+
+      if (depth !== 0) {
+        this.error('Unterminated interpolation: missing } in string');
+        break;
+      }
+
+      const exprSource = raw.slice(interStart + 2, i);
+      const subLexer = new Lexer(exprSource);
+      const subTokens = subLexer.tokenize();
+      const subParser = new Parser(subTokens);
+      const expression = subParser.parseSingleExpression();
+
+      segments.push({ kind: 'expr', expression });
+      pos = i + 1;
+    }
+
+    return { type: 'InterpolatedStringLiteral', location, segments };
   }
 
   private parseBooleanLiteral(): AST.BooleanLiteral {

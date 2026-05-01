@@ -23,6 +23,21 @@ describe('Transpiler', () => {
       expect(output).toContain('const msg = "hello";');
     });
 
+    it('should transpile interpolated string with identifier', () => {
+      const output = transpile(':msg "Hello #{name}"');
+      expect(output).toContain('const msg = `Hello ${name}`;');
+    });
+
+    it('should transpile interpolated string with multiple expressions', () => {
+      const output = transpile(':msg "#{a} + #{b}"');
+      expect(output).toContain('const msg = `${a} + ${b}`;');
+    });
+
+    it('should transpile interpolated string with function call', () => {
+      const output = transpile(':msg "result: #{add(1, 2)}"');
+      expect(output).toContain('const msg = `result: ${await add(1, 2)}`;');
+    });
+
     it('should transpile boolean literal', () => {
       const output = transpile(':flag true');
       expect(output).toContain('const flag = true;');

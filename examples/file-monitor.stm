@@ -12,17 +12,17 @@ i:timer
 
 -- Build a timestamped log entry from the changed content
 f:format_entry content =>
-  concat("[", concat(timestamp(), concat("]\n", concat(content, "\n---\n"))))
+  "[#{timestamp()}]\n#{content}\n---\n"
 
 -- Speak a notification via Windows TTS (WSL-compatible)
 f:notify_speech msg =>
-  exec(concat("powershell.exe -NoProfile -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('", concat(msg, "')\"")))
+  exec("powershell.exe -NoProfile -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('#{msg}')\"")
 
 -- Handle a change: log it to disk, speak the notification, print status
 f:handle_change content =>
   append_file(log_file, format_entry(content))
   notify_speech("change detected")
-  println(concat("[monitor] change logged at ", timestamp()))
+  println("[monitor] change logged at #{timestamp()}")
 
 -- Route raw file content into the change stream
 f:on_file_change content => content @ "change"

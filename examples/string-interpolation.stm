@@ -1,0 +1,25 @@
+-- String interpolation demo: "Hello #{expr}"
+-- #{} embeds any Stroum expression directly into a string.
+
+:name "world"
+:count 3
+
+-- Simple identifier interpolation
+:greeting "Hello #{name}!"
+greeting |> println
+
+-- Inline arithmetic inside #{}
+:summary "#{count} items processed"
+summary |> println
+
+-- Multiple interpolations in one string
+:a 10
+:b 20
+:equation "#{a} + #{b} = #{add(a, b)}"
+equation |> println
+
+-- Interpolation inside a function
+f:describe x =>
+  "The value is #{x} and its double is #{mul(x, 2)}"
+
+describe(7) |> println

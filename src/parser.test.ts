@@ -124,8 +124,33 @@ describe('Parser', () => {
     it('should detect string interpolation', () => {
       const ast = parse(':msg "hello #{name}"');
       const binding = ast.definitions[0] as AST.BindingDeclaration;
-      const str = binding.value as AST.StringLiteral;
-      expect(str.hasInterpolation).toBe(true);
+      const str = binding.value as AST.InterpolatedStringLiteral;
+      expect(str.type).toBe('InterpolatedStringLiteral');
+      expect(str.segments).toHaveLength(2);
+      expect(str.segments[0]).toEqual({ kind: 'text', value: 'hello ' });
+      expect(str.segments[1].kind).toBe('expr');
+    });
+
+    it('should parse multi-segment string interpolation', () => {
+      const ast = parse(':msg "#{a} and #{b}"');
+      const binding = ast.definitions[0] as AST.BindingDeclaration;
+      const str = binding.value as AST.InterpolatedStringLiteral;
+      expect(str.type).toBe('InterpolatedStringLiteral');
+      expect(str.segments).toHaveLength(3); // expr, text, expr
+      expect(str.segments[0].kind).toBe('expr');
+      expect(str.segments[1]).toEqual({ kind: 'text', value: ' and ' });
+      expect(str.segments[2].kind).toBe('expr');
+    });
+
+    it('should parse interpolation with function call expression', () => {
+      const ast = parse(':msg "total: #{add(1, 2)}"');
+      const binding = ast.definitions[0] as AST.BindingDeclaration;
+      const str = binding.value as AST.InterpolatedStringLiteral;
+      expect(str.type).toBe('InterpolatedStringLiteral');
+      const exprSeg = str.segments[1] as { kind: 'expr'; expression: AST.CallExpression };
+      expect(exprSeg.kind).toBe('expr');
+      expect(exprSeg.expression.type).toBe('CallExpression');
+      expect((exprSeg.expression as AST.CallExpression).callee).toBe('add');
     });
 
     it('should parse boolean literals', () => {

@@ -5,11 +5,11 @@ f:check num =>
   else .error "value is not positive"
 
 f:save num =>
-  println(concat("Saved: ", to_string(num)))
+  println("Saved: #{num}")
   num
 
 f:report_error msg =>
-  println(concat("Error: ", to_string(msg)))
+  println("Error: #{msg}")
   msg
 
 f:validate num ~> @"valid", @"errors" =>
@@ -20,5 +20,5 @@ f:validate num ~> @"valid", @"errors" =>
 validate(42)
 validate(sub(0, 5))
 
-on @"valid" |> |:x| => println(concat("OK: ", to_string(x)))
-on @"errors" |> |:e| => println(concat("Invalid: ", to_string(e)))
+on @"valid" |> |:x| => println("OK: #{x}")
+on @"errors" |> |:e| => println("Invalid: #{e}")

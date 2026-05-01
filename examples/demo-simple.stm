@@ -24,9 +24,9 @@ f:classify_temp c =>
 f:run =>
   println("=== Stroum Feature Demo ===")
   println("Math Functions:")
-  println(concat("factorial(5) = ", to_string(factorial(5))))
-  println(concat("is 42 even?   ", if is_even(42) then "yes" else "no"))
-  println(concat("abs(-15)     = ", to_string(abs(sub(0, 15)))))
+  println("factorial(5) = #{factorial(5)}")
+  println("is 42 even?   #{if is_even(42) then \"yes\" else \"no\"}")
+  println("abs(-15)     = #{abs(sub(0, 15))}")
   println("")
   println("Temperature Classification (stream handlers below):")
   classify_temp(38)
@@ -36,6 +36,6 @@ f:run =>
 
 run()
 
-on @"hot"         |> |:c| => println(concat("  HOT         (", concat(to_string(c), "°C)")))
-on @"comfortable" |> |:c| => println(concat("  COMFORTABLE (", concat(to_string(c), "°C)")))
-on @"cold"        |> |:c| => println(concat("  COLD        (", concat(to_string(c), "°C)")))
+on @"hot"         |> |:c| => println("  HOT         (#{c}°C)")
+on @"comfortable" |> |:c| => println("  COMFORTABLE (#{c}°C)")
+on @"cold"        |> |:c| => println("  COLD        (#{c}°C)")

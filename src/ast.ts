@@ -123,7 +123,7 @@ export interface Identifier extends ASTNode {
 // Literals
 // ============================================================================
 
-export type Literal = NumberLiteral | StringLiteral | BooleanLiteral | ListLiteral | RecordLiteral;
+export type Literal = NumberLiteral | StringLiteral | InterpolatedStringLiteral | BooleanLiteral | ListLiteral | RecordLiteral;
 
 export interface NumberLiteral extends ASTNode {
   type: 'NumberLiteral';
@@ -134,6 +134,16 @@ export interface StringLiteral extends ASTNode {
   type: 'StringLiteral';
   value: string;
   hasInterpolation: boolean; // contains #{}
+}
+
+// A segment in an interpolated string: either a plain text run or an embedded expression.
+export type InterpolationSegment =
+  | { kind: 'text'; value: string }
+  | { kind: 'expr'; expression: Expression };
+
+export interface InterpolatedStringLiteral extends ASTNode {
+  type: 'InterpolatedStringLiteral';
+  segments: InterpolationSegment[];
 }
 
 export interface BooleanLiteral extends ASTNode {

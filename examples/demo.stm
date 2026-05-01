@@ -13,7 +13,7 @@ f:classify_temp f =>
 
 -- Format temperature string
 f:format_temp f =>
-  concat(to_string(f), "°F")
+  "#{f}°F"
 
 -- Wrapper functions to emit temperatures to streams
 f:test_temp1 => classify_temp(celsius_to_fahrenheit(38))
@@ -44,10 +44,10 @@ f:main =>
   process_temps()
 
 f:run_number_demo n =>
-  println(concat("factorial: ", to_string(factorial(n))))
+  println("factorial: #{factorial(n)}")
 
 f:run_string_demo name =>
-  concat("Hello ", name)
+  "Hello #{name}"
   |> println
 
 -- Execute the demos
@@ -59,8 +59,8 @@ f:execute_all =>
 execute_all()
 
 -- Stream handlers for temperature classification
-on @"hot" |> |:temp| => println(concat("🔥 HOT: ", concat(format_temp(temp), " - Stay hydrated!")))
+on @"hot" |> |:temp| => println("🔥 HOT: #{format_temp(temp)} - Stay hydrated!")
 
-on @"comfortable" |> |:temp| => println(concat("☀️  COMFORTABLE: ", concat(format_temp(temp), " - Perfect weather!")))
+on @"comfortable" |> |:temp| => println("☀️  COMFORTABLE: #{format_temp(temp)} - Perfect weather!")
 
-on @"cold" |> |:temp| => println(concat("❄️  COLD: ", concat(format_temp(temp), " - Bundle up!")))
+on @"cold" |> |:temp| => println("❄️  COLD: #{format_temp(temp)} - Bundle up!")

@@ -238,6 +238,17 @@ export class Transpiler {
         return expr.value.toString();
       case 'StringLiteral':
         return JSON.stringify(expr.value);
+      case 'InterpolatedStringLiteral': {
+        const parts = expr.segments.map(seg => {
+          if (seg.kind === 'text') {
+            // Escape backticks and literal ${ sequences in the text portion
+            return seg.value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+          } else {
+            return `\${${this.transpileExpression(seg.expression)}}`;
+          }
+        });
+        return '`' + parts.join('') + '`';
+      }
       case 'BooleanLiteral':
         return expr.value.toString();
       case 'ListLiteral':
