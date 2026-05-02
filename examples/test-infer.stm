@@ -1,0 +1,3 @@
+-- Simple test of infer_schema
+
+infer_schema("test-fixtures/sample.csv") |> println

@@ -1,0 +1,23 @@
+[
+  {
+    "userId": 101,
+    "username": "alice_w",
+    "email": "alice@example.com",
+    "isActive": true,
+    "balance": 1250.75
+  },
+  {
+    "userId": 102,
+    "username": "bob_smith",
+    "email": "bob@example.com",
+    "isActive": false,
+    "balance": 890.0
+  },
+  {
+    "userId": 103,
+    "username": "charlie_jones",
+    "email": "charlie@example.com",
+    "isActive": true,
+    "balance": 2100.50
+  }
+]

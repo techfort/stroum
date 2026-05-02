@@ -12,6 +12,7 @@ const { Parser } = require('../dist/tmp/parser');
 
 const STDLIB_DIR = __dirname;
 const CORE_STM = path.join(STDLIB_DIR, 'core.stm');
+const FORMATS_STM = path.join(STDLIB_DIR, 'formats.stm');
 const RUNTIME_TS = path.join(STDLIB_DIR, 'stdlib-runtime.ts');
 const OUTPUT_DIR = path.join(__dirname, '../dist/stdlib');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'stdlib-runtime.ts');
@@ -55,6 +56,35 @@ try {
 } catch (error) {
   console.error('❌ Failed to parse core.stm:', error.message);
   process.exit(1);
+}
+
+// Parse formats.stm if it exists
+if (fs.existsSync(FORMATS_STM)) {
+  const formatsSource = fs.readFileSync(FORMATS_STM, 'utf-8');
+  console.log('📝 Parsing stdlib/formats.stm...');
+  try {
+    const lexer = new Lexer(formatsSource);
+    const tokens = lexer.tokenize();
+    const parser = new Parser(tokens);
+    const module = parser.parse();
+    
+    let formatsCount = 0;
+    for (const def of module.definitions) {
+      if (def.type === 'FunctionDeclaration') {
+        functions.push({
+          name: def.name,
+          params: def.params,
+          arity: def.params.length
+        });
+        formatsCount++;
+      }
+    }
+    
+    console.log(`✅ Found ${formatsCount} functions in formats.stm\n`);
+  } catch (error) {
+    console.error('❌ Failed to parse formats.stm:', error.message);
+    process.exit(1);
+  }
 }
 
 // Read runtime implementations

@@ -8,6 +8,7 @@ export class Transpiler {
   private indent = 0;
   private output: string[] = [];
   private stdlibPath: string;
+  private currentFn: { name: string; params: string[] } | null = null;
 
   constructor(stdlibPath?: string) {
     this.stdlibPath = stdlibPath || path.join(__dirname, '../stdlib');
@@ -22,7 +23,7 @@ export class Transpiler {
     
     // Auto-import stdlib functions (unless --no-stdlib was used)
     if (this.stdlibPath) {
-      this.emit(`import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, debug, trace, to_string, to_int, to_float, error, try_catch } from './stdlib-runtime';`);
+      this.emit(`import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json } from './stdlib-runtime';`);
     }
     
     // Emit imports for imported modules
@@ -109,6 +110,9 @@ export class Transpiler {
           timer: [
             'sleep', 'now', 'timestamp', 'elapsed', 'format_date',
           ],
+          formats: [
+            'infer_schema', 'read_csv', 'read_json',
+          ],
         };
         const knownFunctions = stdlibModuleFunctions[modulePath];
         if (knownFunctions) {
@@ -181,6 +185,14 @@ export class Transpiler {
     this.emit('');
   }
 
+  private routeMetaArg(): string {
+    if (this.currentFn) {
+      const argsObj = this.currentFn.params.map(p => `${p}: ${p}`).join(', ');
+      return `{ fn: ${JSON.stringify(this.currentFn.name)}, args: { ${argsObj} } }`;
+    }
+    return `{ fn: null, args: {} }`;
+  }
+
   private transpileFunctionDeclaration(func: AST.FunctionDeclaration): void {
     const params = func.params.join(', ');
     const asyncMark = 'async ';
@@ -189,12 +201,14 @@ export class Transpiler {
     this.emit(`export ${asyncMark}function ${func.name}(${params}) {`);
     this.indent++;
 
+    this.currentFn = { name: func.name, params: func.params };
     if (func.body.type === 'IndentedBody') {
       this.transpileIndentedBody(func.body);
     } else {
       const expr = this.transpileExpression(func.body);
       this.emit(`return ${expr};`);
     }
+    this.currentFn = null;
 
     this.indent--;
     this.emit('}');
@@ -308,7 +322,7 @@ export class Transpiler {
     if (pipe.streamEmit) {
       // Emit to the first stream (Stroum supports multiple streams, we simplify to first)
       const streamArg = this.streamRefToTs(pipe.streamEmit.streams[0]);
-      result = `__route(${result}, ${streamArg})`;
+      result = `__route(${result}, ${streamArg}, ${this.routeMetaArg()})`;
     }
 
     // Handle outcome matches
@@ -349,7 +363,7 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
     // Handle stream emit on gather pipe
     if (parallel.gatherPipe.streamEmit) {
       const streamArg = this.streamRefToTs(parallel.gatherPipe.streamEmit.streams[0]);
-      result = `__route(${result}, ${streamArg})`;
+      result = `__route(${result}, ${streamArg}, ${this.routeMetaArg()})`;
     }
 
     return result;
@@ -366,7 +380,7 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
     // Handle stream emit
     if (pipe.streamEmit) {
       const streamArg = this.streamRefToTs(pipe.streamEmit.streams[0]);
-      result = `__route(${result}, ${streamArg})`;
+      result = `__route(${result}, ${streamArg}, ${this.routeMetaArg()})`;
     }
 
     // Handle outcome matches
@@ -485,7 +499,7 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
       // Passthrough: | .tag => @"stream" — route/pass the inner value directly
       if (match.streamEmit) {
         const streamArg = this.streamRefToTs(match.streamEmit.streams[0]);
-        handler = `await __route(__inner, ${streamArg})`;
+        handler = `await __route(__inner, ${streamArg}, ${this.routeMetaArg()})`;
       } else {
         handler = '__inner';
       }
@@ -493,7 +507,7 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
       handler = this.transpileOutcomeHandler(match.handler, '__inner');
       if (match.streamEmit) {
         const streamArg = this.streamRefToTs(match.streamEmit.streams[0]);
-        handler = `await __route(${handler}, ${streamArg})`;
+        handler = `await __route(${handler}, ${streamArg}, ${this.routeMetaArg()})`;
       }
     }
 

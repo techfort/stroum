@@ -20,7 +20,8 @@ f:notify_speech msg =>
 
 -- Handle a change: log it to disk, speak the notification, print status
 f:handle_change content =>
-  append_file(log_file, format_entry(content))
+  format_entry(content)
+    |> append_file(log_file, _)
   notify_speech("change detected")
   println("[monitor] change logged at #{timestamp()}")
 

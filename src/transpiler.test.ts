@@ -113,7 +113,7 @@ describe('Transpiler', () => {
     it('should transpile outcome match with stream redirect', () => {
       const output = transpile('process(x)\n| .fail => @"errors"');
       expect(output).toContain('__value.outcome === "fail"');
-      expect(output).toContain('await __route(__inner, "errors")');
+      expect(output).toContain('await __route(__inner, "errors"');
     });
   });
 

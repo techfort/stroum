@@ -9,6 +9,7 @@ import * as _fs from 'fs';
 import * as _path from 'path';
 import { exec as _execCb } from 'child_process';
 import { promisify as _promisify } from 'util';
+import * as _Papa from 'papaparse';
 
 const _execAsync = _promisify(_execCb);
 
@@ -502,3 +503,64 @@ export const now = __builtin_now;
 export const timestamp = __builtin_timestamp;
 export const elapsed = __builtin_elapsed;
 export const format_date = __builtin_format_date;
+
+// ============================================================================
+// Data Formats (CSV, JSON, Schema Inference)
+// ============================================================================
+
+/**
+ * Infer schema from a CSV or JSON file at runtime.
+ * Returns schema information that can be used for validation or code generation.
+ */
+export async function __formats_infer_schema(path: string): Promise<any> {
+  try {
+    // Dynamic import to load schema-deriver from same directory
+    const { inferSchema } = await import('./schema-deriver.js');
+    const schema = inferSchema(path);
+    return schema;
+  } catch (err: any) {
+    throw new Error(`Failed to infer schema from ${path}: ${err.message}`);
+  }
+}
+
+/**
+ * Read a CSV file and parse it into an array of records.
+ * Each record is a plain JavaScript object with string keys.
+ */
+export async function __formats_read_csv(path: string): Promise<any[]> {
+  const content = _fs.readFileSync(path, 'utf-8');
+  
+  return new Promise((resolve, reject) => {
+    _Papa.parse(content, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (results: any) => {
+        if (results.errors.length > 0) {
+          reject(new Error(`CSV parse error: ${results.errors[0].message}`));
+        } else {
+          resolve(results.data);
+        }
+      },
+      error: (err: any) => {
+        reject(new Error(`CSV parse error: ${err.message}`));
+      }
+    });
+  });
+}
+
+/**
+ * Read and parse a JSON file.
+ */
+export async function __formats_read_json(path: string): Promise<any> {
+  try {
+    const content = _fs.readFileSync(path, 'utf-8');
+    return JSON.parse(content);
+  } catch (err: any) {
+    throw new Error(`Failed to read JSON from ${path}: ${err.message}`);
+  }
+}
+
+export const infer_schema = __formats_infer_schema;
+export const read_csv = __formats_read_csv;
+export const read_json = __formats_read_json;

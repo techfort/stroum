@@ -1,0 +1,15 @@
+-- Stroum Standard Library - Data Formats
+-- Functions for runtime schema inference and data file reading
+
+-- Infer schema from a CSV or JSON file
+-- Automatically emits schema metadata to the __meta stream
+-- Returns: { name: String, fields: List }
+f:infer_schema path => __formats_infer_schema(path)
+
+-- Read a CSV file into an array of records
+-- Each record is a struct-like object with fields matching the CSV columns
+f:read_csv path => __formats_read_csv(path)
+
+-- Read and parse a JSON file
+-- Returns the parsed JSON data structure
+f:read_json path => __formats_read_json(path)

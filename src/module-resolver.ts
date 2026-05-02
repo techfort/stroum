@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Lexer } from './lexer';
 import { Parser } from './parser';
 import * as AST from './ast';
+import { preprocess, hasDirectives } from './preprocessor';
 
 export interface ResolvedModule {
   filePath: string;
@@ -82,7 +83,14 @@ export class ModuleResolver {
         throw new Error(`[stroum] Module file not found: ${filePath}`);
       }
 
-      const source = fs.readFileSync(filePath, 'utf-8');
+      let source = fs.readFileSync(filePath, 'utf-8');
+      
+      // Preprocess source to expand compile-time directives
+      if (hasDirectives(source)) {
+        const result = preprocess(source, filePath);
+        source = result.source;
+      }
+      
       const lexer = new Lexer(source);
       const tokens = lexer.tokenize();
       const parser = new Parser(tokens);

@@ -8,6 +8,7 @@ import { Parser } from './parser';
 import { Validator } from './validator';
 import { Transpiler } from './transpiler';
 import { ModuleResolver } from './module-resolver';
+import { inferSchema, schemaToStroumSource } from './schema-deriver';
 
 const VERSION = '1.0.0';
 
@@ -38,9 +39,21 @@ ${colorize('USAGE:', 'bright')}
 ${colorize('COMMANDS:', 'bright')}
   ${colorize('compile', 'green')} <file.stm>     Transpile Stroum to TypeScript
   ${colorize('run', 'green')} <file.stm>         Compile and execute a Stroum program
+  ${colorize('derive', 'green')} schema <file>   Infer struct definition from CSV/JSON file
   ${colorize('init', 'green')} [name]            Initialize a new Stroum project
   ${colorize('version', 'green')}                Show version information
   ${colorize('help', 'green')}                   Show this help message
+
+${colorize('RUN OPTIONS:', 'bright')}
+  --trace                 Print a stream trace summary after execution
+
+${colorize('DERIVE OPTIONS:', 'bright')}
+  --name <StructName>     Name for the generated struct (default: inferred from filename)
+  --output <file>         Write output to file instead of stdout
+
+${colorize('DERIVE OPTIONS:', 'bright')}
+  --name <StructName>     Name for the generated struct (default: inferred from filename)
+  --output <file>         Write output to file instead of stdout
 
 ${colorize('COMPILE OPTIONS:', 'bright')}
   -o, --output <file>     Specify output file (default: input.ts)
@@ -60,6 +73,9 @@ ${colorize('EXAMPLES:', 'bright')}
   stroum compile app.stm --ast
   stroum compile app.stm --no-stdlib
   stroum run examples/demo.stm
+  stroum run examples/demo.stm --trace
+  stroum derive schema data/users.csv --name UserRow
+  stroum derive schema data/users.csv --name UserRow
 
 ${colorize('DOCUMENTATION:', 'bright')}
   README.md               Getting started guide
@@ -197,7 +213,8 @@ function compileCommand(args: string[]) {
 }
 
 function runCommand(args: string[]) {
-  const inputFile = args[0];
+  const traceMode = args.includes('--trace');
+  const inputFile = args.find(a => !a.startsWith('--'));
 
   if (!inputFile) {
     console.error(colorize('Error:', 'red') + ' input file required');
@@ -267,6 +284,20 @@ function runCommand(args: string[]) {
     }
     Transpiler.emitRuntime(tempDir);
 
+    // Symlink node_modules to temp directory for dependency resolution
+    const projectRoot = path.join(__dirname, '..');
+    const tempNodeModules = path.join(tempDir, 'node_modules');
+    const projectNodeModules = path.join(projectRoot, 'node_modules');
+    if (fs.existsSync(projectNodeModules) && !fs.existsSync(tempNodeModules)) {
+      fs.symlinkSync(projectNodeModules, tempNodeModules, 'dir');
+    }
+
+    // Copy schema-deriver for runtime schema inference
+    const schemaDeriver = path.join(__dirname, 'schema-deriver.js');
+    if (fs.existsSync(schemaDeriver)) {
+      fs.copyFileSync(schemaDeriver, path.join(tempDir, 'schema-deriver.js'));
+    }
+
     console.log(colorize('✓', 'green') + ' Transpilation successful');
     if (modules.length > 1) console.log(`  ${modules.length - 1} imported module(s) compiled`);
     console.log(`  Runtime: ${colorize(path.join(tempDir, 'stroum-runtime.ts'), 'cyan')}`);
@@ -315,7 +346,10 @@ function runCommand(args: string[]) {
 
   // Run with the original cwd so relative paths in the program resolve correctly.
   // Module imports (require('./stroum-runtime')) resolve relative to the .js file, not cwd.
-  const nodeResult = spawn('node', [outputJs], { stdio: 'inherit' });
+  const nodeResult = spawn('node', [outputJs], {
+    stdio: 'inherit',
+    env: traceMode ? { ...process.env, STROUM_TRACE: '1' } : process.env,
+  });
   nodeResult.on('exit', (code) => {
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');
@@ -405,6 +439,62 @@ stroum run src/hello.stm
   console.log();
 }
 
+function deriveCommand(args: string[]) {
+  if (args.length === 0 || args[0] !== 'schema') {
+    console.error(colorize('Error:', 'red') + ' derive requires a subcommand');
+    console.error('Usage: stroum derive schema <file> [--name <StructName>] [--output <file>]');
+    process.exit(1);
+  }
+
+  const inputFile = args[1];
+  if (!inputFile) {
+    console.error(colorize('Error:', 'red') + ' input file required');
+    console.error('Usage: stroum derive schema <file> [--name <StructName>] [--output <file>]');
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(inputFile)) {
+    console.error(colorize('Error:', 'red') + ` file not found: ${inputFile}`);
+    process.exit(1);
+  }
+
+  // Parse flags
+  let structName: string | null = null;
+  let outputFile: string | null = null;
+
+  for (let i = 2; i < args.length; i++) {
+    if (args[i] === '--name' && i + 1 < args.length) {
+      structName = args[i + 1];
+      i++;
+    } else if (args[i] === '--output' && i + 1 < args.length) {
+      outputFile = args[i + 1];
+      i++;
+    }
+  }
+
+  // Default struct name from filename
+  if (!structName) {
+    const basename = path.basename(inputFile, path.extname(inputFile));
+    // Capitalize first letter and make valid type name
+    structName = basename.charAt(0).toUpperCase() + basename.slice(1).replace(/[^a-zA-Z0-9]/g, '');
+  }
+
+  try {
+    const schema = inferSchema(inputFile, structName);
+    const source = schemaToStroumSource(schema);
+
+    if (outputFile) {
+      fs.writeFileSync(outputFile, source + '\n');
+      console.log(colorize('✓', 'green') + ` Struct definition written to ${outputFile}`);
+    } else {
+      console.log(source);
+    }
+  } catch (err: any) {
+    console.error(colorize('Error:', 'red'), err.message);
+    process.exit(1);
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
   
@@ -423,6 +513,12 @@ function main() {
     
     case 'run':
       runCommand(commandArgs);
+      break;
+        case 'derive':
+      deriveCommand(commandArgs);
+      break;
+        case 'derive':
+      deriveCommand(commandArgs);
       break;
     
     case 'init':

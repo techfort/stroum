@@ -18,6 +18,7 @@ export class StdlibLoader {
     // Default stdlib path relative to this file
     this.stdlibPath = stdlibPath || path.join(__dirname, '../stdlib');
     this.loadCore();
+    this.loadFormats();
   }
 
   /**
@@ -53,6 +54,41 @@ export class StdlibLoader {
     } catch (error) {
       // Failed to parse stdlib - warn but continue
       console.warn(`[stroum] Warning: Failed to parse stdlib/core.stm: ${error}`);
+    }
+  }
+
+  /**
+   * Load the formats stdlib module (CSV/JSON schema inference)
+   */
+  private loadFormats(): void {
+    const formatsPath = path.join(this.stdlibPath, 'formats.stm');
+    
+    if (!fs.existsSync(formatsPath)) {
+      // formats.stm is optional
+      return;
+    }
+
+    try {
+      const source = fs.readFileSync(formatsPath, 'utf-8');
+      const lexer = new Lexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const module = parser.parse();
+
+      // Extract all function declarations
+      for (const decl of module.definitions) {
+        if (decl.type === 'FunctionDeclaration') {
+          const funcDecl = decl as AST.FunctionDeclaration;
+          this.functions.set(funcDecl.name, {
+            name: funcDecl.name,
+            arity: funcDecl.params.length,
+            isRecursive: funcDecl.isRecursive
+          });
+        }
+      }
+    } catch (error) {
+      // Failed to parse stdlib - warn but continue
+      console.warn(`[stroum] Warning: Failed to parse stdlib/formats.stm: ${error}`);
     }
   }
 

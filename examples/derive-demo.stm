@@ -1,0 +1,51 @@
+-- Demo: Runtime Schema Inference from CSV/JSON
+-- This example shows how to infer schemas from data files at runtime
+-- and work with CSV data in Stroum
+
+-- Infer schema from CSV
+f:csv_schema => infer_schema("test-fixtures/sample.csv")
+
+-- Infer schema from JSON
+f:json_schema => infer_schema("test-fixtures/sample.json")
+
+-- Read CSV data
+f:csv_data => read_csv("test-fixtures/sample.csv")
+
+-- Read JSON data
+f:json_data => read_json("test-fixtures/sample.json")
+
+-- Show CSV schema
+f:show_csv_schema =>
+  println("CSV Schema:")
+  csv_schema() |> println
+
+-- Show JSON schema  
+f:show_json_schema =>
+  println("\nJSON Schema:")
+  json_schema() |> println
+
+-- Show CSV data
+f:show_csv_data =>
+  println("\nCSV Data:")
+  csv_data() |> println
+
+-- Show JSON data
+f:show_json_data =>
+  println("\nJSON Data:")
+  json_data() |> println
+
+-- Show first CSV row
+f:show_first =>
+  println("\nFirst CSV Row:")
+  csv_data() |> head |> println
+
+-- Main execution
+f:main =>
+  println("=== Schema Inference Demo ===")
+  show_csv_schema()
+  show_json_schema()
+  show_csv_data()
+  show_json_data()
+  show_first()
+
+main()
