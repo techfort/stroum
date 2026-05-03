@@ -13,3 +13,11 @@ f:read_csv path => __formats_read_csv(path)
 -- Read and parse a JSON file
 -- Returns the parsed JSON data structure
 f:read_json path => __formats_read_json(path)
+
+-- Read a Parquet file into an array of records
+-- Each record is a struct-like object with fields matching the Parquet schema
+f:read_parquet path => __formats_read_parquet(path)
+
+-- Read an Avro file into an array of records
+-- Each record is a struct-like object with fields matching the Avro schema
+f:read_avro path => __formats_read_avro(path)

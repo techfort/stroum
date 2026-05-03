@@ -92,25 +92,38 @@ export class StreamRouter {
     const hasTraceData = this.traceLog.length > 0;
     const hasMetaData = this.metaLog.length > 0;
 
+    // Print clear separator between program output and trace
+    console.error('\n');
+    console.error('═══════════════════════════════════════════════════════════════');
+    console.error('                     STREAM TRACE SUMMARY');
+    console.error('═══════════════════════════════════════════════════════════════');
+
     if (!hasTraceData && !hasMetaData) {
-      console.error('\n\x1b[36m━━━━━━━━━━━━━━━━━━ Stream Trace Summary ━━━━━━━━━━━━━━━━━━\x1b[0m');
-      console.error('  (no stream emissions recorded)');
-      console.error('\x1b[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m\n');
+      console.error('\n  (no stream emissions recorded)\n');
       return;
     }
 
-    console.error('\n\x1b[36m━━━━━━━━━━━━━━━━━━ Stream Trace Summary ━━━━━━━━━━━━━━━━━━\x1b[0m');
-
     // Print meta events if any
     if (hasMetaData) {
-      console.error('\n  \x1b[35m__meta Events\x1b[0m  (Schema Discoveries)');
+      console.error('\n\x1b[1m\x1b[35m┌─ Stream: __meta\x1b[0m \x1b[2m(metadata events)\x1b[0m');
+      console.error('\x1b[35m│\x1b[0m');
       for (let i = 0; i < this.metaLog.length; i++) {
         const event = this.metaLog[i];
+        const isLast = i === this.metaLog.length - 1 && !hasTraceData;
+        const prefix = isLast ? '└─' : '├─';
         if (event.kind === 'schema') {
-          console.error(`    #${i + 1}  ${event.name} (${event.fields.length} fields) from ${event.source}`);
+          console.error(`\x1b[35m${prefix}\x1b[0m Emission #${i + 1}: \x1b[36m${event.name || 'unnamed'}\x1b[0m (${event.fields.length} fields) from \x1b[2m${event.source}\x1b[0m`);
+          const fieldLines = event.fields.map((f: any) => `${f.name}: ${f.type}`);
+          const fieldIndent = isLast ? '   ' : '│  ';
+          for (const fieldLine of fieldLines) {
+            console.error(`\x1b[35m${fieldIndent}\x1b[0m   \x1b[2m${fieldLine}\x1b[0m`);
+          }
         } else {
-          console.error(`    #${i + 1}  ${JSON.stringify(event)}`);
+          console.error(`\x1b[35m${prefix}\x1b[0m Emission #${i + 1}: ${JSON.stringify(event)}`);
         }
+      }
+      if (hasTraceData) {
+        console.error('\x1b[35m└─\x1b[0m');
       }
     }
 
@@ -127,11 +140,20 @@ export class StreamRouter {
         grouped.get(entry.stream)!.push(entry);
       }
 
-      for (const streamName of order) {
+      for (let streamIdx = 0; streamIdx < order.length; streamIdx++) {
+        const streamName = order[streamIdx];
         const entries = grouped.get(streamName)!;
-        console.error(`\n  \x1b[33m"${streamName}"\x1b[0m  (${entries.length} emission${entries.length !== 1 ? 's' : ''})`);
+        const isLastStream = streamIdx === order.length - 1;
+        
+        console.error('');
+        console.error(`\x1b[1m\x1b[33m┌─ Stream: @"${streamName}"\x1b[0m \x1b[2m(${entries.length} emission${entries.length !== 1 ? 's' : ''})\x1b[0m`);
+        console.error('\x1b[33m│\x1b[0m');
+        
         for (let i = 0; i < entries.length; i++) {
           const e = entries[i];
+          const isLastEntry = i === entries.length - 1;
+          const prefix = isLastEntry ? '└─' : '├─';
+          
           let caller: string;
           if (e.fn) {
             const argPairs = Object.entries(e.args)
@@ -141,12 +163,13 @@ export class StreamRouter {
           } else {
             caller = '\x1b[2m[top-level]\x1b[0m';
           }
-          console.error(`    #${i + 1}  ${caller}  →  ${__formatValue(e.value)}`);
+          
+          console.error(`\x1b[33m${prefix}\x1b[0m Emission #${i + 1}: ${caller} → \x1b[36m${__formatValue(e.value)}\x1b[0m`);
         }
       }
     }
 
-    console.error('\n\x1b[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m\n');
+    console.error('\n═══════════════════════════════════════════════════════════════\n');
   }
 }
 

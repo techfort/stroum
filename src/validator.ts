@@ -134,6 +134,11 @@ export class Validator {
       return true;
     }
 
+    // __formats_* names are format-specific primitives, always available
+    if (name.startsWith('__formats_')) {
+      return true;
+    }
+
     // Check local module bindings
     if (this.moduleBindings.has(name)) {
       return true;

@@ -10,6 +10,7 @@ import * as _path from 'path';
 import { exec as _execCb } from 'child_process';
 import { promisify as _promisify } from 'util';
 import * as _Papa from 'papaparse';
+import { __router } from './stroum-runtime';
 
 const _execAsync = _promisify(_execCb);
 
@@ -516,7 +517,21 @@ export async function __formats_infer_schema(path: string): Promise<any> {
   try {
     // Dynamic import to load schema-deriver from same directory
     const { inferSchema } = await import('./schema-deriver.js');
-    const schema = inferSchema(path);
+    
+    // Derive struct name from file path
+    const fileName = path.split('/').pop() || 'data';
+    const structName = fileName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '_');
+    const schema = inferSchema(path, structName);
+    
+    // Emit to __meta stream for observability
+    await __router.emit('__meta', {
+      kind: 'schema',
+      name: schema.name,
+      fields: schema.fields,
+      source: path,
+      timestamp: Date.now()
+    });
+    
     return schema;
   } catch (err: any) {
     throw new Error(`Failed to infer schema from ${path}: ${err.message}`);

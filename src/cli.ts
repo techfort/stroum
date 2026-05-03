@@ -351,8 +351,6 @@ function runCommand(args: string[]) {
     env: traceMode ? { ...process.env, STROUM_TRACE: '1' } : process.env,
   });
   nodeResult.on('exit', (code) => {
-    console.log('');
-    console.log('═══════════════════════════════════════════════════════════════');
     if (code === 0) {
       console.log(colorize('✅ Execution complete!', 'green'));
     } else {

@@ -1,0 +1,23 @@
+-- Formats Demo - Demonstrating CSV, JSON, Parquet, and Avro file reading
+-- This example shows the unified file format support in Stroum
+
+i:formats
+i:io
+
+-- Helper function
+f:show_schema data => debug(data, "Schema")
+
+-- Read CSV file
+read_csv("test-fixtures/sample.csv") |> println
+
+-- Read JSON file  
+read_json("test-fixtures/sample.json") |> println
+
+-- Read Parquet file (add a sample.parquet file to test)
+-- parquet_data => read_parquet("test-fixtures/sample.parquet") |> println
+
+-- Read Avro file (add a sample.avro file to test)
+-- avro_data => read_avro("test-fixtures/sample.avro") |> println
+
+-- Infer schema from any supported file
+infer_schema("test-fixtures/sample.csv") |> debug(_, "CSV Schema")
