@@ -214,7 +214,9 @@ function compileCommand(args: string[]) {
 
 function runCommand(args: string[]) {
   const traceMode = args.includes('--trace');
-  const inputFile = args.find(a => !a.startsWith('--'));
+  const ipcIndex = args.indexOf('--ipc');
+  const ipcSocket = ipcIndex !== -1 ? args[ipcIndex + 1] : null;
+  const inputFile = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--ipc');
 
   if (!inputFile) {
     console.error(colorize('Error:', 'red') + ' input file required');
@@ -346,9 +348,13 @@ function runCommand(args: string[]) {
 
   // Run with the original cwd so relative paths in the program resolve correctly.
   // Module imports (require('./stroum-runtime')) resolve relative to the .js file, not cwd.
+  const nodeEnv = { ...process.env };
+  if (traceMode) nodeEnv.STROUM_TRACE = '1';
+  if (ipcSocket) nodeEnv.STROUM_IPC_SOCKET = ipcSocket;
+
   const nodeResult = spawn('node', [outputJs], {
     stdio: 'inherit',
-    env: traceMode ? { ...process.env, STROUM_TRACE: '1' } : process.env,
+    env: nodeEnv,
   });
   nodeResult.on('exit', (code) => {
     if (code === 0) {

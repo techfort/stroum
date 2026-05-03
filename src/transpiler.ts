@@ -570,7 +570,7 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
     fs.writeFileSync(runtimeOutputPath, runtimeContent);
     
     // Also emit stdlib-runtime.ts
-    const stdlibRuntimePath = path.join(__dirname, 'stdlib', 'stdlib-runtime.ts');
+    const stdlibRuntimePath = path.join(__dirname, '..', 'stdlib', 'stdlib-runtime.ts');
     const stdlibOutputPath = path.join(outputDir, 'stdlib-runtime.ts');
     
     if (fs.existsSync(stdlibRuntimePath)) {

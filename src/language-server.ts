@@ -25,6 +25,7 @@ import * as path from 'path';
 import { Lexer } from './lexer';
 import { Parser } from './parser';
 import { Validator, ValidationIssue } from './validator';
+import { analyzeDataflow } from './dataflow-analyzer';
 
 // ─── Connection ─────────────────────────────────────────────────────────────
 
@@ -150,6 +151,20 @@ function uriToPath(uri: string): string | null {
   }
   return null;
 }
+
+// ─── Custom requests ─────────────────────────────────────────────────────────
+
+connection.onRequest('stroum/dataflow', (params: { uri: string }) => {
+  const doc = documents.get(params.uri);
+  if (!doc) return null;
+  try {
+    const tokens = new Lexer(doc.getText()).tokenize();
+    const ast = new Parser(tokens).parse();
+    return analyzeDataflow(ast);
+  } catch {
+    return null;
+  }
+});
 
 // ─── Event hooks ────────────────────────────────────────────────────────────
 

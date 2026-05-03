@@ -1,0 +1,63 @@
+-- Dataflow Graph Demo: Dual-Source Merge and Multi-Split Pipeline
+--
+-- Graph topology:
+--
+--   [source_temp]  ──┐
+--                    ├──► @raw ──► normalize ──► @pipeline ──► classify ──► @critical
+--   [source_pressure]┘                                                  ├──► @normal
+--                                                                        └──► @low
+
+-- ============================================================================
+-- Source A: temperature sensor (celsius)
+-- ============================================================================
+
+f:emit_temp v => .temp v @ "raw"
+
+-- ============================================================================
+-- Source B: pressure sensor (hPa, scaled to 0–100)
+-- ============================================================================
+
+f:emit_pressure v => .pressure div(v, 10) @ "raw"
+
+-- ============================================================================
+-- Merge node: both sources converge on @"raw"
+-- normalize strips the type tag and forwards a plain value to @"pipeline"
+-- ============================================================================
+
+f:fwd v => v @ "pipeline"
+
+f:normalize reading ~> @"pipeline" =>
+  reading
+  | .temp     => fwd
+  | .pressure => fwd
+
+-- ============================================================================
+-- Split node: classify routes @"pipeline" into three output streams
+-- ============================================================================
+
+f:classify v =>
+  if gt(v, 75) then v @ "critical"
+  else if gt(v, 40) then v @ "normal"
+  else v @ "low"
+
+-- ============================================================================
+-- Primary flow: emit from both independent sources
+-- ============================================================================
+
+emit_temp(88)
+emit_temp(55)
+emit_temp(22)
+emit_pressure(820)
+emit_pressure(500)
+emit_pressure(310)
+
+-- ============================================================================
+-- Stream wiring (contingencies last)
+-- ============================================================================
+
+route @"raw"      |> normalize
+route @"pipeline" |> classify
+
+on @"critical" |> |:v| => println("CRITICAL : #{v}")
+on @"normal"   |> |:v| => println("Normal   : #{v}")
+on @"low"      |> |:v| => println("Low      : #{v}")

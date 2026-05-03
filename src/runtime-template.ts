@@ -1,6 +1,8 @@
 // Stroum Runtime Support
 // This file is emitted alongside transpiled code to provide stream handling utilities
 
+import * as net from 'net';
+
 interface TraceEntry {
   stream: string;
   value: any;
@@ -31,6 +33,26 @@ export class StreamRouter {
   private traceLog: TraceEntry[] = [];
   private metaLog: any[] = [];
   private traceEnabled: boolean = process.env.STROUM_TRACE === '1';
+  private _ipc: net.Socket | null = null;
+
+  connectIPC(socketPath: string): void {
+    try {
+      this._ipc = net.createConnection(socketPath);
+      this._ipc.on('error', () => { this._ipc = null; });
+    } catch {
+      this._ipc = null;
+    }
+  }
+
+  private _ipcWrite(msg: object): void {
+    if (this._ipc) {
+      try { this._ipc.write(JSON.stringify(msg) + '\n'); } catch { this._ipc = null; }
+    }
+  }
+
+  sendExit(code: number = 0): void {
+    this._ipcWrite({ type: 'exit', code });
+  }
 
   // Emit a value to a named stream — async so handler chains fully resolve before continuing
   async emit(streamName: string, value: any, meta?: RouteMeta): Promise<void> {
@@ -42,6 +64,11 @@ export class StreamRouter {
         args: meta?.args ?? {},
         ts: Date.now(),
       });
+    }
+
+    // Forward live events to the IPC socket (skip internal streams)
+    if (!streamName.startsWith('__')) {
+      this._ipcWrite({ type: 'event', stream: streamName, value, fn: meta?.fn ?? null, ts: Date.now() });
     }
 
     // Always emit to __meta stream for metadata events
@@ -179,6 +206,12 @@ export const __router = new StreamRouter();
 // Print summary at program end when tracing is enabled
 if (process.env.STROUM_TRACE === '1') {
   process.on('beforeExit', () => __router.printSummary());
+}
+
+// Auto-connect IPC socket when env var is set
+if (process.env.STROUM_IPC_SOCKET) {
+  __router.connectIPC(process.env.STROUM_IPC_SOCKET);
+  process.on('beforeExit', () => { __router.sendExit(0); });
 }
 
 // Helper to route a value to either a stream or return it
