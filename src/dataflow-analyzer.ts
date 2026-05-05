@@ -237,6 +237,14 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
     }
 
     switch (expr.type) {
+      case 'Identifier': {
+        const id = resolveId(expr);
+        if (id && sourceId && id !== sourceId) {
+          addEdge(sourceId, id, 'pipe');
+        }
+        return id ?? sourceId;
+      }
+
       case 'PipeExpression':
         return walkPipe(expr, sourceId);
 

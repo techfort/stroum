@@ -9,6 +9,8 @@ import { Validator } from './validator';
 import { Transpiler } from './transpiler';
 import { ModuleResolver } from './module-resolver';
 import { inferSchema, schemaToStroumSource } from './schema-deriver';
+import { analyzeDataflow } from './dataflow-analyzer';
+import { startGraphServer } from './graph-server';
 
 const VERSION = '1.0.0';
 
@@ -39,10 +41,15 @@ ${colorize('USAGE:', 'bright')}
 ${colorize('COMMANDS:', 'bright')}
   ${colorize('compile', 'green')} <file.stm>     Transpile Stroum to TypeScript
   ${colorize('run', 'green')} <file.stm>         Compile and execute a Stroum program
+  ${colorize('graph', 'green')} <file.stm>       Open dataflow graph in browser
   ${colorize('derive', 'green')} schema <file>   Infer struct definition from CSV/JSON file
   ${colorize('init', 'green')} [name]            Initialize a new Stroum project
   ${colorize('version', 'green')}                Show version information
   ${colorize('help', 'green')}                   Show this help message
+
+${colorize('GRAPH OPTIONS:', 'bright')}
+  --port <n>              Port to serve on (default: 3847)
+  --no-open               Print URL but do not auto-open browser
 
 ${colorize('RUN OPTIONS:', 'bright')}
   --trace                 Print a stream trace summary after execution
@@ -74,6 +81,8 @@ ${colorize('EXAMPLES:', 'bright')}
   stroum compile app.stm --no-stdlib
   stroum run examples/demo.stm
   stroum run examples/demo.stm --trace
+  stroum graph examples/dataflow-graph.stm
+  stroum graph examples/dataflow-graph.stm --port 4000 --no-open
   stroum derive schema data/users.csv --name UserRow
   stroum derive schema data/users.csv --name UserRow
 
@@ -499,6 +508,101 @@ function deriveCommand(args: string[]) {
   }
 }
 
+async function graphCommand(args: string[]) {
+  const DEFAULT_PORT = 3847;
+  let port = DEFAULT_PORT;
+  let openBrowser = true;
+  let inputFile: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--port' || args[i] === '-p') && i + 1 < args.length) {
+      const parsed = parseInt(args[i + 1], 10);
+      if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
+        console.error(colorize('Error:', 'red') + ` invalid port: ${args[i + 1]}`);
+        process.exit(1);
+      }
+      port = parsed;
+      i++;
+    } else if (args[i] === '--no-open') {
+      openBrowser = false;
+    } else if (!args[i].startsWith('-')) {
+      inputFile = args[i];
+    }
+  }
+
+  if (!inputFile) {
+    console.error(colorize('Error:', 'red') + ' input file required');
+    console.error('Usage: stroum graph <input.stm> [--port <n>] [--no-open]');
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(inputFile)) {
+    console.error(colorize('Error:', 'red') + ` file not found: ${inputFile}`);
+    process.exit(1);
+  }
+
+  try {
+    const absoluteInputFile = path.resolve(inputFile);
+    const stdlibPath = path.join(__dirname, '..', 'stdlib');
+
+    const resolver = new ModuleResolver(stdlibPath);
+    resolver.loadModule(absoluteInputFile);
+    const modules = resolver.getModulesInOrder();
+
+    const mainModule = modules.find(m => m.filePath === absoluteInputFile);
+    if (!mainModule) {
+      console.error(colorize('Error:', 'red') + ' could not locate main module after resolution');
+      process.exit(1);
+    }
+
+    const graph = analyzeDataflow(mainModule.module);
+    const graphJson = JSON.stringify(graph);
+    const filename = path.basename(inputFile);
+
+    const server = await startGraphServer({ port, graphJson, distDir: __dirname, filename });
+    const addr = server.address() as { port: number };
+    const actualPort = addr.port;
+    const url = `http://localhost:${actualPort}`;
+
+    console.log(colorize('✓', 'green') + ` Dataflow graph ready at ${colorize(url, 'cyan')}`);
+    console.log(`  File: ${inputFile}`);
+    console.log(`  Press Ctrl+C to stop`);
+
+    if (openBrowser) {
+      openUrl(url);
+    }
+  } catch (err: any) {
+    if (err.code === 'EADDRINUSE') {
+      console.error(colorize('Error:', 'red') + ` port ${port} is already in use. Try --port <other>`);
+    } else {
+      console.error(colorize('Error:', 'red'), err.message);
+    }
+    process.exit(1);
+  }
+}
+
+function openUrl(url: string): void {
+  const platform = process.platform;
+  // WSL: prefer wslview (wslu package) or powershell.exe fallback
+  const isWsl = platform === 'linux' && !!process.env.WSL_DISTRO_NAME;
+  const cmd = platform === 'darwin'
+    ? 'open'
+    : platform === 'win32'
+    ? 'start'
+    : isWsl
+    ? 'wslview'
+    : 'xdg-open';
+  const child = spawn(cmd, [url], {
+    detached: true,
+    stdio: 'ignore',
+    shell: platform === 'win32',
+  });
+  child.on('error', () => {
+    // Browser open failed silently — user can visit the URL manually
+  });
+  child.unref();
+}
+
 function main() {
   const args = process.argv.slice(2);
   
@@ -518,10 +622,12 @@ function main() {
     case 'run':
       runCommand(commandArgs);
       break;
-        case 'derive':
-      deriveCommand(commandArgs);
+
+    case 'graph':
+      graphCommand(commandArgs);
       break;
-        case 'derive':
+
+    case 'derive':
       deriveCommand(commandArgs);
       break;
     

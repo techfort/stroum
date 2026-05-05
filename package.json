@@ -7,7 +7,8 @@
     "stroum": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc && cp src/runtime-template.ts dist/ && mkdir -p dist/stdlib && cp stdlib/*.ts dist/stdlib/ && node stdlib/build-stdlib.cjs",
+    "build": "tsc && cp src/runtime-template.ts dist/ && mkdir -p dist/stdlib && cp stdlib/*.ts dist/stdlib/ && node stdlib/build-stdlib.cjs && npm run build:graph-webview",
+    "build:graph-webview": "esbuild src/graph-webview.ts --bundle --outfile=dist/graph-webview.js --format=iife --target=es2020 --platform=browser",
     "test": "jest",
     "dev": "ts-node src/cli.ts"
   },
@@ -19,9 +20,14 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/cytoscape": "^3.21.9",
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
     "@types/papaparse": "^5.3.14",
+    "cytoscape": "^3.33.3",
+    "cytoscape-dagre": "^2.5.0",
+    "dagre": "^0.8.5",
+    "esbuild": "^0.25.0",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "ts-node": "^10.0.0",
