@@ -67,6 +67,16 @@ export class Validator {
       this.validateDefinition(def);
     }
 
+    // Validate source declarations
+    for (const sourceDecl of module.sourceDeclarations) {
+      this.validateSourceDeclaration(sourceDecl);
+    }
+
+    // Validate sink declarations
+    for (const sinkDecl of module.sinkDeclarations) {
+      this.validateSinkDeclaration(sinkDecl);
+    }
+
     // Validate primary expressions
     for (const primaryExpr of module.primaryExpressions) {
       this.validateExpression(primaryExpr);
@@ -77,7 +87,44 @@ export class Validator {
       this.validateContingency(contingency);
     }
 
+    if (this.hasOpenEndedSource(module.sourceDeclarations) && !module.runtimeDeclaration) {
+      const location = module.sourceDeclarations[0]?.location ?? module.location;
+      this.addWarning(
+        'Program declares open-ended src: sources but has no run until declaration',
+        location
+      );
+    }
+
     return [...this.errors, ...this.warnings];
+  }
+
+  private validateSourceDeclaration(sourceDecl: AST.SourceDeclaration): void {
+    this.validateExpression(sourceDecl.source);
+  }
+
+  private validateSinkDeclaration(sinkDecl: AST.SinkDeclaration): void {
+    this.validateExpression(sinkDecl.sink);
+  }
+
+  private hasOpenEndedSource(sourceDeclarations: AST.SourceDeclaration[]): boolean {
+    return sourceDeclarations.some(sourceDecl => this.isOpenEndedSource(sourceDecl.source));
+  }
+
+  private isOpenEndedSource(source: AST.Expression): boolean {
+    if (source.type !== 'CallExpression') {
+      return false;
+    }
+
+    return new Set([
+      'watch_file',
+      'watch_dir',
+      'http_server',
+      'kafka',
+      'timer',
+      'cron',
+      'websocket',
+      'redis_stream',
+    ]).has(source.callee);
   }
 
   private processImport(importDecl: AST.ImportDeclaration): void {

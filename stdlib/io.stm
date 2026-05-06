@@ -2,8 +2,10 @@
 -- File and path operations
 
 f:read_file path => __builtin_read_file(path)
+f:file path => __builtin_read_file(path)
 f:write_file path content => __builtin_write_file(path, content)
 f:append_file path content => __builtin_append_file(path, content)
+f:jsonl_file path value => __builtin_append_file(path, "#{to_string(value)}\n")
 f:file_exists path => __builtin_file_exists(path)
 f:delete_file path => __builtin_delete_file(path)
 f:list_dir path => __builtin_list_dir(path)

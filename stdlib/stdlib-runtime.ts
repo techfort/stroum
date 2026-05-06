@@ -395,9 +395,16 @@ export async function __builtin_path_ext(filePath: string): Promise<string> {
 // Watch a file for changes; calls callback(content) on every save.
 // Debounced to 100ms to avoid double-fires from editors.
 // Returns a Promise that never resolves — keeps the process alive.
-export async function __builtin_watch_file(filePath: string, callback: (content: string) => Promise<void>): Promise<void> {
+export async function __builtin_watch_file(filePath: string, callback: (content: string) => Promise<void>, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     let debounce: ReturnType<typeof setTimeout> | null = null;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      watcher.close();
+      resolve();
+    };
     const watcher = _fs.watch(filePath, (eventType) => {
       if (eventType !== 'change') return;
       if (debounce) clearTimeout(debounce);
@@ -411,10 +418,13 @@ export async function __builtin_watch_file(filePath: string, callback: (content:
       }, 100);
     });
     watcher.on('error', reject);
-    process.on('SIGINT', () => { watcher.close(); resolve(); });
-    process.on('SIGTERM', () => { watcher.close(); resolve(); });
+    process.on('SIGINT', finish);
+    process.on('SIGTERM', finish);
+    signal?.addEventListener('abort', finish, { once: true });
   });
 }
+
+export const file = __builtin_read_file;
 
 export const read_file = __builtin_read_file;
 export const write_file = __builtin_write_file;

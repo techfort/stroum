@@ -19,7 +19,7 @@ export class Transpiler {
     this.output = [];
 
     // Emit runtime import
-    this.emit(`import { __router, __route, __matchOutcome, __partialPipe } from './stroum-runtime';`);
+    this.emit(`import { __router, __route, __matchOutcome, __partialPipe, __runtimeControl, __runUntilSignal, __runUntilStream, __runUntilTimeout, __runForever } from './stroum-runtime';`);
     
     // Auto-import stdlib functions (unless --no-stdlib was used)
     if (this.stdlibPath) {
@@ -53,11 +53,12 @@ export class Transpiler {
     }
 
     // Transpile main program
-    if (module.primaryExpressions.length > 0 || module.contingencies.length > 0) {
+    if (module.sourceDeclarations.length > 0 || module.sinkDeclarations.length > 0 || module.primaryExpressions.length > 0 || module.contingencies.length > 0 || module.runtimeDeclaration) {
       this.emit('');
       this.emit('// Main program');
       this.emit('(async () => {');
       this.indent++;
+      this.emit('const __sourceTasks: Promise<any>[] = [];');
 
       // Register on-handlers and route declarations first
       for (const contingency of module.contingencies) {
@@ -68,10 +69,28 @@ export class Transpiler {
         }
       }
 
+      for (const sinkDecl of module.sinkDeclarations) {
+        this.transpileSinkDeclaration(sinkDecl);
+      }
+
+      // Start declared sources after handlers are registered.
+      for (const sourceDecl of module.sourceDeclarations) {
+        this.transpileSourceDeclaration(sourceDecl);
+      }
+
       // Execute primary expressions in order
       for (const primaryExpr of module.primaryExpressions) {
         const expr = this.transpileExpression(primaryExpr);
         this.emit(`await ${expr};`);
+      }
+
+      if (module.runtimeDeclaration) {
+        this.transpileRuntimeDeclaration(module.runtimeDeclaration);
+        this.emit('if (__sourceTasks.length > 0) {');
+        this.indent++;
+        this.emit('await Promise.allSettled(__sourceTasks);');
+        this.indent--;
+        this.emit('}');
       }
 
       this.indent--;
@@ -521,6 +540,83 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
     // Handler.handler is a Lambda, we need to transpile it
     const handlerExpr = this.transpileLambda(handler.handler);
     this.emit(`__router.on("${handler.streamPattern}", ${handlerExpr});`);
+  }
+
+  private transpileSourceDeclaration(sourceDecl: AST.SourceDeclaration): void {
+    const streamArg = this.streamRefToTs(sourceDecl.stream);
+
+    if (sourceDecl.source.type === 'CallExpression' && this.isCallbackSource(sourceDecl.source.callee)) {
+      const args = sourceDecl.source.args.map(a => this.transpileExpression(a));
+      this.emit(`__sourceTasks.push(${sourceDecl.source.callee}(${args.join(', ')}${args.length > 0 ? ', ' : ''}async (__sourceValue) => { await __route(__sourceValue, ${streamArg}, { fn: null, args: {} }); }, __runtimeControl.signal));`);
+      return;
+    }
+
+    const sourceExpr = this.transpileExpression(sourceDecl.source);
+    this.emit(`await __route(${sourceExpr}, ${streamArg}, { fn: null, args: {} });`);
+  }
+
+  private transpileSinkDeclaration(sinkDecl: AST.SinkDeclaration): void {
+    const streamArg = this.streamRefToTs(sinkDecl.stream);
+    const handlerBody = this.transpileSinkHandler(sinkDecl.sink, '__sinkValue');
+    this.emit(`__router.on(${streamArg}, async (__sinkValue) => { await ${handlerBody}; });`);
+  }
+
+  private transpileSinkHandler(sink: AST.Expression, valueVar: string): string {
+    if (sink.type === 'Identifier') {
+      return `${sink.name}(${valueVar})`;
+    }
+
+    if (sink.type === 'CallExpression') {
+      const hasPlaceholder = sink.args.some(a => a.type === 'Identifier' && a.name === '_');
+      if (hasPlaceholder) {
+        const args = sink.args.map(a =>
+          (a.type === 'Identifier' && a.name === '_')
+            ? valueVar
+            : this.transpileExpression(a)
+        );
+        return `${sink.callee}(${args.join(', ')})`;
+      }
+
+      const args = [valueVar, ...sink.args.map(a => this.transpileExpression(a))];
+      return `${sink.callee}(${args.join(', ')})`;
+    }
+
+    if (sink.type === 'PipeExpression') {
+      return `(${this.transpilePipeChainWithInitialValue(sink, valueVar)})`;
+    }
+
+    return `(${this.transpileExpression(sink)})(${valueVar})`;
+  }
+
+  private transpileRuntimeDeclaration(runtimeDecl: AST.RuntimeDeclaration): void {
+    if (runtimeDecl.type === 'RunForeverDeclaration') {
+      this.emit('await __runForever();');
+      return;
+    }
+
+    switch (runtimeDecl.condition.type) {
+      case 'SignalCondition':
+        this.emit('await __runUntilSignal();');
+        return;
+      case 'StreamCondition':
+        this.emit(`await __runUntilStream(${this.streamRefToTs(runtimeDecl.condition.stream)});`);
+        return;
+      case 'TimeoutCondition':
+        this.emit(`await __runUntilTimeout(${this.transpileTimeoutDuration(runtimeDecl.condition.duration)});`);
+        return;
+    }
+  }
+
+  private transpileTimeoutDuration(duration: AST.Expression): string {
+    if (duration.type === 'CallExpression' && duration.callee === 'timeout' && duration.args.length === 1) {
+      return this.transpileExpression(duration.args[0]);
+    }
+
+    return this.transpileExpression(duration);
+  }
+
+  private isCallbackSource(callee: string): boolean {
+    return new Set(['watch_file']).has(callee);
   }
 
   private transpileRouteDeclaration(route: AST.RouteDeclaration): void {

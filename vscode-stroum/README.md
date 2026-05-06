@@ -14,7 +14,7 @@ Syntax highlighting and language support for the Stroum programming language.
 The extension provides syntax highlighting for:
 
 - **Keywords**: `rec`, `on`, `ret`
-- **Sigils**: `f:`, `b:`, `s:`
+- **Sigils**: `f:`, `b:`, `s:`, `i:`, `src:`, `to:`
 - **Operators**: `|>`, `|?>`, `=>`, `->`, `~>`, `@`, `@>`, `PP`, `XX`
 - **Stream names**: `@"stream_name"`
 - **Lambda expressions**: `|:param|`
@@ -90,7 +90,7 @@ on @"errors" |> |:err| => report_error(err)
 ### Highlighted Elements
 
 - **Comments** (gray): `-- This is a comment`
-- **Sigils** (purple/keyword): `f:`, `b:`, `s:`
+- **Sigils** (purple/keyword): `f:`, `b:`, `s:`, `i:`, `src:`, `to:`
 - **Keywords** (purple): `rec`, `on`, `ret`
 - **Operators** (red/blue): `|>`, `=>`, `@`
 - **Strings** (orange): `"success"`, `"errors"`

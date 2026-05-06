@@ -1,5 +1,12 @@
 /// <reference lib="dom" />
 
+import cytoscape from 'cytoscape';
+import dagre from 'dagre';
+import cytoscapeDagre from 'cytoscape-dagre';
+
+void dagre;
+cytoscape.use(cytoscapeDagre);
+
 // Local copies of the shared types (mirrors src/dataflow-analyzer.ts exports)
 type DFNodeKind = 'function' | 'binding' | 'stream' | 'tag' | 'fork';
 type DFEdgeKind = 'pipe' | 'call' | 'emit' | 'handler' | 'parallel' | 'outcome';
@@ -24,9 +31,6 @@ interface DataflowGraph {
   nodes: DFNode[];
   edges: DFEdge[];
 }
-
-// Cytoscape is loaded via vendor script tag before this bundle
-declare const cytoscape: (opts: object) => CyInstance;
 
 interface CyInstance {
   getElementById(id: string): CyElement;

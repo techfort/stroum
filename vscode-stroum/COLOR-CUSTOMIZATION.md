@@ -2,6 +2,8 @@
 
 The Stroum VS Code extension provides syntax highlighting with customizable colors for different language elements.
 
+The extension now ships with a Nord-inspired default palette for Stroum scopes. That default comes from the extension manifest and only affects Stroum token colors, not the overall VS Code workbench theme.
+
 ## Available Scopes
 
 The following TextMate scopes are available for customization:
@@ -15,12 +17,15 @@ The following TextMate scopes are available for customization:
 - `keyword.operator.sigil.function.stroum` - The `f:` prefix
 - `keyword.operator.sigil.binding.stroum` - The `b:` prefix
 - `keyword.operator.sigil.struct.stroum` - The `s:` prefix
+- `keyword.operator.sigil.import.stroum` - The `i:` prefix
+- `keyword.operator.sigil.source.stroum` - The `src:` prefix
+- `keyword.operator.sigil.sink.stroum` - The `to:` prefix
 
 ### Function Calls
 - `entity.name.function.call.stroum` - Function names in expressions (e.g., `add` in `5 |> add(3)`)
 
 ### Other Elements
-- `keyword.control.stroum` - Keywords like `rec`, `on`, `ret`
+- `keyword.control.stroum` - Keywords like `rec`, `on`, `route`, `if`, `then`, `else`, `run`, `until`, `forever`, `signal`
 - `keyword.operator.pipe.stroum` - Pipe operators `|>`, `|?>`
 - `keyword.operator.arrow.stroum` - Arrow operators `=>`, `->`, `~>`
 - `string.quoted.double.stroum` - String literals
@@ -28,6 +33,10 @@ The following TextMate scopes are available for customization:
 - `comment.line.double-dash.stroum` - Comments
 
 ## Customization Methods
+
+### Built-in Default
+
+The built-in Stroum palette is defined in `contributes.configurationDefaults` in the extension manifest. User and workspace `editor.tokenColorCustomizations` still override it.
 
 ### Method 1: VS Code Settings (Recommended)
 
@@ -112,6 +121,89 @@ To apply different colors per theme:
         }
       ]
     }
+  }
+}
+```
+
+### Method 4: Explicit Nord Override
+
+If you want to pin the Nord palette in settings instead of relying on the extension default, use:
+
+```json
+{
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": "entity.name.function.definition.stroum",
+        "settings": {
+          "foreground": "#88C0D0",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "entity.name.function.call.stroum",
+        "settings": {
+          "foreground": "#88C0D0"
+        }
+      },
+      {
+        "scope": "variable.other.binding.stroum",
+        "settings": {
+          "foreground": "#8FBCBB",
+          "fontStyle": "italic"
+        }
+      },
+      {
+        "scope": "entity.name.type.struct.stroum, entity.name.type.stroum",
+        "settings": {
+          "foreground": "#EBCB8B"
+        }
+      },
+      {
+        "scope": "keyword.control.stroum",
+        "settings": {
+          "foreground": "#81A1C1",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "keyword.operator.sigil.function.stroum, keyword.operator.sigil.binding.stroum, keyword.operator.sigil.struct.stroum, keyword.operator.sigil.import.stroum, keyword.operator.sigil.source.stroum, keyword.operator.sigil.sink.stroum",
+        "settings": {
+          "foreground": "#5E81AC"
+        }
+      },
+      {
+        "scope": "keyword.operator.pipe.stroum, keyword.operator.arrow.stroum, keyword.operator.composition.stroum, keyword.operator.stream.stroum, keyword.operator.outcome.stroum, keyword.operator.lambda.stroum",
+        "settings": {
+          "foreground": "#B48EAD"
+        }
+      },
+      {
+        "scope": "string.quoted.double.stroum, string.quoted.module-path.stroum, string.quoted.stream.stroum",
+        "settings": {
+          "foreground": "#A3BE8C"
+        }
+      },
+      {
+        "scope": "constant.numeric.stroum, constant.language.boolean.stroum",
+        "settings": {
+          "foreground": "#D08770"
+        }
+      },
+      {
+        "scope": "comment.line.double-dash.stroum",
+        "settings": {
+          "foreground": "#616E88",
+          "fontStyle": "italic"
+        }
+      },
+      {
+        "scope": "constant.character.escape.stroum",
+        "settings": {
+          "foreground": "#BF616A"
+        }
+      }
+    ]
   }
 }
 ```

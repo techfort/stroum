@@ -53,6 +53,97 @@ describe('Parser', () => {
     });
   });
 
+  describe('source and runtime declarations', () => {
+    it('should parse source declaration after a bare import without treating it as a selective import', () => {
+      const ast = parse('i:timer\nsrc: @"ticks" watch_file("watched.txt")');
+      expect(ast.imports).toHaveLength(1);
+      expect(ast.imports[0].modulePath).toBe('timer');
+      expect(ast.imports[0].imports).toBeNull();
+      expect(ast.sourceDeclarations).toHaveLength(1);
+    });
+
+    it('should parse src declarations interleaved with other declarations', () => {
+      const source = `i:io
+:watched_file "examples/watched.txt"
+src: @"change" watch_file(watched_file)
+f:identity x => x`;
+      const ast = parse(source);
+
+      expect(ast.imports).toHaveLength(1);
+      expect(ast.definitions).toHaveLength(2);
+      expect(ast.sourceDeclarations).toHaveLength(1);
+      expect((ast.definitions[0] as AST.BindingDeclaration).name).toBe('watched_file');
+      expect((ast.definitions[1] as AST.FunctionDeclaration).name).toBe('identity');
+      expect(ast.sourceDeclarations[0].stream).toEqual({ name: 'change', isDynamic: false });
+    });
+
+    it('should parse finite source declaration', () => {
+      const ast = parse('src: @"orders" file("orders.csv")');
+      expect(ast.sourceDeclarations).toHaveLength(1);
+
+      const source = ast.sourceDeclarations[0];
+      expect(source.type).toBe('SourceDeclaration');
+      expect(source.stream).toEqual({ name: 'orders', isDynamic: false });
+      expect(source.source.type).toBe('CallExpression');
+      expect((source.source as AST.CallExpression).callee).toBe('file');
+    });
+
+    it('should parse to declaration in the declaration region', () => {
+      const ast = parse('to: @"orders.clean" persist_order');
+      expect(ast.sinkDeclarations).toHaveLength(1);
+      const sink = ast.sinkDeclarations[0];
+      expect(sink.type).toBe('SinkDeclaration');
+      expect(sink.stream).toEqual({ name: 'orders.clean', isDynamic: false });
+      expect(sink.sink.type).toBe('Identifier');
+      expect((sink.sink as AST.Identifier).name).toBe('persist_order');
+    });
+
+    it('should parse src and to declarations interleaved with other declarations', () => {
+      const source = `i:io
+:watched_file "examples/watched.txt"
+src: @"change" watch_file(watched_file)
+to: @"change" handle_change
+f:identity x => x`;
+      const ast = parse(source);
+
+      expect(ast.sourceDeclarations).toHaveLength(1);
+      expect(ast.sinkDeclarations).toHaveLength(1);
+      expect(ast.definitions).toHaveLength(2);
+    });
+
+    it('should parse open-ended source and run-until-signal declaration', () => {
+      const source = `src: @"changes" watch_file("watched.txt")
+run until signal`;
+      const ast = parse(source);
+
+      expect(ast.sourceDeclarations).toHaveLength(1);
+      expect(ast.runtimeDeclaration?.type).toBe('RunUntilDeclaration');
+      expect((ast.runtimeDeclaration as AST.RunUntilDeclaration).condition.type).toBe('SignalCondition');
+    });
+
+    it('should parse run until stream declaration after contingencies', () => {
+      const source = `src: @"jobs" cron("0 * * * *")
+route @"jobs" |> handle_job
+run until @"shutdown"`;
+      const ast = parse(source);
+
+      expect(ast.contingencies).toHaveLength(1);
+      expect(ast.runtimeDeclaration?.type).toBe('RunUntilDeclaration');
+      const condition = (ast.runtimeDeclaration as AST.RunUntilDeclaration).condition as AST.StreamCondition;
+      expect(condition.type).toBe('StreamCondition');
+      expect(condition.stream).toEqual({ name: 'shutdown', isDynamic: false });
+    });
+
+    it('should parse run until timeout declaration', () => {
+      const ast = parse('run until timeout(5)');
+      expect(ast.runtimeDeclaration?.type).toBe('RunUntilDeclaration');
+      const condition = (ast.runtimeDeclaration as AST.RunUntilDeclaration).condition as AST.TimeoutCondition;
+      expect(condition.type).toBe('TimeoutCondition');
+      expect(condition.duration.type).toBe('CallExpression');
+      expect((condition.duration as AST.CallExpression).callee).toBe('timeout');
+    });
+  });
+
   describe('binding declarations', () => {
     it('should parse binding with colon', () => {
       const ast = parse(':a 42');

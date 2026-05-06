@@ -14,6 +14,46 @@ import {
 
 let client: LanguageClient;
 
+interface DataflowGraph {
+  nodes: unknown[];
+  edges: unknown[];
+}
+
+type WorkspaceLexer = new (source: string) => { tokenize(): unknown[] };
+type WorkspaceParser = new (tokens: unknown[]) => { parse(): unknown };
+type AnalyzeDataflow = (module: unknown) => DataflowGraph;
+
+function resolveWorkspaceModule(relativePath: string): string | undefined {
+  for (const folder of workspace.workspaceFolders ?? []) {
+    const candidate = path.join(folder.uri.fsPath, relativePath);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function analyzeGraphLocally(doc: TextDocument): DataflowGraph | null {
+  const lexerPath = resolveWorkspaceModule(path.join('dist', 'lexer.js'));
+  const parserPath = resolveWorkspaceModule(path.join('dist', 'parser.js'));
+  const analyzerPath = resolveWorkspaceModule(path.join('dist', 'dataflow-analyzer.js'));
+
+  if (!lexerPath || !parserPath || !analyzerPath) {
+    return null;
+  }
+
+  try {
+    const { Lexer } = require(lexerPath) as { Lexer: WorkspaceLexer };
+    const { Parser } = require(parserPath) as { Parser: WorkspaceParser };
+    const { analyzeDataflow } = require(analyzerPath) as { analyzeDataflow: AnalyzeDataflow };
+    const tokens = new Lexer(doc.getText()).tokenize();
+    const ast = new Parser(tokens).parse();
+    return analyzeDataflow(ast);
+  } catch {
+    return null;
+  }
+}
+
 export function activate(context: ExtensionContext): void {
   // ── Language server ────────────────────────────────────────────────────────
   let serverModule: string | undefined;
@@ -122,14 +162,28 @@ class DataflowPanel {
 
   async loadGraph(doc: TextDocument): Promise<void> {
     this._doc = doc;
-    if (!client) return;
+    let graph: DataflowGraph | null = null;
+
     try {
-      const graph = await client.sendRequest('stroum/dataflow', { uri: doc.uri.toString() });
-      if (graph) {
-        void this._panel.webview.postMessage({ type: 'graph', ...(graph as object) });
+      if (client) {
+        graph = await client.sendRequest('stroum/dataflow', { uri: doc.uri.toString() }) as DataflowGraph | null;
       }
     } catch {
-      // Language server may not be ready yet — ignore
+      graph = null;
+    }
+
+    if (!graph) {
+      graph = analyzeGraphLocally(doc);
+    }
+
+    if (graph) {
+      void this._panel.webview.postMessage({ type: 'graph', ...graph });
+    } else {
+      void this._panel.webview.postMessage({
+        type: 'status',
+        state: 'error',
+        message: 'Unable to analyze graph for the current file.',
+      });
     }
   }
 
@@ -232,6 +286,7 @@ class DataflowPanel {
     let html = fs.readFileSync(htmlPath, 'utf8');
     html = html
       .replace(/\{\{nonce\}\}/g, nonce)
+      .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace(/\{\{([^}]+)\}\}/g, (_, rel: string) => res(rel.trim()));
 
     return html;

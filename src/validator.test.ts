@@ -114,6 +114,34 @@ describe('Validator', () => {
       const errors = issues.filter(i => i.type === 'error' && i.message.includes('string literal'));
       expect(errors.length).toBe(0);
     });
+
+    it('should warn for open-ended src declarations without run until', () => {
+      const issues = validate('src: @"changes" watch_file("watched.txt")');
+      const warnings = issues.filter(i => i.type === 'warning');
+      expect(warnings.length).toBeGreaterThan(0);
+      expect(warnings[0].message).toContain('open-ended src: sources');
+      expect(warnings[0].message).toContain('run until');
+    });
+
+    it('should not warn for open-ended src declarations with run until', () => {
+      const issues = validate('src: @"changes" watch_file("watched.txt")\nrun until signal');
+      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('open-ended src: sources'));
+      expect(warnings.length).toBe(0);
+    });
+
+    it('should not warn for finite src declarations without run until', () => {
+      const issues = validate('src: @"orders" file("orders.csv")');
+      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('open-ended src: sources'));
+      expect(warnings.length).toBe(0);
+    });
+
+    it('should validate to declarations without introducing liveness warnings', () => {
+      const issues = validate('f:persist_order order => order\nto: @"orders.clean" persist_order');
+      const errors = issues.filter(i => i.type === 'error');
+      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('open-ended src: sources'));
+      expect(errors.length).toBe(0);
+      expect(warnings.length).toBe(0);
+    });
   });
 
   describe('complex validation', () => {

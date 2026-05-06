@@ -14,9 +14,12 @@ export interface ASTNode {
 export interface Module extends ASTNode {
   type: 'Module';
   imports: ImportDeclaration[];
+  sourceDeclarations: SourceDeclaration[];
+  sinkDeclarations: SinkDeclaration[];
   definitions: Declaration[];
   primaryExpressions: Expression[];
   contingencies: Contingency[];
+  runtimeDeclaration: RuntimeDeclaration | null;
 }
 
 // ============================================================================
@@ -28,6 +31,49 @@ export interface ImportDeclaration extends ASTNode {
   modulePath: string; // Module identifier or file path (e.g., "core" or "./utils.stm")
   imports: string[] | null; // Specific functions to import, or null for all
   alias: string | null; // Optional alias for qualified access (e.g., "as c")
+}
+
+// ============================================================================
+// Sources and Runtime
+// ============================================================================
+
+export interface SourceDeclaration extends ASTNode {
+  type: 'SourceDeclaration';
+  stream: StreamRef;
+  source: Expression;
+}
+
+export interface SinkDeclaration extends ASTNode {
+  type: 'SinkDeclaration';
+  stream: StreamRef;
+  sink: Expression;
+}
+
+export type RuntimeDeclaration = RunUntilDeclaration | RunForeverDeclaration;
+
+export interface RunUntilDeclaration extends ASTNode {
+  type: 'RunUntilDeclaration';
+  condition: RuntimeCondition;
+}
+
+export interface RunForeverDeclaration extends ASTNode {
+  type: 'RunForeverDeclaration';
+}
+
+export type RuntimeCondition = SignalCondition | StreamCondition | TimeoutCondition;
+
+export interface SignalCondition {
+  type: 'SignalCondition';
+}
+
+export interface StreamCondition {
+  type: 'StreamCondition';
+  stream: StreamRef;
+}
+
+export interface TimeoutCondition {
+  type: 'TimeoutCondition';
+  duration: Expression;
 }
 
 // ============================================================================

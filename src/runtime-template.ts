@@ -16,6 +16,74 @@ interface RouteMeta {
   args: Record<string, any>;
 }
 
+class RuntimeControl {
+  private controller = new AbortController();
+
+  get signal(): AbortSignal {
+    return this.controller.signal;
+  }
+
+  stop(): void {
+    if (!this.controller.signal.aborted) {
+      this.controller.abort();
+    }
+  }
+
+  waitForSignal(): Promise<void> {
+    return new Promise(resolve => {
+      const done = () => {
+        process.off('SIGINT', done);
+        process.off('SIGTERM', done);
+        this.stop();
+        resolve();
+      };
+
+      if (this.signal.aborted) {
+        resolve();
+        return;
+      }
+
+      process.once('SIGINT', done);
+      process.once('SIGTERM', done);
+      this.signal.addEventListener('abort', () => resolve(), { once: true });
+    });
+  }
+
+  waitForStream(streamName: string): Promise<void> {
+    return new Promise(resolve => {
+      if (this.signal.aborted) {
+        resolve();
+        return;
+      }
+
+      __router.on(streamName, async () => {
+        this.stop();
+        resolve();
+      });
+      this.signal.addEventListener('abort', () => resolve(), { once: true });
+    });
+  }
+
+  waitForTimeout(ms: number): Promise<void> {
+    return new Promise(resolve => {
+      if (this.signal.aborted) {
+        resolve();
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        this.stop();
+        resolve();
+      }, ms);
+
+      this.signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        resolve();
+      }, { once: true });
+    });
+  }
+}
+
 function __formatValue(v: any): string {
   try {
     const s = JSON.stringify(v);
@@ -202,6 +270,23 @@ export class StreamRouter {
 
 // Global stream router instance
 export const __router = new StreamRouter();
+export const __runtimeControl = new RuntimeControl();
+
+export async function __runUntilSignal(): Promise<void> {
+  await __runtimeControl.waitForSignal();
+}
+
+export async function __runUntilStream(streamName: string): Promise<void> {
+  await __runtimeControl.waitForStream(streamName);
+}
+
+export async function __runUntilTimeout(ms: number): Promise<void> {
+  await __runtimeControl.waitForTimeout(ms);
+}
+
+export async function __runForever(): Promise<void> {
+  await __runtimeControl.waitForSignal();
+}
 
 // Print summary at program end when tracing is enabled
 if (process.env.STROUM_TRACE === '1') {

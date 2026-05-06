@@ -13,6 +13,16 @@ i:"./math.stm" as math
 i:"../shared/helpers.stm" square, cube
 
 -- ============================================================================
+-- Source Declarations and Runtime
+-- ============================================================================
+
+:watched_file "examples/watched.txt"
+src: @"change" watch_file(watched_file)
+src: @"orders" file("orders.csv")
+to: @"change" handle_change
+to: @"orders" persist_order
+
+-- ============================================================================
 -- Function Definitions
 -- ============================================================================
 
@@ -189,6 +199,8 @@ on @"error" |> |:err| =>
   err
     |> report()
     |> alert()
+
+run until signal
 
 -- ============================================================================
 -- Comments and Strings

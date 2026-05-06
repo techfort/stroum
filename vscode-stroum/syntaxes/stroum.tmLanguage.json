@@ -43,7 +43,7 @@
       "patterns": [
         {
           "name": "keyword.control.stroum",
-          "match": "\\b(rec|on|ret)\\b"
+          "match": "\\b(rec|on|ret|route|if|then|else|run|until|forever|signal)\\b"
         }
       ]
     },
@@ -79,6 +79,22 @@
           "captures": {
             "1": { "name": "keyword.operator.sigil.import.stroum" },
             "2": { "name": "string.quoted.module-path.stroum" }
+          }
+        },
+        {
+          "name": "meta.source.definition.stroum",
+          "match": "(src:)(@\"[^\"]+\"|@[a-z_][a-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.operator.sigil.source.stroum" },
+            "2": { "name": "string.quoted.stream.stroum" }
+          }
+        },
+        {
+          "name": "meta.sink.definition.stroum",
+          "match": "(to:)(@\"[^\"]+\"|@[a-z_][a-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.operator.sigil.sink.stroum" },
+            "2": { "name": "string.quoted.stream.stroum" }
           }
         }
       ]

@@ -13,27 +13,36 @@ export class Parser {
   parse(): AST.Module {
     const location = this.currentLocation();
     const imports: AST.ImportDeclaration[] = [];
+    const sourceDeclarations: AST.SourceDeclaration[] = [];
+    const sinkDeclarations: AST.SinkDeclaration[] = [];
     const definitions: AST.Declaration[] = [];
     const contingencies: AST.Contingency[] = [];
     const primaryExpressions: AST.Expression[] = [];
+    let runtimeDeclaration: AST.RuntimeDeclaration | null = null;
 
     // Parse imports (must come first)
     while (!this.isAtEnd() && this.check(TokenType.SIGIL_IMPORT)) {
       imports.push(this.parseImport());
     }
 
-    // Parse definitions (structs, functions, bindings)
-    while (!this.isAtEnd() && this.isDefinition()) {
-      definitions.push(this.parseDefinition());
+    // Parse declarations (sources, structs, functions, bindings)
+    while (!this.isAtEnd() && (this.isSourceDeclaration() || this.isSinkDeclaration() || this.isDefinition())) {
+      if (this.isSourceDeclaration()) {
+        sourceDeclarations.push(this.parseSourceDeclaration());
+      } else if (this.isSinkDeclaration()) {
+        sinkDeclarations.push(this.parseSinkDeclaration());
+      } else {
+        definitions.push(this.parseDefinition());
+      }
     }
 
     // Parse primary expressions (multiple statements allowed)
-    while (!this.isAtEnd() && !this.check(TokenType.ON) && !this.check(TokenType.ROUTE)) {
+    while (!this.isAtEnd() && !this.check(TokenType.ON) && !this.check(TokenType.ROUTE) && !this.isRuntimeDeclaration()) {
       primaryExpressions.push(this.parseExpression());
     }
 
     // Parse contingencies (on handlers and outcome matches at module level)
-    while (!this.isAtEnd()) {
+    while (!this.isAtEnd() && !this.isRuntimeDeclaration()) {
       if (this.check(TokenType.ON)) {
         contingencies.push(this.parseOnHandler());
       } else if (this.check(TokenType.ROUTE)) {
@@ -45,13 +54,24 @@ export class Parser {
       }
     }
 
+    if (!this.isAtEnd()) {
+      runtimeDeclaration = this.parseRuntimeDeclaration();
+    }
+
+    if (!this.isAtEnd()) {
+      this.error('Unexpected tokens after runtime declaration');
+    }
+
     return {
       type: 'Module',
       location,
       imports,
+      sourceDeclarations,
+      sinkDeclarations,
       definitions,
       primaryExpressions,
-      contingencies
+      contingencies,
+      runtimeDeclaration
     };
   }
 
@@ -76,7 +96,7 @@ export class Parser {
 
     // Optional selective imports: add, mul, print (comma-separated)
     let imports: string[] | null = null;
-    if (this.check(TokenType.IDENTIFIER) && !this.checkIdentifier('as')) {
+    if (this.check(TokenType.IDENTIFIER) && !this.checkIdentifier('as') && !this.checkAhead(TokenType.COLON, 1)) {
       imports = [];
       imports.push(this.advance().value);
       
@@ -117,6 +137,90 @@ export class Parser {
       this.check(TokenType.SIGIL_BINDING) ||
       this.check(TokenType.COLON)
     );
+  }
+
+  private isSourceDeclaration(): boolean {
+    return this.checkIdentifier('src') && this.checkNext(TokenType.COLON);
+  }
+
+  private isSinkDeclaration(): boolean {
+    return this.checkIdentifier('to') && this.checkNext(TokenType.COLON);
+  }
+
+  private isRuntimeDeclaration(): boolean {
+    return this.checkIdentifier('run') && this.checkAhead(TokenType.IDENTIFIER, 1) && this.tokens[this.current + 1].value === 'until';
+  }
+
+  private parseSourceDeclaration(): AST.SourceDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.IDENTIFIER, 'Expected src');
+    this.consume(TokenType.COLON, 'Expected : after src');
+
+    const stream = this.parseStreamRef('Expected destination stream after src:');
+    const source = this.parseExpression(false);
+
+    return {
+      type: 'SourceDeclaration',
+      location,
+      stream,
+      source
+    };
+  }
+
+  private parseSinkDeclaration(): AST.SinkDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.IDENTIFIER, 'Expected to');
+    this.consume(TokenType.COLON, 'Expected : after to');
+
+    const stream = this.parseStreamRef('Expected destination stream after to:');
+    const sink = this.parseExpression(false);
+
+    return {
+      type: 'SinkDeclaration',
+      location,
+      stream,
+      sink
+    };
+  }
+
+  private parseRuntimeDeclaration(): AST.RuntimeDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.IDENTIFIER, 'Expected run');
+    this.consumeIdentifier('until', 'Expected until after run');
+
+    if (this.checkIdentifier('forever')) {
+      this.advance();
+      return {
+        type: 'RunForeverDeclaration',
+        location,
+      };
+    }
+
+    let condition: AST.RuntimeCondition;
+
+    if (this.checkIdentifier('signal')) {
+      this.advance();
+      condition = { type: 'SignalCondition' };
+    } else if (this.check(TokenType.AT)) {
+      condition = {
+        type: 'StreamCondition',
+        stream: this.parseStreamRef('Expected stream after run until'),
+      };
+    } else if (this.checkIdentifier('timeout')) {
+      const timeoutExpr = this.parseExpression(false);
+      condition = {
+        type: 'TimeoutCondition',
+        duration: timeoutExpr,
+      };
+    } else {
+      this.error('Expected signal, @"stream", timeout(...), or forever after run until');
+    }
+
+    return {
+      type: 'RunUntilDeclaration',
+      location,
+      condition,
+    };
   }
 
   private parseDefinition(): AST.Declaration {
@@ -862,15 +966,7 @@ export class Parser {
     this.consume(TokenType.ROUTE, 'Expected route');
     
     // Stream pattern: @"pattern" or @ binding
-    this.consume(TokenType.AT, 'Expected @');
-    let streamPattern: AST.StreamRef;
-    if (this.check(TokenType.STRING)) {
-      streamPattern = { name: this.advance().value, isDynamic: false };
-    } else if (this.check(TokenType.IDENTIFIER)) {
-      streamPattern = { name: this.advance().value, isDynamic: true };
-    } else {
-      this.error('Expected stream pattern (string literal or binding identifier)');
-    }
+    const streamPattern = this.parseStreamRef('Expected stream pattern (string literal or binding identifier)');
     
     // Expect |> followed by pipeline
     this.consume(TokenType.PIPE, 'Expected |>');
@@ -907,6 +1003,25 @@ export class Parser {
     if (this.isAtEnd()) return false;
     const token = this.peek();
     return token.type === TokenType.IDENTIFIER && token.value === value;
+  }
+
+  private consumeIdentifier(value: string, message: string): Token {
+    if (this.checkIdentifier(value)) return this.advance();
+    const token = this.peek();
+    throw new Error(
+      `[stroum] error at line ${token.line}, col ${token.column}: ${message} (got ${token.value})`
+    );
+  }
+
+  private parseStreamRef(message: string): AST.StreamRef {
+    this.consume(TokenType.AT, 'Expected @');
+    if (this.check(TokenType.STRING)) {
+      return { name: this.advance().value, isDynamic: false };
+    }
+    if (this.check(TokenType.IDENTIFIER)) {
+      return { name: this.advance().value, isDynamic: true };
+    }
+    this.error(message);
   }
 
   private checkNext(type: TokenType): boolean {

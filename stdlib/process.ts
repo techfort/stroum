@@ -1,5 +1,5 @@
-import { __router, __route, __matchOutcome, __partialPipe } from './stroum-runtime';
-import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, debug, trace, to_string, to_int, to_float, error, try_catch } from './stdlib-runtime';
+import { __router, __route, __matchOutcome, __partialPipe, __runtimeControl, __runUntilSignal, __runUntilStream, __runUntilTimeout, __runForever } from './stroum-runtime';
+import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json } from './stdlib-runtime';
 
 export async function exec(cmd) {
   return await __builtin_exec(cmd);

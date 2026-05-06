@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'nonce-{{nonce}}'; style-src 'unsafe-inline';">
+      content="default-src 'none'; script-src {{cspSource}} 'nonce-{{nonce}}' 'unsafe-eval'; style-src {{cspSource}} 'unsafe-inline';">
   <title>Stroum Dataflow</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -152,10 +152,22 @@
     <ul id="log-list"></ul>
   </section>
 
-  <!-- Vendor scripts — loaded before the compiled webview bundle -->
-  <script nonce="{{nonce}}" src="{{vendor/dagre.min.js}}"></script>
-  <script nonce="{{nonce}}" src="{{vendor/cytoscape.min.js}}"></script>
-  <script nonce="{{nonce}}" src="{{vendor/cytoscape-dagre.min.js}}"></script>
+  <script nonce="{{nonce}}">
+    window.addEventListener('error', function (event) {
+      var status = document.getElementById('status');
+      if (!status) return;
+      status.textContent = 'Error: ' + (event.message || 'webview script failed');
+      status.className = 'status-error';
+    });
+
+    window.addEventListener('unhandledrejection', function (event) {
+      var status = document.getElementById('status');
+      if (!status) return;
+      var reason = event.reason && event.reason.message ? event.reason.message : String(event.reason || 'webview promise failed');
+      status.textContent = 'Error: ' + reason;
+      status.className = 'status-error';
+    });
+  </script>
 
   <!-- Compiled webview bundle -->
   <script nonce="{{nonce}}" src="{{dataflow.js}}"></script>

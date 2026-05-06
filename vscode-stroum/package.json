@@ -2,7 +2,7 @@
   "name": "stroum",
   "displayName": "Stroum",
   "description": "Syntax highlighting and language support for Stroum programming language",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "publisher": "stroum",
   "license": "MIT",
   "repository": {
@@ -53,6 +53,82 @@
         "path": "./syntaxes/stroum.tmLanguage.json"
       }
     ],
+    "configurationDefaults": {
+      "editor.tokenColorCustomizations": {
+        "textMateRules": [
+          {
+            "scope": "entity.name.function.definition.stroum",
+            "settings": {
+              "foreground": "#88C0D0",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "entity.name.function.call.stroum",
+            "settings": {
+              "foreground": "#88C0D0"
+            }
+          },
+          {
+            "scope": "variable.other.binding.stroum",
+            "settings": {
+              "foreground": "#8FBCBB",
+              "fontStyle": "italic"
+            }
+          },
+          {
+            "scope": "entity.name.type.struct.stroum, entity.name.type.stroum",
+            "settings": {
+              "foreground": "#EBCB8B"
+            }
+          },
+          {
+            "scope": "keyword.control.stroum",
+            "settings": {
+              "foreground": "#81A1C1",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "keyword.operator.sigil.function.stroum, keyword.operator.sigil.binding.stroum, keyword.operator.sigil.struct.stroum, keyword.operator.sigil.import.stroum, keyword.operator.sigil.source.stroum, keyword.operator.sigil.sink.stroum",
+            "settings": {
+              "foreground": "#5E81AC"
+            }
+          },
+          {
+            "scope": "keyword.operator.pipe.stroum, keyword.operator.arrow.stroum, keyword.operator.composition.stroum, keyword.operator.stream.stroum, keyword.operator.outcome.stroum, keyword.operator.lambda.stroum",
+            "settings": {
+              "foreground": "#B48EAD"
+            }
+          },
+          {
+            "scope": "string.quoted.double.stroum, string.quoted.module-path.stroum, string.quoted.stream.stroum",
+            "settings": {
+              "foreground": "#A3BE8C"
+            }
+          },
+          {
+            "scope": "constant.numeric.stroum, constant.language.boolean.stroum",
+            "settings": {
+              "foreground": "#D08770"
+            }
+          },
+          {
+            "scope": "comment.line.double-dash.stroum",
+            "settings": {
+              "foreground": "#616E88",
+              "fontStyle": "italic"
+            }
+          },
+          {
+            "scope": "constant.character.escape.stroum",
+            "settings": {
+              "foreground": "#BF616A"
+            }
+          }
+        ]
+      }
+    },
     "snippets": [
       {
         "language": "stroum",

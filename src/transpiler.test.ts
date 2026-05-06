@@ -215,6 +215,50 @@ on @"errors" |> |:e| => log(e)`;
     });
   });
 
+  describe('source and runtime declarations', () => {
+    it('should transpile finite src declaration as a routed emission', () => {
+      const output = transpile('src: @"orders" file("orders.csv")');
+      expect(output).toContain('await __route(await file("orders.csv"), "orders"');
+    });
+
+    it('should transpile to declaration as a generated stream sink', () => {
+      const output = transpile('to: @"orders.clean" persist_order');
+      expect(output).toContain('__router.on("orders.clean", async (__sinkValue) => { await persist_order(__sinkValue); });');
+    });
+
+    it('should transpile to declaration with a built-in stdout sink alias', () => {
+      const output = transpile('to: @"orders.clean" stdout');
+      expect(output).toContain('__router.on("orders.clean", async (__sinkValue) => { await stdout(__sinkValue); });');
+    });
+
+    it('should transpile to declaration with placeholder call', () => {
+      const output = transpile('to: @"audit" append_file("audit.log", _)');
+      expect(output).toContain('__router.on("audit", async (__sinkValue) => { await append_file("audit.log", __sinkValue); });');
+    });
+
+    it('should transpile to declaration with a sink-oriented stdlib alias', () => {
+      const output = transpile('i:io\nto: @"audit" jsonl_file("audit.jsonl", _)');
+      expect(output).toContain('__router.on("audit", async (__sinkValue) => { await jsonl_file("audit.jsonl", __sinkValue); });');
+    });
+
+    it('should transpile watch_file src declaration as a source task', () => {
+      const output = transpile('src: @"changes" watch_file("watched.txt")\nrun until signal');
+      expect(output).toContain('__sourceTasks.push(watch_file("watched.txt", async (__sourceValue) => { await __route(__sourceValue, "changes"');
+      expect(output).toContain('__runtimeControl.signal');
+      expect(output).toContain('await __runUntilSignal();');
+    });
+
+    it('should transpile run until stream declaration', () => {
+      const output = transpile('run until @"shutdown"');
+      expect(output).toContain('await __runUntilStream("shutdown");');
+    });
+
+    it('should transpile run until timeout declaration', () => {
+      const output = transpile('run until timeout(5000)');
+      expect(output).toContain('await __runUntilTimeout(5000);');
+    });
+  });
+
   describe('complete programs', () => {
     it('should transpile simple program', () => {
       const source = `f:double n => multiply(n, 2)

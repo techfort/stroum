@@ -10,6 +10,9 @@ i:timer
 :watched_file "examples/watched.txt"
 :log_file "examples/change-log.txt"
 
+src: @"change" watch_file(watched_file)
+to: @"change" handle_change
+
 -- Build a timestamped log entry from the changed content
 f:format_entry content =>
   "[#{timestamp()}]\n#{content}\n---\n"
@@ -21,16 +24,11 @@ f:notify_speech msg =>
 -- Handle a change: log it to disk, speak the notification, print status
 f:handle_change content =>
   format_entry(content)
-    |> append_file(log_file, _)
+  |> append_file(log_file, _)
   notify_speech("change detected")
   println("[monitor] change logged at #{timestamp()}")
 
--- Route raw file content into the change stream
-f:on_file_change content => content @ "change"
-
 -- Start the monitor (blocks until SIGINT / Ctrl-C)
 println("[monitor] watching examples/watched.txt — edit and save to trigger")
-watch_file(watched_file, |:content| => on_file_change(content))
 
--- React to each change event
-on @"change" |> |:content| => handle_change(content)
+run until signal
