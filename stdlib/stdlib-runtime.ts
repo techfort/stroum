@@ -215,6 +215,14 @@ export async function __builtin_println(value: any): Promise<any> {
   return value;
 }
 
+export async function __builtin_null_sink(_value: any): Promise<void> {}
+
+export function __builtin_log_sink(prefix: string): (value: any) => Promise<void> {
+  return async (value: any) => {
+    console.log(`[${prefix}]`, value);
+  };
+}
+
 export async function __builtin_debug(value: any, label: string): Promise<any> {
   console.log(`[DEBUG ${label}]:`, value);
   return value;
@@ -317,6 +325,8 @@ export const reverse = __builtin_reverse;
 export const sort = __builtin_sort;
 export const is_empty = __builtin_is_empty;
 export const println = __builtin_println;
+export const null_sink = __builtin_null_sink;
+export const log_sink = __builtin_log_sink;
 export const debug = __builtin_debug;
 export const trace = __builtin_trace;
 export const to_string = __builtin_to_string;
@@ -346,6 +356,12 @@ export async function __builtin_append_file(filePath: string, content: string): 
 export function __builtin_file_sink(filePath: string): (content: string) => Promise<void> {
   return async (content: string) => {
     await _fs.promises.appendFile(filePath, String(content), 'utf-8');
+  };
+}
+
+export function __builtin_jsonl_sink(filePath: string): (value: any) => Promise<void> {
+  return async (value: any) => {
+    await _fs.promises.appendFile(filePath, JSON.stringify(value) + '\n', 'utf-8');
   };
 }
 
@@ -436,6 +452,7 @@ export const read_file = __builtin_read_file;
 export const write_file = __builtin_write_file;
 export const append_file = __builtin_append_file;
 export const file_sink = __builtin_file_sink;
+export const jsonl_sink = __builtin_jsonl_sink;
 export const file_exists = __builtin_file_exists;
 export const delete_file = __builtin_delete_file;
 export const list_dir = __builtin_list_dir;

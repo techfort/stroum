@@ -246,6 +246,21 @@ on @"errors" |> |:e| => log(e)`;
       expect(output).toContain('__router.on("log_entry", async (__sinkValue) => { await (file_sink("app.log"))(__sinkValue); });');
     });
 
+    it('should transpile jsonl_sink to declaration as a sink factory call', () => {
+      const output = transpile('i:io\nto: @"events" jsonl_sink("events.jsonl")');
+      expect(output).toContain('__router.on("events", async (__sinkValue) => { await (jsonl_sink("events.jsonl"))(__sinkValue); });');
+    });
+
+    it('should transpile log_sink to declaration as a sink factory call', () => {
+      const output = transpile('to: @"debug" log_sink("app")');
+      expect(output).toContain('__router.on("debug", async (__sinkValue) => { await (log_sink("app"))(__sinkValue); });');
+    });
+
+    it('should transpile null_sink to declaration as an identifier sink', () => {
+      const output = transpile('to: @"discard" null_sink');
+      expect(output).toContain('__router.on("discard", async (__sinkValue) => { await null_sink(__sinkValue); });');
+    });
+
     it('should transpile watch_file src declaration as a source task', () => {
       const output = transpile('src: @"changes" watch_file("watched.txt")\nrun until signal');
       expect(output).toContain('__sourceTasks.push(watch_file("watched.txt", async (__sourceValue) => { await __route(__sourceValue, "changes"');
