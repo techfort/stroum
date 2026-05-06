@@ -566,6 +566,11 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
       return `${sink.name}(${valueVar})`;
     }
 
+    if (sink.type === 'CallExpression' && this.isSinkFactory(sink.callee)) {
+      const args = sink.args.map(a => this.transpileExpression(a));
+      return `(${sink.callee}(${args.join(', ')}))(${valueVar})`;
+    }
+
     if (sink.type === 'CallExpression') {
       const hasPlaceholder = sink.args.some(a => a.type === 'Identifier' && a.name === '_');
       if (hasPlaceholder) {
@@ -617,6 +622,10 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
 
   private isCallbackSource(callee: string): boolean {
     return new Set(['watch_file']).has(callee);
+  }
+
+  private isSinkFactory(callee: string): boolean {
+    return new Set(['file_sink']).has(callee);
   }
 
   private transpileRouteDeclaration(route: AST.RouteDeclaration): void {

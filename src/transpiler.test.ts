@@ -241,6 +241,11 @@ on @"errors" |> |:e| => log(e)`;
       expect(output).toContain('__router.on("audit", async (__sinkValue) => { await jsonl_file("audit.jsonl", __sinkValue); });');
     });
 
+    it('should transpile file_sink to declaration as a sink factory call', () => {
+      const output = transpile('i:io\nto: @"log_entry" file_sink("app.log")');
+      expect(output).toContain('__router.on("log_entry", async (__sinkValue) => { await (file_sink("app.log"))(__sinkValue); });');
+    });
+
     it('should transpile watch_file src declaration as a source task', () => {
       const output = transpile('src: @"changes" watch_file("watched.txt")\nrun until signal');
       expect(output).toContain('__sourceTasks.push(watch_file("watched.txt", async (__sourceValue) => { await __route(__sourceValue, "changes"');

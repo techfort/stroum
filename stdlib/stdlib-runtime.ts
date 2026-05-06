@@ -343,6 +343,12 @@ export async function __builtin_append_file(filePath: string, content: string): 
   return filePath;
 }
 
+export function __builtin_file_sink(filePath: string): (content: string) => Promise<void> {
+  return async (content: string) => {
+    await _fs.promises.appendFile(filePath, String(content), 'utf-8');
+  };
+}
+
 export async function __builtin_file_exists(filePath: string): Promise<boolean> {
   try {
     await _fs.promises.access(filePath);
@@ -429,6 +435,7 @@ export const file = __builtin_read_file;
 export const read_file = __builtin_read_file;
 export const write_file = __builtin_write_file;
 export const append_file = __builtin_append_file;
+export const file_sink = __builtin_file_sink;
 export const file_exists = __builtin_file_exists;
 export const delete_file = __builtin_delete_file;
 export const list_dir = __builtin_list_dir;
