@@ -4,22 +4,9 @@
 :name "world"
 :count 3
 
--- Simple identifier interpolation
-:greeting "Hello #{name}!"
-greeting |> println
+f:main name count x =>
+  println("Hello #{name}!")
+  println("#{count} items processed")
+  println("The value is #{x} and its double is #{mul(x, 2)}")
 
--- Inline arithmetic inside #{}
-:summary "#{count} items processed"
-summary |> println
-
--- Multiple interpolations in one string
-:a 10
-:b 20
-:equation "#{a} + #{b} = #{add(a, b)}"
-equation |> println
-
--- Interpolation inside a function
-f:describe x =>
-  "The value is #{x} and its double is #{mul(x, 2)}"
-
-describe(7) |> println
+main(name, count, 42)

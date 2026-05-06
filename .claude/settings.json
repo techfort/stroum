@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npx esbuild *)",
+      "Read(//home/joe/.vscode-server/**)",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}
