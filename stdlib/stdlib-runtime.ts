@@ -365,6 +365,19 @@ export function __builtin_jsonl_sink(filePath: string): (value: any) => Promise<
   };
 }
 
+export function __builtin_http_sink(url: string): (value: any) => Promise<void> {
+  return async (value: any) => {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(value),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`http_sink: POST ${url} failed with ${res.status} ${res.statusText}`);
+    }
+  };
+}
+
 export async function __builtin_file_exists(filePath: string): Promise<boolean> {
   try {
     await _fs.promises.access(filePath);
@@ -453,6 +466,7 @@ export const write_file = __builtin_write_file;
 export const append_file = __builtin_append_file;
 export const file_sink = __builtin_file_sink;
 export const jsonl_sink = __builtin_jsonl_sink;
+export const http_sink = __builtin_http_sink;
 export const file_exists = __builtin_file_exists;
 export const delete_file = __builtin_delete_file;
 export const list_dir = __builtin_list_dir;

@@ -625,7 +625,7 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
   }
 
   private isSinkFactory(callee: string): boolean {
-    return new Set(['file_sink', 'jsonl_sink', 'log_sink']).has(callee);
+    return new Set(['file_sink', 'jsonl_sink', 'log_sink', 'http_sink']).has(callee);
   }
 
   private transpileRouteDeclaration(route: AST.RouteDeclaration): void {
