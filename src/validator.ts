@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as AST from './ast';
 import { SourceLocation } from './types';
 import { StdlibLoader } from './stdlib-loader';
@@ -98,6 +99,11 @@ export class Validator {
         'Program declares open-ended src: sources but has no run until declaration',
         location
       );
+    }
+
+    // Validate input/output namespace prefixes
+    if (filePath) {
+      this.validateChannelNamespaces(module, filePath);
     }
 
     return [...this.errors, ...this.warnings];
@@ -709,5 +715,110 @@ export class Validator {
     // In practice, the emission contract stores the actual stream name without quotes
     // So we just ensure it's a valid identifier-like string
     return /^[a-z_][a-z0-9_]*$/.test(value);
+  }
+
+  // Warn when input:/output: stream names don't carry the module's own filename as a prefix.
+  // E.g. in triage.stm, @"events" should be @"triage.events".
+  private validateChannelNamespaces(module: AST.Module, filePath: string): void {
+    const basename = path.basename(filePath).replace(/\.stm$/, '');
+    const expectedPrefix = basename + '.';
+
+    for (const decl of module.inputDeclarations) {
+      if (!decl.stream.isDynamic && !decl.stream.name.startsWith(expectedPrefix)) {
+        this.addWarning(
+          `input: stream @"${decl.stream.name}" should be namespaced as @"${expectedPrefix}${decl.stream.name}" to avoid collisions`,
+          decl.location
+        );
+      }
+    }
+
+    for (const decl of module.outputDeclarations) {
+      if (!decl.stream.isDynamic && !decl.stream.name.startsWith(expectedPrefix)) {
+        this.addWarning(
+          `output: stream @"${decl.stream.name}" should be namespaced as @"${expectedPrefix}${decl.stream.name}" to avoid collisions`,
+          decl.location
+        );
+      }
+    }
+  }
+
+  // Cross-module graph validation: checks that all declared input channels have a source
+  // (src: or wire: pointing to them), all declared output channels have a consumer,
+  // and all wire: endpoints reference declared channels.
+  static validateModuleGraph(
+    modules: Array<{ module: AST.Module; filePath: string }>
+  ): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+
+    // Collect all declared inputs, outputs, sources, sinks, and wire endpoints across all modules
+    const declaredInputs = new Map<string, SourceLocation>(); // stream name → location
+    const declaredOutputs = new Map<string, SourceLocation>();
+    const providedSources = new Set<string>(); // src: stream names
+    const providedSinks = new Set<string>();   // to: stream names
+    const wireFroms = new Set<string>();       // wire: from stream names
+    const wireTos = new Set<string>();         // wire: to stream names
+
+    for (const { module } of modules) {
+      for (const d of module.inputDeclarations) {
+        if (!d.stream.isDynamic) declaredInputs.set(d.stream.name, d.location);
+      }
+      for (const d of module.outputDeclarations) {
+        if (!d.stream.isDynamic) declaredOutputs.set(d.stream.name, d.location);
+      }
+      for (const d of module.sourceDeclarations) {
+        if (!d.stream.isDynamic) providedSources.add(d.stream.name);
+      }
+      for (const d of module.sinkDeclarations) {
+        if (!d.stream.isDynamic) providedSinks.add(d.stream.name);
+      }
+      for (const d of module.wireDeclarations) {
+        if (!d.from.isDynamic) wireFroms.add(d.from.name);
+        if (!d.to.isDynamic) wireTos.add(d.to.name);
+      }
+    }
+
+    // 1. Unsatisfied input: declared input has neither a src: nor a wire: -> it
+    for (const [name, location] of declaredInputs) {
+      if (!providedSources.has(name) && !wireTos.has(name)) {
+        issues.push({
+          type: 'warning',
+          message: `input: @"${name}" has no matching src: or wire: declaration — it will never receive data`,
+          location
+        });
+      }
+    }
+
+    // 2. Disconnected output: declared output has neither a to: nor a wire: from it
+    for (const [name, location] of declaredOutputs) {
+      if (!providedSinks.has(name) && !wireFroms.has(name)) {
+        issues.push({
+          type: 'warning',
+          message: `output: @"${name}" has no matching to: or wire: declaration — its data will be discarded`,
+          location
+        });
+      }
+    }
+
+    // 3. Unknown wire endpoints: wire: references a stream not declared as input/output
+    for (const { module } of modules) {
+      for (const d of module.wireDeclarations) {
+        if (!d.from.isDynamic && !declaredOutputs.has(d.from.name)) {
+          issues.push({
+            type: 'warning',
+            message: `wire: source @"${d.from.name}" is not declared as output: in any imported module`,
+            location: d.location
+          });
+        }
+        if (!d.to.isDynamic && !declaredInputs.has(d.to.name)) {
+          issues.push({
+            type: 'warning',
+            message: `wire: destination @"${d.to.name}" is not declared as input: in any imported module`,
+            location: d.location
+          });
+        }
+      }
+    }
+
+    return issues;
   }
 }

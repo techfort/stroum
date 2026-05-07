@@ -53,7 +53,7 @@ export class Transpiler {
     }
 
     // Transpile main program
-    if (module.sourceDeclarations.length > 0 || module.sinkDeclarations.length > 0 || module.primaryExpressions.length > 0 || module.contingencies.length > 0 || module.runtimeDeclaration) {
+    if (module.sourceDeclarations.length > 0 || module.sinkDeclarations.length > 0 || module.wireDeclarations.length > 0 || module.primaryExpressions.length > 0 || module.contingencies.length > 0 || module.runtimeDeclaration) {
       this.emit('');
       this.emit('// Main program');
       this.emit('(async () => {');
@@ -67,6 +67,11 @@ export class Transpiler {
         } else if (contingency.type === 'RouteDeclaration') {
           this.transpileRouteDeclaration(contingency);
         }
+      }
+
+      // Register wire relays (input: declared channels forwarded to other pipeline inputs)
+      for (const wireDecl of module.wireDeclarations) {
+        this.transpileWireDeclaration(wireDecl);
       }
 
       for (const sinkDecl of module.sinkDeclarations) {
@@ -217,6 +222,10 @@ export class Transpiler {
         importPath = './' + importPath;
       }
       
+      // Always emit a side-effect import so the module's IIFE (which registers
+      // router handlers) executes even when no named symbols are referenced directly.
+      this.emit(`import '${importPath}';`);
+
       if (importDecl.alias) {
         // Qualified import: import * as alias from './module'
         this.emit(`import * as ${importDecl.alias} from '${importPath}';`);
@@ -233,7 +242,7 @@ export class Transpiler {
           const tokens = lexer.tokenize();
           const parser = new Parser(tokens);
           const module = parser.parse();
-          
+
           // Extract all function names
           const functions: string[] = [];
           for (const def of module.definitions) {
@@ -241,7 +250,7 @@ export class Transpiler {
               functions.push(def.name);
             }
           }
-          
+
           if (functions.length > 0) {
             this.emit(`import { ${functions.join(', ')} } from '${importPath}';`);
           }
@@ -686,6 +695,12 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
 
   private isSinkFactory(callee: string): boolean {
     return new Set(['file_sink', 'jsonl_sink', 'log_sink', 'http_sink']).has(callee);
+  }
+
+  private transpileWireDeclaration(wire: AST.WireDeclaration): void {
+    const from = this.streamRefToTs(wire.from);
+    const to = this.streamRefToTs(wire.to);
+    this.emit(`__router.on(${from}, async (__wireValue) => { await __route(__wireValue, ${to}, { fn: null, args: {} }); });`);
   }
 
   private transpileRouteDeclaration(route: AST.RouteDeclaration): void {

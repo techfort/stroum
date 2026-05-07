@@ -25,6 +25,7 @@ import * as path from 'path';
 import { Lexer } from './lexer';
 import { Parser } from './parser';
 import { Validator, ValidationIssue } from './validator';
+import { ModuleResolver } from './module-resolver';
 import { preprocess, hasDirectives } from './preprocessor';
 import { analyzeDataflow } from './dataflow-analyzer';
 
@@ -113,6 +114,21 @@ function validateDocument(doc: TextDocument): void {
     } catch (e: any) {
       // Module resolution failures (missing imports, etc.)
       diagnostics.push(makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error));
+    }
+
+    // Phase 3b: Cross-module graph validation (wire:, input:, output: consistency)
+    if (filePath && (module.inputDeclarations.length > 0 || module.outputDeclarations.length > 0 || module.wireDeclarations.length > 0)) {
+      try {
+        const resolver = new ModuleResolver(stdlibPath);
+        resolver.loadModule(filePath);
+        const allModules = resolver.getModulesInOrder();
+        const graphIssues = Validator.validateModuleGraph(allModules);
+        for (const issue of graphIssues) {
+          diagnostics.push(issueToDiagnostic(issue));
+        }
+      } catch {
+        // Gracefully degrade if imports can't be resolved from disk
+      }
     }
   } catch (e: any) {
     diagnostics.push(makeDiagnostic(`Internal error: ${e.message}`, 0, 0, DiagnosticSeverity.Error));

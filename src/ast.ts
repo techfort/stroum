@@ -14,6 +14,9 @@ export interface ASTNode {
 export interface Module extends ASTNode {
   type: 'Module';
   imports: ImportDeclaration[];
+  inputDeclarations: InputDeclaration[];
+  outputDeclarations: OutputDeclaration[];
+  wireDeclarations: WireDeclaration[];
   sourceDeclarations: SourceDeclaration[];
   sinkDeclarations: SinkDeclaration[];
   definitions: Declaration[];
@@ -37,6 +40,22 @@ export interface ImportDeclaration extends ASTNode {
 // ============================================================================
 // Sources and Runtime
 // ============================================================================
+
+export interface InputDeclaration extends ASTNode {
+  type: 'InputDeclaration';
+  stream: StreamRef;
+}
+
+export interface OutputDeclaration extends ASTNode {
+  type: 'OutputDeclaration';
+  stream: StreamRef;
+}
+
+export interface WireDeclaration extends ASTNode {
+  type: 'WireDeclaration';
+  from: StreamRef;
+  to: StreamRef;
+}
 
 export interface SourceDeclaration extends ASTNode {
   type: 'SourceDeclaration';

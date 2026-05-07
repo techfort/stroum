@@ -13,6 +13,9 @@ export class Parser {
   parse(): AST.Module {
     const location = this.currentLocation();
     const imports: AST.ImportDeclaration[] = [];
+    const inputDeclarations: AST.InputDeclaration[] = [];
+    const outputDeclarations: AST.OutputDeclaration[] = [];
+    const wireDeclarations: AST.WireDeclaration[] = [];
     const sourceDeclarations: AST.SourceDeclaration[] = [];
     const sinkDeclarations: AST.SinkDeclaration[] = [];
     const definitions: AST.Declaration[] = [];
@@ -26,9 +29,15 @@ export class Parser {
       imports.push(this.parseImport());
     }
 
-    // Parse declarations (sources, structs, functions, bindings, tests)
-    while (!this.isAtEnd() && (this.isSourceDeclaration() || this.isSinkDeclaration() || this.isDefinition() || this.isTestDeclaration())) {
-      if (this.isSourceDeclaration()) {
+    // Parse declarations (sources, sinks, input/output/wire, structs, functions, bindings, tests)
+    while (!this.isAtEnd() && (this.isSourceDeclaration() || this.isSinkDeclaration() || this.isInputDeclaration() || this.isOutputDeclaration() || this.isWireDeclaration() || this.isDefinition() || this.isTestDeclaration())) {
+      if (this.isInputDeclaration()) {
+        inputDeclarations.push(this.parseInputDeclaration());
+      } else if (this.isOutputDeclaration()) {
+        outputDeclarations.push(this.parseOutputDeclaration());
+      } else if (this.isWireDeclaration()) {
+        wireDeclarations.push(this.parseWireDeclaration());
+      } else if (this.isSourceDeclaration()) {
         sourceDeclarations.push(this.parseSourceDeclaration());
       } else if (this.isSinkDeclaration()) {
         sinkDeclarations.push(this.parseSinkDeclaration());
@@ -69,6 +78,9 @@ export class Parser {
       type: 'Module',
       location,
       imports,
+      inputDeclarations,
+      outputDeclarations,
+      wireDeclarations,
       sourceDeclarations,
       sinkDeclarations,
       definitions,
@@ -151,6 +163,18 @@ export class Parser {
     return this.checkIdentifier('to') && this.checkNext(TokenType.COLON);
   }
 
+  private isInputDeclaration(): boolean {
+    return this.checkIdentifier('input') && this.checkNext(TokenType.COLON);
+  }
+
+  private isOutputDeclaration(): boolean {
+    return this.checkIdentifier('output') && this.checkNext(TokenType.COLON);
+  }
+
+  private isWireDeclaration(): boolean {
+    return this.checkIdentifier('wire') && this.checkNext(TokenType.COLON);
+  }
+
   private isTestDeclaration(): boolean {
     return this.check(TokenType.TEST);
   }
@@ -189,6 +213,32 @@ export class Parser {
       stream,
       sink
     };
+  }
+
+  private parseInputDeclaration(): AST.InputDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.IDENTIFIER, 'Expected input');
+    this.consume(TokenType.COLON, 'Expected : after input');
+    const stream = this.parseStreamRef('Expected stream reference after input:');
+    return { type: 'InputDeclaration', location, stream };
+  }
+
+  private parseOutputDeclaration(): AST.OutputDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.IDENTIFIER, 'Expected output');
+    this.consume(TokenType.COLON, 'Expected : after output');
+    const stream = this.parseStreamRef('Expected stream reference after output:');
+    return { type: 'OutputDeclaration', location, stream };
+  }
+
+  private parseWireDeclaration(): AST.WireDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.IDENTIFIER, 'Expected wire');
+    this.consume(TokenType.COLON, 'Expected : after wire');
+    const from = this.parseStreamRef('Expected source stream after wire:');
+    this.consume(TokenType.OUTPUT_ARROW, 'Expected -> after source stream in wire declaration');
+    const to = this.parseStreamRef('Expected destination stream after -> in wire declaration');
+    return { type: 'WireDeclaration', location, from, to };
   }
 
   private parseTestDeclaration(): AST.TestDeclaration {

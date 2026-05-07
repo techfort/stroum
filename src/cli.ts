@@ -148,12 +148,17 @@ function compileCommand(args: string[]) {
       // Phase 3: Validation (validates all modules together)
       const validator = new Validator(stdlibPath);
       let allIssues = [];
-      
+
       for (const resolvedModule of modules) {
-        const issues = validator.validate(resolvedModule.module);
+        const issues = validator.validate(resolvedModule.module, resolvedModule.filePath);
         allIssues.push(...issues.map(issue => ({ ...issue, file: resolvedModule.filePath })));
       }
-      
+
+      // Cross-module graph validation (wire:, input:, output: consistency)
+      const graphIssues = Validator.validateModuleGraph(modules);
+      const entryFile = modules[modules.length - 1]?.filePath ?? '';
+      allIssues.push(...graphIssues.map(issue => ({ ...issue, file: entryFile })));
+
       // Report errors and warnings
       const errors = allIssues.filter(i => i.type === 'error');
       const warnings = allIssues.filter(i => i.type === 'warning');
