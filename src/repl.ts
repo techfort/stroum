@@ -54,15 +54,25 @@ export function needsContinuation(line: string): boolean {
   return t.endsWith("=>") || t.endsWith("|>") || t.endsWith(",");
 }
 
+// Ensure the expression has a terminal sink so the runtime exits cleanly.
+// If none is present, auto-append |> println so the value is visible.
+const TERMINAL_SINK_RE = /\|>\s*(print|println|stdout|null_sink|log_sink)\s*(\(|$)/;
+
+export function ensureSink(expr: string): string {
+  return TERMINAL_SINK_RE.test(expr) ? expr : `${expr} |> println`;
+}
+
 export async function evalExpression(
   source: string,
   session: ReplSession,
   tempDir: string,
   stdlibPath: string,
 ): Promise<void> {
-  const fullSource = [...session.imports, ...session.declarations, source].join(
-    "\n",
-  );
+  const fullSource = [
+    ...session.imports,
+    ...session.declarations,
+    ensureSink(source),
+  ].join("\n");
 
   const stmFile = path.join(tempDir, "repl-eval.stm");
   const tsFile = path.join(tempDir, "repl-eval.ts");

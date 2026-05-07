@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 import {
+  ensureSink,
   extractName,
   isDeclaration,
   needsContinuation,
@@ -94,6 +95,32 @@ describe("needsContinuation", () => {
     expect(needsContinuation("42 |> print")).toBe(false);
     expect(needsContinuation(":x 5")).toBe(false);
     expect(needsContinuation("")).toBe(false);
+  });
+});
+
+// ─── ensureSink ──────────────────────────────────────────────────────────────
+
+describe("ensureSink", () => {
+  it("appends |> println when no sink is present", () => {
+    expect(ensureSink("is_even(3)")).toBe("is_even(3) |> println");
+    expect(ensureSink("mul(2, 3)")).toBe("mul(2, 3) |> println");
+  });
+
+  it("leaves expressions that already pipe to print unchanged", () => {
+    expect(ensureSink("42 |> print")).toBe("42 |> print");
+    expect(ensureSink("x |> println")).toBe("x |> println");
+  });
+
+  it("leaves expressions piping to other known sinks unchanged", () => {
+    expect(ensureSink("x |> null_sink")).toBe("x |> null_sink");
+    expect(ensureSink("x |> stdout")).toBe("x |> stdout");
+    expect(ensureSink("x |> log_sink")).toBe("x |> log_sink");
+  });
+
+  it("handles sink mid-pipeline (does not double-append)", () => {
+    expect(ensureSink("42 |> print |> null_sink")).toBe(
+      "42 |> print |> null_sink",
+    );
   });
 });
 
