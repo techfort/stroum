@@ -82,37 +82,22 @@ function validateDocument(doc: TextDocument): void {
       }
     }
 
-    // Phase 1: Lex
+    // Phase 1: Lex — collects errors, never throws
     const lexer = new Lexer(processedSource);
-    let tokens: ReturnType<typeof lexer.tokenize>;
-    try {
-      tokens = lexer.tokenize();
-    } catch (e: any) {
-      diagnostics.push(
-        makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error),
-      );
-      connection.sendDiagnostics({ uri, diagnostics });
-      return;
+    const tokens = lexer.tokenize();
+    for (const d of lexer.diagnostics) {
+      diagnostics.push(makeDiagnostic(d.message, d.line - 1, d.column - 1, DiagnosticSeverity.Error));
     }
 
-    // Phase 2: Parse
+    // Phase 2: Parse — collects errors at statement boundaries, never throws
     const parser = new Parser(tokens);
-    let module: ReturnType<typeof parser.parse>;
-    try {
-      module = parser.parse();
-    } catch (e: any) {
-      // Extract line/col from parser error message if present
-      const loc = parseErrorLocation(e.message);
-      diagnostics.push(
-        makeDiagnostic(e.message, loc.line, loc.col, DiagnosticSeverity.Error),
-      );
-      connection.sendDiagnostics({ uri, diagnostics });
-      return;
+    const module = parser.parse();
+    for (const d of parser.diagnostics) {
+      diagnostics.push(makeDiagnostic(d.message, d.line - 1, d.column - 1, DiagnosticSeverity.Error));
     }
 
-    // Phase 3: Validate
-    // Always validate the already-parsed in-memory module.
-    // Pass filePath so the validator can resolve relative imports from disk.
+    // Phase 3: Validate — always runs even if there were lex/parse errors,
+    // so the user sees as many problems as possible in one pass.
     const validator = new Validator(stdlibPath);
     try {
       const issues = validator.validate(module, filePath ?? undefined);
@@ -175,14 +160,6 @@ function makeDiagnostic(
   };
 }
 
-function parseErrorLocation(msg: string): { line: number; col: number } {
-  // Matches "line N, col M" or "Line N:M" patterns in error messages
-  const m =
-    msg.match(/line[:\s]+(\d+)[,\s]+col[:\s]+(\d+)/i) ??
-    msg.match(/(\d+):(\d+)/);
-  if (m) return { line: parseInt(m[1], 10), col: parseInt(m[2], 10) };
-  return { line: 1, col: 1 };
-}
 
 function uriToPath(uri: string): string | null {
   if (uri.startsWith("file://")) {

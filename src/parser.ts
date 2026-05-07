@@ -1,13 +1,62 @@
 import type * as AST from "./ast";
+import { type CompileDiagnostic, ParseError } from "./diagnostics";
 import { Lexer } from "./lexer";
 import { type SourceLocation, type Token, TokenType } from "./types";
 
 export class Parser {
   private tokens: Token[];
   private current: number = 0;
+  private _diagnostics: CompileDiagnostic[] = [];
+
+  get diagnostics(): CompileDiagnostic[] {
+    return this._diagnostics;
+  }
 
   constructor(tokens: Token[]) {
     this.tokens = tokens;
+  }
+
+  private recordError(e: unknown): void {
+    if (e instanceof ParseError) {
+      this._diagnostics.push({
+        stage: "parse",
+        severity: "error",
+        message: e.message,
+        line: e.line,
+        column: e.column,
+      });
+    } else if (e instanceof Error) {
+      const loc = this.currentLocation();
+      this._diagnostics.push({
+        stage: "parse",
+        severity: "error",
+        message: e.message,
+        line: loc.line,
+        column: loc.column,
+      });
+    }
+  }
+
+  // Advance past tokens until the next top-level construct boundary so
+  // subsequent parse iterations have a clean starting point.
+  private synchronize(): void {
+    while (!this.isAtEnd()) {
+      const t = this.peek();
+      if (
+        t.type === TokenType.SIGIL_IMPORT ||
+        t.type === TokenType.SIGIL_FUNCTION ||
+        t.type === TokenType.SIGIL_BINDING ||
+        t.type === TokenType.SIGIL_STRUCT ||
+        t.type === TokenType.REC ||
+        t.type === TokenType.ON ||
+        t.type === TokenType.ROUTE ||
+        t.type === TokenType.TEST ||
+        t.type === TokenType.EOF
+      ) {
+        return;
+      }
+      this.advance();
+    }
   }
 
   parse(): AST.Module {
@@ -23,7 +72,12 @@ export class Parser {
 
     // Parse imports (must come first)
     while (!this.isAtEnd() && this.check(TokenType.SIGIL_IMPORT)) {
-      imports.push(this.parseImport());
+      try {
+        imports.push(this.parseImport());
+      } catch (e) {
+        this.recordError(e);
+        this.synchronize();
+      }
     }
 
     // Parse declarations (sources, structs, functions, bindings, tests)
@@ -34,14 +88,19 @@ export class Parser {
         this.isDefinition() ||
         this.isTestDeclaration())
     ) {
-      if (this.isSourceDeclaration()) {
-        sourceDeclarations.push(this.parseSourceDeclaration());
-      } else if (this.isSinkDeclaration()) {
-        sinkDeclarations.push(this.parseSinkDeclaration());
-      } else if (this.isTestDeclaration()) {
-        testDeclarations.push(this.parseTestDeclaration());
-      } else {
-        definitions.push(this.parseDefinition());
+      try {
+        if (this.isSourceDeclaration()) {
+          sourceDeclarations.push(this.parseSourceDeclaration());
+        } else if (this.isSinkDeclaration()) {
+          sinkDeclarations.push(this.parseSinkDeclaration());
+        } else if (this.isTestDeclaration()) {
+          testDeclarations.push(this.parseTestDeclaration());
+        } else {
+          definitions.push(this.parseDefinition());
+        }
+      } catch (e) {
+        this.recordError(e);
+        this.synchronize();
       }
     }
 
@@ -52,29 +111,44 @@ export class Parser {
       !this.check(TokenType.ROUTE) &&
       !this.isRuntimeDeclaration()
     ) {
-      primaryExpressions.push(this.parseExpression());
+      try {
+        primaryExpressions.push(this.parseExpression());
+      } catch (e) {
+        this.recordError(e);
+        this.synchronize();
+      }
     }
 
     // Parse contingencies (on handlers and outcome matches at module level)
     while (!this.isAtEnd() && !this.isRuntimeDeclaration()) {
-      if (this.check(TokenType.ON)) {
-        contingencies.push(this.parseOnHandler());
-      } else if (this.check(TokenType.ROUTE)) {
-        contingencies.push(this.parseRouteDeclaration());
-      } else if (this.check(TokenType.BAR)) {
-        contingencies.push(this.parseOutcomeMatch());
-      } else {
-        this.error(
-          'Unexpected token at module level. Expected "on" handler or outcome match.',
-        );
+      try {
+        if (this.check(TokenType.ON)) {
+          contingencies.push(this.parseOnHandler());
+        } else if (this.check(TokenType.ROUTE)) {
+          contingencies.push(this.parseRouteDeclaration());
+        } else if (this.check(TokenType.BAR)) {
+          contingencies.push(this.parseOutcomeMatch());
+        } else {
+          this.error(
+            'Unexpected token at module level. Expected "on" handler or outcome match.',
+          );
+        }
+      } catch (e) {
+        this.recordError(e);
+        this.synchronize();
       }
     }
 
     if (!this.isAtEnd()) {
-      runtimeDeclaration = this.parseRuntimeDeclaration();
+      try {
+        runtimeDeclaration = this.parseRuntimeDeclaration();
+      } catch (e) {
+        this.recordError(e);
+        this.synchronize();
+      }
     }
 
-    if (!this.isAtEnd()) {
+    if (!this.isAtEnd() && this._diagnostics.length === 0) {
       this.error("Unexpected tokens after runtime declaration");
     }
 
@@ -728,7 +802,7 @@ export class Parser {
     }
 
     this.error("Expected expression");
-    throw new Error("Unreachable");
+    this.error("Unexpected token in expression");
   }
 
   private parseTaggedExpression(): AST.TaggedExpression {
@@ -1137,9 +1211,7 @@ export class Parser {
   private consumeIdentifier(value: string, message: string): Token {
     if (this.checkIdentifier(value)) return this.advance();
     const token = this.peek();
-    throw new Error(
-      `[stroum] error at line ${token.line}, col ${token.column}: ${message} (got ${token.value})`,
-    );
+    throw new ParseError(`${message} (got ${token.value})`, token.line, token.column);
   }
 
   private parseStreamRef(message: string): AST.StreamRef {
@@ -1187,18 +1259,13 @@ export class Parser {
 
   private consume(type: TokenType, message: string): Token {
     if (this.check(type)) return this.advance();
-
     const token = this.peek();
-    throw new Error(
-      `[stroum] error at line ${token.line}, col ${token.column}: ${message} (got ${token.type})`,
-    );
+    throw new ParseError(`${message} (got ${token.type})`, token.line, token.column);
   }
 
   private error(message: string): never {
     const token = this.peek();
-    throw new Error(
-      `[stroum] error at line ${token.line}, col ${token.column}: ${message}`,
-    );
+    throw new ParseError(message, token.line, token.column);
   }
 
   private currentLocation(): SourceLocation {

@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import type * as AST from "./ast";
+import type { CompileDiagnostic } from "./diagnostics";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { hasDirectives, preprocess } from "./preprocessor";
@@ -9,6 +10,7 @@ export interface ResolvedModule {
   filePath: string;
   module: AST.Module;
   dependencies: string[]; // Paths to imported modules
+  diagnostics: CompileDiagnostic[]; // Lex/parse diagnostics for this file
 }
 
 export class ModuleResolver {
@@ -100,6 +102,11 @@ export class ModuleResolver {
       const parser = new Parser(tokens);
       const module = parser.parse();
 
+      const diagnostics = [
+        ...lexer.diagnostics.map((d) => ({ ...d, filePath })),
+        ...parser.diagnostics.map((d) => ({ ...d, filePath })),
+      ];
+
       // Collect dependencies (all imported module paths)
       const dependencies: string[] = [];
       for (const importDecl of module.imports) {
@@ -111,6 +118,7 @@ export class ModuleResolver {
         filePath,
         module,
         dependencies,
+        diagnostics,
       };
 
       // Cache it

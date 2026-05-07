@@ -7,6 +7,12 @@ describe("Lexer", () => {
     return lexer.tokenize();
   };
 
+  const lexErrors = (source: string) => {
+    const lexer = new Lexer(source);
+    lexer.tokenize();
+    return lexer.diagnostics;
+  };
+
   const tokenTypes = (source: string) => {
     return tokenize(source).map((t) => t.type);
   };
@@ -28,7 +34,7 @@ describe("Lexer", () => {
     });
 
     it("should reject mixed-case identifiers", () => {
-      expect(() => tokenize("myValue")).toThrow(/must be lowercase/);
+      expect(lexErrors("myValue")[0].message).toMatch(/must be lowercase/);
     });
 
     it("should tokenize type names", () => {
@@ -48,8 +54,8 @@ describe("Lexer", () => {
     });
 
     it("should reject invalid type names", () => {
-      expect(() => tokenize("USER")).toThrow(/Invalid type name/);
-      expect(() => tokenize("User_Name")).toThrow(/Invalid type name/);
+      expect(lexErrors("USER")[0].message).toMatch(/Invalid type name/);
+      expect(lexErrors("User_Name")[0].message).toMatch(/Invalid type name/);
     });
   });
 
@@ -205,11 +211,11 @@ describe("Lexer", () => {
     });
 
     it("should error on unterminated strings", () => {
-      expect(() => tokenize('"hello')).toThrow(/Unterminated string/);
+      expect(lexErrors('"hello')[0].message).toMatch(/Unterminated string/);
     });
 
     it("should error on strings with newlines", () => {
-      expect(() => tokenize('"hello\nworld"')).toThrow(/Unterminated string/);
+      expect(lexErrors('"hello\nworld"')[0].message).toMatch(/Unterminated string/);
     });
   });
 
@@ -425,23 +431,20 @@ describe("Lexer", () => {
 
   describe("error handling", () => {
     it("should report line and column numbers", () => {
-      try {
-        tokenize("foo\nbar MyValue");
-      } catch (e: any) {
-        expect(e.message).toMatch(/line 2/);
-      }
+      const errs = lexErrors("foo\nbar MyValue");
+      expect(errs[0].line).toBe(2);
     });
 
     it("should reject = without >", () => {
-      expect(() => tokenize("a = b")).toThrow(/did you mean/);
+      expect(lexErrors("a = b")[0].message).toMatch(/did you mean/);
     });
 
     it("should reject ~ without >", () => {
-      expect(() => tokenize("a ~ b")).toThrow(/did you mean/);
+      expect(lexErrors("a ~ b")[0].message).toMatch(/did you mean/);
     });
 
     it("should reject standalone -", () => {
-      expect(() => tokenize("a - b")).toThrow(/Unexpected/);
+      expect(lexErrors("a - b")[0].message).toMatch(/Unexpected/);
     });
   });
 });

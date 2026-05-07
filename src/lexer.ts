@@ -1,3 +1,4 @@
+import type { CompileDiagnostic } from "./diagnostics";
 import { type Token, TokenType } from "./types";
 
 export class Lexer {
@@ -7,6 +8,11 @@ export class Lexer {
   private column: number = 1;
   private tokens: Token[] = [];
   private indentStack: number[] = [0]; // Track indentation levels
+  private _diagnostics: CompileDiagnostic[] = [];
+
+  get diagnostics(): CompileDiagnostic[] {
+    return this._diagnostics;
+  }
 
   constructor(source: string) {
     this.source = source;
@@ -518,8 +524,6 @@ export class Lexer {
   }
 
   private error(line: number, column: number, message: string): void {
-    throw new Error(
-      `[stroum] error at line ${line}, col ${column}: ${message}`,
-    );
+    this._diagnostics.push({ stage: "lex", severity: "error", message, line, column });
   }
 }
