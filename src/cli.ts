@@ -508,6 +508,132 @@ function deriveCommand(args: string[]) {
   }
 }
 
+function findTestFiles(target: string): string[] {
+  const stat = fs.statSync(target, { throwIfNoEntry: false });
+  if (!stat) return [];
+  if (stat.isFile()) return target.endsWith('.stm') ? [target] : [];
+  const results: string[] = [];
+  for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+    const full = path.join(target, entry.name);
+    if (entry.isDirectory() && entry.name !== 'node_modules') {
+      results.push(...findTestFiles(full));
+    } else if (entry.isFile() && entry.name.endsWith('.test.stm')) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+function runTestFile(inputFile: string): Promise<number> {
+  return new Promise((resolve) => {
+    const os = require('os');
+    const absoluteInputFile = path.resolve(inputFile);
+    const basename = path.basename(inputFile, '.stm');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stroum-test-'));
+    const cleanup = () => { try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {} };
+
+    const stdlibPath = path.join(__dirname, '..', 'stdlib');
+    const outputTs = path.join(tempDir, `${basename}.ts`);
+
+    try {
+      const resolver = new ModuleResolver(stdlibPath);
+      resolver.loadModule(absoluteInputFile);
+      const modules = resolver.getModulesInOrder();
+
+      const validator = new Validator(stdlibPath);
+      for (const mod of modules) {
+        const issues = validator.validate(mod.module, mod.filePath);
+        const errors = issues.filter((i: any) => i.type === 'error');
+        if (errors.length > 0) {
+          for (const e of errors) {
+            console.error(colorize('[error]', 'red') + ` ${path.relative(process.cwd(), mod.filePath)}:line ${e.location.line}, col ${e.location.column}: ${e.message}`);
+          }
+          cleanup();
+          resolve(1);
+          return;
+        }
+      }
+
+      const transpiler = new Transpiler(stdlibPath);
+      for (const mod of modules) {
+        const tsCode = transpiler.transpile(mod.module, mod.filePath);
+        const outFile = mod.filePath === absoluteInputFile
+          ? outputTs
+          : path.join(tempDir, path.basename(mod.filePath, '.stm') + '.ts');
+        fs.writeFileSync(outFile, tsCode);
+      }
+      Transpiler.emitRuntime(tempDir);
+
+      const projectRoot = path.join(__dirname, '..');
+      const tempNodeModules = path.join(tempDir, 'node_modules');
+      const projectNodeModules = path.join(projectRoot, 'node_modules');
+      if (fs.existsSync(projectNodeModules) && !fs.existsSync(tempNodeModules)) {
+        fs.symlinkSync(projectNodeModules, tempNodeModules, 'dir');
+      }
+    } catch (err: any) {
+      console.error(colorize('Error:', 'red'), err.message);
+      cleanup();
+      resolve(1);
+      return;
+    }
+
+    const tscPath = path.join(__dirname, '..', 'node_modules', '.bin', 'tsc');
+    const tscArgs = [
+      outputTs,
+      path.join(tempDir, 'stroum-runtime.ts'),
+      path.join(tempDir, 'stdlib-runtime.ts'),
+      '--outDir', tempDir,
+      '--module', 'commonjs',
+      '--target', 'es2020',
+      '--moduleResolution', 'node',
+      '--esModuleInterop', 'true',
+      '--skipLibCheck',
+    ];
+    const tscResult = require('child_process').spawnSync(tscPath, tscArgs, { encoding: 'utf-8' });
+    if (tscResult.stderr) process.stderr.write(tscResult.stderr);
+
+    const outputJs = path.join(tempDir, `${basename}.js`);
+    if (!fs.existsSync(outputJs)) {
+      console.error(colorize('Error:', 'red') + ' TypeScript compilation failed');
+      cleanup();
+      resolve(1);
+      return;
+    }
+
+    const child = spawn('node', [outputJs], { stdio: 'inherit' });
+    child.on('exit', (code) => { cleanup(); resolve(code ?? 1); });
+    child.on('error', (err) => { console.error(err.message); cleanup(); resolve(1); });
+  });
+}
+
+async function testCommand(args: string[]) {
+  const targets = args.filter(a => !a.startsWith('--'));
+  const searchRoots = targets.length > 0 ? targets : ['.'];
+
+  const testFiles: string[] = [];
+  for (const root of searchRoots) {
+    testFiles.push(...findTestFiles(root));
+  }
+
+  if (testFiles.length === 0) {
+    console.log(colorize('No test files found', 'yellow') + ' (looking for *.test.stm)');
+    process.exit(0);
+  }
+
+  console.log(colorize(`Running ${testFiles.length} test file(s)`, 'cyan'));
+  console.log('');
+
+  let anyFailed = false;
+  for (const file of testFiles) {
+    console.log(colorize(path.relative(process.cwd(), file), 'bright'));
+    const code = await runTestFile(file);
+    if (code !== 0) anyFailed = true;
+    console.log('');
+  }
+
+  process.exit(anyFailed ? 1 : 0);
+}
+
 async function graphCommand(args: string[]) {
   const DEFAULT_PORT = 3847;
   let port = DEFAULT_PORT;
@@ -621,6 +747,10 @@ function main() {
     
     case 'run':
       runCommand(commandArgs);
+      break;
+
+    case 'test':
+      testCommand(commandArgs);
       break;
 
     case 'graph':

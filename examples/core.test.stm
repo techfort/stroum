@@ -1,0 +1,102 @@
+-- Core stdlib tests
+-- Run with: stroum test examples/core.test.stm
+
+-- ============================================================================
+-- Arithmetic
+-- ============================================================================
+
+test "add two positive numbers" =>
+  assert_eq(add(2, 3), 5)
+
+test "sub returns correct difference" =>
+  assert_eq(sub(10, 4), 6)
+
+test "mul by zero is zero" =>
+  assert_eq(mul(99, 0), 0)
+
+test "div produces float result" =>
+  assert_eq(div(10, 4), 2.5)
+
+test "mod gives remainder" =>
+  assert_eq(mod(7, 3), 1)
+
+-- ============================================================================
+-- Comparison and logic
+-- ============================================================================
+
+test "eq detects equality" =>
+  assert(eq(42, 42))
+
+test "neq detects inequality" =>
+  assert(neq(1, 2))
+
+test "gt is true when left is larger" =>
+  assert(gt(5, 3))
+
+test "and is false when either side is false" =>
+  assert(not(and(true, false)))
+
+test "or is true when either side is true" =>
+  assert(or(false, true))
+
+-- ============================================================================
+-- Strings
+-- ============================================================================
+
+test "concat joins two strings" =>
+  assert_eq(concat("hello", " world"), "hello world")
+
+test "upper uppercases a string" =>
+  assert_eq(upper("hello"), "HELLO")
+
+test "lower lowercases a string" =>
+  assert_eq(lower("STROUM"), "stroum")
+
+test "contains finds a substring" =>
+  assert_contains("pipe-first", "pipe")
+
+test "length counts string characters" =>
+  assert_eq(length("abc"), 3)
+
+-- ============================================================================
+-- Lists
+-- ============================================================================
+
+test "head returns first element" =>
+  assert_eq(head([10, 20, 30]), 10)
+
+test "tail returns all but first" =>
+  assert_eq(tail([1, 2, 3]), [2, 3])
+
+test "take returns first n elements" =>
+  assert_eq(take(2, [1, 2, 3, 4]), [1, 2])
+
+test "is_empty is true for empty list" =>
+  assert(is_empty([]))
+
+test "is_empty is false for non-empty list" =>
+  assert(not(is_empty([1])))
+
+-- ============================================================================
+-- Type conversion
+-- ============================================================================
+
+test "to_string converts a number" =>
+  assert_eq(to_string(42), "42")
+
+test "to_int parses an integer string" =>
+  assert_eq(to_int("7"), 7)
+
+-- ============================================================================
+-- Assertions themselves
+-- ============================================================================
+
+test "assert_neq passes when values differ" =>
+  assert_neq("a", "b")
+
+test "assert_raises catches a thrown error" =>
+  assert_raises(|:_| => error("expected failure"))
+
+test "assert_raises fails when inner call does not throw" =>
+  :inner_did_not_throw false
+  assert_raises(|:_| => assert(inner_did_not_throw))

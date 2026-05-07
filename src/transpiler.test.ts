@@ -284,6 +284,26 @@ on @"errors" |> |:e| => log(e)`;
     });
   });
 
+  describe('test declarations', () => {
+    it('should emit a test runner block for a single test', () => {
+      const output = transpile('test "two plus two" =>\n  assert_eq(add(2, 2), 4)');
+      expect(output).toContain('const __testResults');
+      expect(output).toContain('"two plus two"');
+      expect(output).toContain('assert_eq(await add(2, 2), 4)');
+      expect(output).toContain('passed: true');
+      expect(output).toContain('process.exit(1)');
+    });
+
+    it('should emit a separate try/catch block per test', () => {
+      const source = 'test "a" =>\n  assert(true)\ntest "b" =>\n  assert(false)';
+      const output = transpile(source);
+      expect(output).toContain('"a"');
+      expect(output).toContain('"b"');
+      const tryCount = (output.match(/try \{/g) ?? []).length;
+      expect(tryCount).toBe(2);
+    });
+  });
+
   describe('complete programs', () => {
     it('should transpile simple program', () => {
       const source = `f:double n => multiply(n, 2)

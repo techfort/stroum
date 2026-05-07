@@ -332,7 +332,12 @@ export class Lexer {
       this.addToken(TokenType.ROUTE, value);
       return;
     }
-    
+
+    if (value === 'test') {
+      this.addToken(TokenType.TEST, value);
+      return;
+    }
+
     if (value === 'if') {
       this.addToken(TokenType.IF, value);
       return;

@@ -100,6 +100,13 @@ stroum compile input.stm --ast  # Show AST
 stroum run examples/simple-exec.stm
 ```
 
+**Run tests:**
+```bash
+stroum test                        # discover and run all *.test.stm files
+stroum test examples/              # run all tests under a path
+stroum test examples/core.test.stm # run a single test file
+```
+
 **Show version:**
 ```bash
 stroum version
@@ -236,19 +243,46 @@ demo()  -- Output: [DEBUG Result]: 30
 
 ## Testing
 
-The lexer has been tested with:
-- Individual token types
-- Complex expressions
-- The complete syntax sketch from the specification
-- Error cases and edge conditions
+### Built-in test framework
 
-Test coverage includes:
-- Identifiers and type names (case validation)
-- All operators and sigils
-- Literals (numbers, strings, booleans)
-- Comments
-- Indentation tracking
-- Error reporting
+Stroum has a first-class test framework. Test files use the `.test.stm` extension and contain `test` declarations:
+
+```stroum
+test "add two numbers" =>
+  assert_eq(add(2, 3), 5)
+
+test "concat joins strings" =>
+  assert_eq(concat("hello", " world"), "hello world")
+
+test "error is thrown on bad input" =>
+  assert_raises(|:_| => error("boom"))
+```
+
+Run them with:
+```bash
+stroum test                          # all *.test.stm files (recursive)
+stroum test examples/core.test.stm   # single file
+```
+
+**Assertion functions** (available globally, no import needed):
+
+| Function | Description |
+|---|---|
+| `assert(cond)` | Fails if `cond` is falsy |
+| `assert_eq(left, right)` | Structural equality — shows diff on failure |
+| `assert_neq(left, right)` | Fails if values are equal |
+| `assert_contains(collection, item)` | String substring or list membership |
+| `assert_raises(fn)` | Fails if `fn` does not throw |
+
+Each `test` block runs in isolation — bindings in one test are invisible to others.
+
+### Compiler test suite
+
+The compiler's own tests use Jest:
+
+```bash
+npm test
+```
 
 ## Project Structure
 

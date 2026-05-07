@@ -529,8 +529,10 @@ now() |> to_string |> println
 | Strings | `concat`, `length`, `upper`, `lower`, `trim`, `split`, `join`, `starts_with`, `ends_with`, `contains` |
 | Lists | `map`, `filter`, `reduce`, `head`, `tail`, `take`, `drop`, `reverse`, `sort`, `is_empty` |
 | I/O | `print`, `println`, `debug`, `trace` |
+| Sinks | `null_sink`, `log_sink` |
 | Type conversion | `to_string`, `to_int`, `to_float` |
 | Error handling | `error`, `try_catch` |
+| Test assertions | `assert`, `assert_eq`, `assert_neq`, `assert_contains`, `assert_raises` |
 
 ### `io` — `i:io`
 
@@ -549,6 +551,10 @@ now() |> to_string |> println
 | `path_basename` | `path` | File name component |
 | `path_dirname` | `path` | Directory component |
 | `path_ext` | `path` | File extension (e.g. `.txt`) |
+| `watch_file` | `path callback` | Call `callback` with file contents on each change |
+| `file_sink` | `path` | Sink factory — appends each stream value as a string |
+| `jsonl_sink` | `path` | Sink factory — appends each stream value as a JSON line |
+| `http_sink` | `url` | Sink factory — POSTs each stream value as JSON; throws on non-2xx |
 
 ### `process` — `i:process`
 
@@ -579,6 +585,60 @@ now() |> to_string |> println
 ```stroum
 items |> debug(_, "before filter") |> filter(_, positive)
 ```
+
+---
+
+## 15. Testing
+
+Test files use the `.test.stm` extension. Each `test` declaration is a labelled block that runs independently — bindings in one test are invisible to others.
+
+### Basic tests
+
+```stroum
+test "add works" =>
+  assert_eq(add(2, 3), 5)
+
+test "upper converts case" =>
+  assert_eq(upper("hello"), "HELLO")
+```
+
+### Binding locals inside a test
+
+```stroum
+test "pipeline result is correct" =>
+  :raw "  hello world  "
+  :result upper(trim(raw))
+  assert_eq(result, "HELLO WORLD")
+```
+
+### Testing errors
+
+```stroum
+test "error is thrown on bad input" =>
+  assert_raises(|:_| => error("expected"))
+```
+
+### Assertion reference
+
+| Assertion | Passes when |
+|---|---|
+| `assert(cond)` | `cond` is truthy |
+| `assert_eq(left, right)` | `left` and `right` are structurally equal |
+| `assert_neq(left, right)` | `left` and `right` differ |
+| `assert_contains(collection, item)` | string contains substring, or list contains item |
+| `assert_raises(fn)` | calling `fn` throws (sync or async) |
+
+All assertions are available globally — no import needed.
+
+### Running tests
+
+```bash
+stroum test                          # all *.test.stm files (recursive)
+stroum test examples/                # all tests under a path
+stroum test examples/core.test.stm   # single file
+```
+
+Output: `✓`/`✗` per test with a diff on `assert_eq` failures. Exits with code 1 if any test fails.
 
 ---
 
@@ -647,4 +707,8 @@ i:"./file.stm"
 i:io
 i:process
 i:timer
+
+-- Test declaration
+test "label" =>
+  assert_eq(fn(arg), expected)
 ```

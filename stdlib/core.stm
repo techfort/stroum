@@ -92,3 +92,13 @@ f:to_float value => __builtin_to_float(value)
 
 f:error message => __builtin_error(message)
 f:try_catch fn fallback => __builtin_try_catch(fn, fallback)
+
+-- ============================================================================
+-- Test Assertions (always available — no import needed)
+-- ============================================================================
+
+f:assert condition => assert(condition)
+f:assert_eq left right => assert_eq(left, right)
+f:assert_neq left right => assert_neq(left, right)
+f:assert_contains collection item => assert_contains(collection, item)
+f:assert_raises fn => assert_raises(fn)

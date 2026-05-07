@@ -98,6 +98,32 @@ f:identity x => x`;
       expect((sink.sink as AST.Identifier).name).toBe('persist_order');
     });
 
+    it('should parse a test declaration with label and body', () => {
+      const source = `test "add returns correct sum" =>
+  assert_eq(add(2, 3), 5)`;
+      const ast = parse(source);
+      expect(ast.testDeclarations).toHaveLength(1);
+      const td = ast.testDeclarations[0];
+      expect(td.type).toBe('TestDeclaration');
+      expect(td.label).toBe('add returns correct sum');
+      expect(td.body.statements).toHaveLength(1);
+    });
+
+    it('should parse multiple test declarations alongside function definitions', () => {
+      const source = `f:double x => mul(x, 2)
+
+test "double two" =>
+  assert_eq(double(2), 4)
+
+test "double zero" =>
+  assert_eq(double(0), 0)`;
+      const ast = parse(source);
+      expect(ast.definitions).toHaveLength(1);
+      expect(ast.testDeclarations).toHaveLength(2);
+      expect(ast.testDeclarations[0].label).toBe('double two');
+      expect(ast.testDeclarations[1].label).toBe('double zero');
+    });
+
     it('should parse src and to declarations interleaved with other declarations', () => {
       const source = `i:io
 :watched_file "examples/watched.txt"
