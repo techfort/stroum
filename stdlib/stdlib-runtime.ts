@@ -238,6 +238,16 @@ export async function __builtin_println(value: any): Promise<any> {
   return value;
 }
 
+export async function __builtin_null_sink(_value: any): Promise<void> {}
+
+export function __builtin_log_sink(
+  prefix: string,
+): (value: any) => Promise<void> {
+  return async (value: any) => {
+    console.log(`[${prefix}]`, value);
+  };
+}
+
 export async function __builtin_debug(value: any, label: string): Promise<any> {
   console.log(`[DEBUG ${label}]:`, value);
   return value;
@@ -340,6 +350,8 @@ export const reverse = __builtin_reverse;
 export const sort = __builtin_sort;
 export const is_empty = __builtin_is_empty;
 export const println = __builtin_println;
+export const null_sink = __builtin_null_sink;
+export const log_sink = __builtin_log_sink;
 export const debug = __builtin_debug;
 export const trace = __builtin_trace;
 export const to_string = __builtin_to_string;
@@ -347,6 +359,79 @@ export const to_int = __builtin_to_int;
 export const to_float = __builtin_to_float;
 export const error = __builtin_error;
 export const try_catch = __builtin_try_catch;
+
+// ============================================================================
+// Test Assertions (always available — no import needed)
+// ============================================================================
+
+function __deepEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => __deepEqual(v, b[i]));
+  }
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === "object" &&
+    typeof b === "object"
+  ) {
+    const keysA = Object.keys(a),
+      keysB = Object.keys(b);
+    return (
+      keysA.length === keysB.length &&
+      keysA.every((k) => __deepEqual(a[k], b[k]))
+    );
+  }
+  return false;
+}
+
+export function assert(condition: boolean, message?: string): void {
+  if (!condition) throw new Error(message ?? "Assertion failed");
+}
+
+export function assert_eq(left: any, right: any): void {
+  if (!__deepEqual(left, right)) {
+    throw new Error(
+      `assert_eq failed:\n  left:  ${JSON.stringify(left)}\n  right: ${JSON.stringify(right)}`,
+    );
+  }
+}
+
+export function assert_neq(left: any, right: any): void {
+  if (__deepEqual(left, right)) {
+    throw new Error(
+      `assert_neq failed: both sides equal ${JSON.stringify(left)}`,
+    );
+  }
+}
+
+export function assert_contains(collection: any, item: any): void {
+  if (typeof collection === "string" && typeof item === "string") {
+    if (!collection.includes(item)) {
+      throw new Error(
+        `assert_contains failed: "${collection}" does not contain "${item}"`,
+      );
+    }
+  } else if (Array.isArray(collection)) {
+    if (!collection.some((v) => __deepEqual(v, item))) {
+      throw new Error(
+        `assert_contains failed: list does not contain ${JSON.stringify(item)}`,
+      );
+    }
+  } else {
+    throw new Error("assert_contains: first argument must be a string or list");
+  }
+}
+
+export async function assert_raises(fn: () => any): Promise<void> {
+  try {
+    await fn();
+  } catch {
+    return;
+  }
+  throw new Error("assert_raises failed: function did not throw");
+}
 
 // ============================================================================
 // IO Operations (available via i:io)
@@ -370,6 +455,43 @@ export async function __builtin_append_file(
 ): Promise<string> {
   await _fs.promises.appendFile(filePath, content, "utf-8");
   return filePath;
+}
+
+export function __builtin_file_sink(
+  filePath: string,
+): (content: string) => Promise<void> {
+  return async (content: string) => {
+    await _fs.promises.appendFile(filePath, String(content), "utf-8");
+  };
+}
+
+export function __builtin_jsonl_sink(
+  filePath: string,
+): (value: any) => Promise<void> {
+  return async (value: any) => {
+    await _fs.promises.appendFile(
+      filePath,
+      JSON.stringify(value) + "\n",
+      "utf-8",
+    );
+  };
+}
+
+export function __builtin_http_sink(
+  url: string,
+): (value: any) => Promise<void> {
+  return async (value: any) => {
+    const res = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify(value),
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      throw new Error(
+        `http_sink: POST ${url} failed with ${res.status} ${res.statusText}`,
+      );
+    }
+  };
 }
 
 export async function __builtin_file_exists(
@@ -476,6 +598,9 @@ export const file = __builtin_read_file;
 export const read_file = __builtin_read_file;
 export const write_file = __builtin_write_file;
 export const append_file = __builtin_append_file;
+export const file_sink = __builtin_file_sink;
+export const jsonl_sink = __builtin_jsonl_sink;
+export const http_sink = __builtin_http_sink;
 export const file_exists = __builtin_file_exists;
 export const delete_file = __builtin_delete_file;
 export const list_dir = __builtin_list_dir;

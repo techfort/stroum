@@ -262,6 +262,45 @@ on @"errors" |> |:e| => log(e)`;
       );
     });
 
+    it("should transpile file_sink to declaration as a sink factory call", () => {
+      const output = transpile('i:io\nto: @"log_entry" file_sink("app.log")');
+      expect(output).toContain(
+        '__router.on("log_entry", async (__sinkValue) => { await (file_sink("app.log"))(__sinkValue); });',
+      );
+    });
+
+    it("should transpile jsonl_sink to declaration as a sink factory call", () => {
+      const output = transpile(
+        'i:io\nto: @"events" jsonl_sink("events.jsonl")',
+      );
+      expect(output).toContain(
+        '__router.on("events", async (__sinkValue) => { await (jsonl_sink("events.jsonl"))(__sinkValue); });',
+      );
+    });
+
+    it("should transpile log_sink to declaration as a sink factory call", () => {
+      const output = transpile('to: @"debug" log_sink("app")');
+      expect(output).toContain(
+        '__router.on("debug", async (__sinkValue) => { await (log_sink("app"))(__sinkValue); });',
+      );
+    });
+
+    it("should transpile null_sink to declaration as an identifier sink", () => {
+      const output = transpile('to: @"discard" null_sink');
+      expect(output).toContain(
+        '__router.on("discard", async (__sinkValue) => { await null_sink(__sinkValue); });',
+      );
+    });
+
+    it("should transpile http_sink to declaration as a sink factory call", () => {
+      const output = transpile(
+        'i:io\nto: @"events" http_sink("https://api.example.com/ingest")',
+      );
+      expect(output).toContain(
+        '__router.on("events", async (__sinkValue) => { await (http_sink("https://api.example.com/ingest"))(__sinkValue); });',
+      );
+    });
+
     it("should transpile watch_file src declaration as a source task", () => {
       const output = transpile(
         'src: @"changes" watch_file("watched.txt")\nrun until signal',
@@ -281,6 +320,29 @@ on @"errors" |> |:e| => log(e)`;
     it("should transpile run until timeout declaration", () => {
       const output = transpile("run until timeout(5000)");
       expect(output).toContain("await __runUntilTimeout(5000);");
+    });
+  });
+
+  describe("test declarations", () => {
+    it("should emit a test runner block for a single test", () => {
+      const output = transpile(
+        'test "two plus two" =>\n  assert_eq(add(2, 2), 4)',
+      );
+      expect(output).toContain("const __testResults");
+      expect(output).toContain('"two plus two"');
+      expect(output).toContain("assert_eq(await add(2, 2), 4)");
+      expect(output).toContain("passed: true");
+      expect(output).toContain("process.exit(1)");
+    });
+
+    it("should emit a separate try/catch block per test", () => {
+      const source =
+        'test "a" =>\n  assert(true)\ntest "b" =>\n  assert(false)';
+      const output = transpile(source);
+      expect(output).toContain('"a"');
+      expect(output).toContain('"b"');
+      const tryCount = (output.match(/try \{/g) ?? []).length;
+      expect(tryCount).toBe(2);
     });
   });
 

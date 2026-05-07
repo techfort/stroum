@@ -1,6 +1,10 @@
 -- File Monitor Example
--- Watches a file for changes, speaks a notification via `say`,
--- and appends each changed snapshot to a log file.
+-- Watches a file for changes, formats each snapshot into a timestamped log
+-- entry, appends it to a log file, and speaks a notification.
+--
+-- Stream topology:
+--   @"change"    — raw file content emitted by the watcher
+--   @"log_entry" — formatted entry ready to be written to disk
 
 i:io
 i:process
@@ -10,10 +14,10 @@ i:timer
 :watched_file "examples/watched.txt"
 :log_file "examples/change-log.txt"
 
-src: @"change" watch_file(watched_file)
-to: @"change" handle_change
+src: @"change"    watch_file(watched_file)
+to:  @"log_entry" file_sink(log_file)
 
--- Build a timestamped log entry from the changed content
+-- Build a timestamped log entry from the raw content
 f:format_entry content =>
   "[#{timestamp()}]\n#{content}\n---\n"
 
@@ -21,14 +25,15 @@ f:format_entry content =>
 f:notify_speech msg =>
   exec("powershell.exe -NoProfile -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('#{msg}')\"")
 
--- Handle a change: log it to disk, speak the notification, print status
+-- Format the raw change, emit the result to @"log_entry", then notify
 f:handle_change content =>
-  format_entry(content)
-  |> append_file(log_file, _)
+  format_entry(content) @ "log_entry"
   notify_speech("change detected")
   println("[monitor] change logged at #{timestamp()}")
 
 -- Start the monitor (blocks until SIGINT / Ctrl-C)
 println("[monitor] watching examples/watched.txt — edit and save to trigger")
+
+route @"change" |> handle_change
 
 run until signal

@@ -73,6 +73,8 @@ f:is_empty list => __builtin_is_empty(list)
 f:print value => __builtin_print(value)
 f:println value => __builtin_println(value)
 f:stdout value => __builtin_println(value)
+f:null_sink value => __builtin_null_sink(value)
+f:log_sink prefix => __builtin_log_sink(prefix)
 f:debug value label => __builtin_debug(value, label)
 f:trace message => __builtin_trace(message)
 
@@ -90,3 +92,13 @@ f:to_float value => __builtin_to_float(value)
 
 f:error message => __builtin_error(message)
 f:try_catch fn fallback => __builtin_try_catch(fn, fallback)
+
+-- ============================================================================
+-- Test Assertions (always available — no import needed)
+-- ============================================================================
+
+f:assert condition => assert(condition)
+f:assert_eq left right => assert_eq(left, right)
+f:assert_neq left right => assert_neq(left, right)
+f:assert_contains collection item => assert_contains(collection, item)
+f:assert_raises fn => assert_raises(fn)

@@ -16,6 +16,7 @@ export class Parser {
     const sourceDeclarations: AST.SourceDeclaration[] = [];
     const sinkDeclarations: AST.SinkDeclaration[] = [];
     const definitions: AST.Declaration[] = [];
+    const testDeclarations: AST.TestDeclaration[] = [];
     const contingencies: AST.Contingency[] = [];
     const primaryExpressions: AST.Expression[] = [];
     let runtimeDeclaration: AST.RuntimeDeclaration | null = null;
@@ -25,17 +26,20 @@ export class Parser {
       imports.push(this.parseImport());
     }
 
-    // Parse declarations (sources, structs, functions, bindings)
+    // Parse declarations (sources, structs, functions, bindings, tests)
     while (
       !this.isAtEnd() &&
       (this.isSourceDeclaration() ||
         this.isSinkDeclaration() ||
-        this.isDefinition())
+        this.isDefinition() ||
+        this.isTestDeclaration())
     ) {
       if (this.isSourceDeclaration()) {
         sourceDeclarations.push(this.parseSourceDeclaration());
       } else if (this.isSinkDeclaration()) {
         sinkDeclarations.push(this.parseSinkDeclaration());
+      } else if (this.isTestDeclaration()) {
+        testDeclarations.push(this.parseTestDeclaration());
       } else {
         definitions.push(this.parseDefinition());
       }
@@ -81,6 +85,7 @@ export class Parser {
       sourceDeclarations,
       sinkDeclarations,
       definitions,
+      testDeclarations,
       primaryExpressions,
       contingencies,
       runtimeDeclaration,
@@ -166,6 +171,10 @@ export class Parser {
     return this.checkIdentifier("to") && this.checkNext(TokenType.COLON);
   }
 
+  private isTestDeclaration(): boolean {
+    return this.check(TokenType.TEST);
+  }
+
   private isRuntimeDeclaration(): boolean {
     return (
       this.checkIdentifier("run") &&
@@ -205,6 +214,24 @@ export class Parser {
       location,
       stream,
       sink,
+    };
+  }
+
+  private parseTestDeclaration(): AST.TestDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.TEST, "Expected test");
+    const label = this.consume(
+      TokenType.STRING,
+      "Expected test label string after test",
+    ).value;
+    this.consume(TokenType.ARROW, "Expected => after test label");
+    const body = this.parseIndentedBody();
+
+    return {
+      type: "TestDeclaration",
+      location,
+      label,
+      body,
     };
   }
 

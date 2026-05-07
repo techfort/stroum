@@ -47,6 +47,7 @@ export enum TokenType {
   REC = "REC", // rec
   ON = "ON", // on
   ROUTE = "ROUTE", // route
+  TEST = "TEST", // test
   IF = "IF", // if
   THEN = "THEN", // then
   ELSE = "ELSE", // else
