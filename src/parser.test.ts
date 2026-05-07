@@ -10,6 +10,14 @@ describe("Parser", () => {
     return parser.parse();
   };
 
+  const parseErrors = (source: string) => {
+    const lexer = new Lexer(source);
+    const tokens = lexer.tokenize();
+    const parser = new Parser(tokens);
+    parser.parse();
+    return parser.diagnostics;
+  };
+
   describe("function declarations", () => {
     it("should parse simple function", () => {
       const ast = parse("f:double n => multiply(n, 2)");
@@ -640,22 +648,23 @@ op(3)`;
   });
 
   describe("error handling", () => {
-    it("should throw on unexpected token", () => {
-      expect(() => parse("f:foo => }")).toThrow(/error/);
+    it("should record a diagnostic for unexpected token instead of throwing", () => {
+      const errs = parseErrors("f:foo => }");
+      expect(errs.length).toBeGreaterThan(0);
+      expect(errs[0].stage).toBe("parse");
+      expect(errs[0].severity).toBe("error");
     });
 
-    it("should throw on missing parameter", () => {
-      expect(() => parse("f:foo => bar(")).toThrow(/error/);
+    it("should record a diagnostic for missing closing paren", () => {
+      const errs = parseErrors("f:foo => bar(");
+      expect(errs.length).toBeGreaterThan(0);
     });
 
-    it("should provide line and column in errors", () => {
-      expect(() => {
-        parse("f:foo bar\nbaz"); // Missing => after parameters
-      }).toThrow(/line \d+/);
-
-      expect(() => {
-        parse("f:foo bar\nbaz");
-      }).toThrow(/col \d+/);
+    it("should provide structured line and column on parse errors", () => {
+      const errs = parseErrors("f:foo bar\nbaz"); // Missing => after parameters
+      expect(errs.length).toBeGreaterThan(0);
+      expect(errs[0].line).toBeGreaterThanOrEqual(1);
+      expect(errs[0].column).toBeGreaterThanOrEqual(1);
     });
   });
 });

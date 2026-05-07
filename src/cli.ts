@@ -5,9 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { analyzeDataflow } from "./dataflow-analyzer";
 import { startGraphServer } from "./graph-server";
-import { Lexer } from "./lexer";
 import { ModuleResolver } from "./module-resolver";
-import { Parser } from "./parser";
 import { inferSchema, schemaToStroumSource } from "./schema-deriver";
 import { Transpiler } from "./transpiler";
 import { Validator } from "./validator";
@@ -152,6 +150,9 @@ function compileCommand(args: string[]) {
     }
 
     // Phase 3: Validation (validates all modules together)
+    // Collect lex/parse diagnostics from all modules
+    const parseDiagnostics = modules.flatMap((m) => m.diagnostics);
+
     const validator = new Validator(stdlibPath);
     const allIssues = [];
 
@@ -162,7 +163,16 @@ function compileCommand(args: string[]) {
       );
     }
 
-    // Report errors and warnings
+    // Report lex/parse errors first
+    for (const d of parseDiagnostics) {
+      const location = d.filePath
+        ? `${path.relative(process.cwd(), d.filePath)}:`
+        : "";
+      const tag = d.severity === "error" ? colorize("[error]", "red") : colorize("[warning]", "yellow");
+      console.error(`${tag} ${location}line ${d.line}, col ${d.column}: ${d.message}`);
+    }
+
+    // Report validation warnings and errors
     const errors = allIssues.filter((i) => i.type === "error");
     const warnings = allIssues.filter((i) => i.type === "warning");
 
@@ -186,10 +196,10 @@ function compileCommand(args: string[]) {
       );
     }
 
-    if (errors.length > 0) {
-      console.error(
-        colorize(`Validation failed with ${errors.length} error(s)`, "red"),
-      );
+    const parseErrors = parseDiagnostics.filter((d) => d.severity === "error");
+    if (parseErrors.length > 0 || errors.length > 0) {
+      const total = parseErrors.length + errors.length;
+      console.error(colorize(`Compilation failed with ${total} error(s)`, "red"));
       process.exit(1);
     }
 
@@ -296,11 +306,20 @@ function runCommand(args: string[]) {
     resolver.loadModule(absoluteInputFile);
     const modules = resolver.getModulesInOrder();
 
+    // Collect lex/parse diagnostics
+    const parseDiagnostics = modules.flatMap((m) => m.diagnostics);
+
     const validator = new Validator(stdlibPath);
     const allIssues: any[] = [];
     for (const mod of modules) {
       const issues = validator.validate(mod.module, mod.filePath);
       allIssues.push(...issues.map((i: any) => ({ ...i, file: mod.filePath })));
+    }
+
+    for (const d of parseDiagnostics) {
+      const loc = d.filePath ? `${path.relative(process.cwd(), d.filePath)}:` : "";
+      const tag = d.severity === "error" ? colorize("[error]", "red") : colorize("[warning]", "yellow");
+      console.error(`${tag} ${loc}line ${d.line}, col ${d.column}: ${d.message}`);
     }
 
     const errors = allIssues.filter((i: any) => i.type === "error");
@@ -320,10 +339,11 @@ function runCommand(args: string[]) {
           ` ${loc}line ${e.location.line}, col ${e.location.column}: ${e.message}`,
       );
     }
-    if (errors.length > 0) {
-      console.error(
-        colorize(`Validation failed with ${errors.length} error(s)`, "red"),
-      );
+
+    const parseErrors = parseDiagnostics.filter((d) => d.severity === "error");
+    if (parseErrors.length > 0 || errors.length > 0) {
+      const total = parseErrors.length + errors.length;
+      console.error(colorize(`Compilation failed with ${total} error(s)`, "red"));
       cleanup();
       process.exit(1);
     }
