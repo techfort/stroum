@@ -1,16 +1,9 @@
 #!/usr/bin/env node
 
-/**
- * Stroum Language Server (Phase 1 — Diagnostics)
- *
- * Implements the Language Server Protocol over stdio.
- * On every document open/change/save it runs the full
- * Stroum compiler pipeline (preprocessor → lexer → parser → validator)
- * and publishes diagnostics to the client.
- */
-
-import * as path from "path";
+import * as path from "node:path";
 import {
+  type CompletionItem,
+  type CompletionParams,
   createConnection,
   type Diagnostic,
   DiagnosticSeverity,
@@ -22,30 +15,35 @@ import {
   TextDocuments,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import type * as AST from "./ast";
 import { analyzeDataflow } from "./dataflow-analyzer";
 import { Lexer } from "./lexer";
+import { getCompletions } from "./lsp-completion";
 import { Parser } from "./parser";
 import { hasDirectives, preprocess } from "./preprocessor";
 import { type ValidationIssue, Validator } from "./validator";
 
-// ─── Connection ─────────────────────────────────────────────────────────────
+// ─── Connection ──────────────────────────────────────────────────────────────
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
 let hasConfigCapability = false;
-let hasWorkspaceFolderCapability = false;
+
+// Cache last-parsed AST per document URI for completion requests
+const astCache = new Map<string, AST.Module>();
 
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   const caps = params.capabilities;
-  hasConfigCapability = !!(caps.workspace && caps.workspace.configuration);
-  hasWorkspaceFolderCapability = !!(
-    caps.workspace && caps.workspace.workspaceFolders
-  );
+  hasConfigCapability = !!caps.workspace?.configuration;
 
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
+      completionProvider: {
+        resolveProvider: false,
+        triggerCharacters: [":", "|", " "],
+      },
     },
   };
 });
@@ -59,7 +57,7 @@ connection.onInitialized(() => {
   }
 });
 
-// ─── Diagnostics ────────────────────────────────────────────────────────────
+// ─── Diagnostics ─────────────────────────────────────────────────────────────
 
 function validateDocument(doc: TextDocument): void {
   const uri = doc.uri;
@@ -67,57 +65,60 @@ function validateDocument(doc: TextDocument): void {
   const source = doc.getText();
   const diagnostics: Diagnostic[] = [];
 
-  // Resolve stdlib path relative to this file (dist/language-server.js → ../stdlib)
   const stdlibPath = path.join(__dirname, "..", "stdlib");
 
   try {
-    // Phase 0: Preprocess (#derive and other directives)
     let processedSource = source;
     if (hasDirectives(source)) {
       try {
         processedSource = preprocess(source, filePath ?? undefined).source;
       } catch {
-        // If preprocessing fails (e.g. missing CSV), fall through with raw source
-        // so the lexer/parser can still provide partial diagnostics.
+        // Fall through with raw source so lex/parse still provide diagnostics
       }
     }
 
-    // Phase 1: Lex — collects errors, never throws
     const lexer = new Lexer(processedSource);
     const tokens = lexer.tokenize();
     for (const d of lexer.diagnostics) {
-      diagnostics.push(makeDiagnostic(d.message, d.line - 1, d.column - 1, DiagnosticSeverity.Error));
+      diagnostics.push(
+        makeDiagnostic(
+          d.message,
+          d.line - 1,
+          d.column - 1,
+          DiagnosticSeverity.Error,
+        ),
+      );
     }
 
-    // Phase 2: Parse — collects errors at statement boundaries, never throws
     const parser = new Parser(tokens);
     const module = parser.parse();
+    astCache.set(uri, module);
+
     for (const d of parser.diagnostics) {
-      diagnostics.push(makeDiagnostic(d.message, d.line - 1, d.column - 1, DiagnosticSeverity.Error));
+      diagnostics.push(
+        makeDiagnostic(
+          d.message,
+          d.line - 1,
+          d.column - 1,
+          DiagnosticSeverity.Error,
+        ),
+      );
     }
 
-    // Phase 3: Validate — always runs even if there were lex/parse errors,
-    // so the user sees as many problems as possible in one pass.
     const validator = new Validator(stdlibPath);
     try {
       const issues = validator.validate(module, filePath ?? undefined);
       for (const issue of issues) {
         diagnostics.push(issueToDiagnostic(issue));
       }
-    } catch (e: any) {
-      // Module resolution failures (missing imports, etc.)
-      diagnostics.push(
-        makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error),
-      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      diagnostics.push(makeDiagnostic(msg, 0, 0, DiagnosticSeverity.Error));
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     diagnostics.push(
-      makeDiagnostic(
-        `Internal error: ${e.message}`,
-        0,
-        0,
-        DiagnosticSeverity.Error,
-      ),
+      makeDiagnostic(`Internal error: ${msg}`, 0, 0, DiagnosticSeverity.Error),
     );
   }
 
@@ -129,7 +130,6 @@ function issueToDiagnostic(issue: ValidationIssue): Diagnostic {
     issue.type === "error"
       ? DiagnosticSeverity.Error
       : DiagnosticSeverity.Warning;
-  // Stroum locations are 1-based; LSP is 0-based
   const line = Math.max(0, (issue.location.line ?? 1) - 1);
   const col = Math.max(0, (issue.location.column ?? 1) - 1);
   return {
@@ -160,7 +160,6 @@ function makeDiagnostic(
   };
 }
 
-
 function uriToPath(uri: string): string | null {
   if (uri.startsWith("file://")) {
     return decodeURIComponent(
@@ -170,7 +169,36 @@ function uriToPath(uri: string): string | null {
   return null;
 }
 
-// ─── Custom requests ─────────────────────────────────────────────────────────
+// ─── Completion ───────────────────────────────────────────────────────────────
+
+connection.onCompletion((params: CompletionParams): CompletionItem[] => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return [];
+
+  // Re-use the cached AST if available; otherwise parse on demand
+  let module = astCache.get(params.textDocument.uri);
+  if (!module) {
+    try {
+      const tokens = new Lexer(doc.getText()).tokenize();
+      module = new Parser(tokens).parse();
+      astCache.set(params.textDocument.uri, module);
+    } catch {
+      return [];
+    }
+  }
+
+  // Text on the current line up to the cursor
+  const lines = doc.getText().split("\n");
+  const linePrefix =
+    lines[params.position.line]?.slice(0, params.position.character) ?? "";
+
+  // stdlib is auto-imported unless the file explicitly opts out
+  const hasStdlib = !doc.getText().includes("--no-stdlib");
+
+  return getCompletions(module, linePrefix, hasStdlib);
+});
+
+// ─── Custom requests ──────────────────────────────────────────────────────────
 
 connection.onRequest("stroum/dataflow", (params: { uri: string }) => {
   const doc = documents.get(params.uri);
@@ -184,18 +212,18 @@ connection.onRequest("stroum/dataflow", (params: { uri: string }) => {
   }
 });
 
-// ─── Event hooks ────────────────────────────────────────────────────────────
+// ─── Event hooks ─────────────────────────────────────────────────────────────
 
 documents.onDidChangeContent((change) => validateDocument(change.document));
 documents.onDidOpen((event) => validateDocument(event.document));
 documents.onDidSave((event) => validateDocument(event.document));
 
-// Clear diagnostics when a document is closed
 documents.onDidClose((event) => {
+  astCache.delete(event.document.uri);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-// ─── Start ───────────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 
 documents.listen(connection);
 connection.listen();
