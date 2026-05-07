@@ -6,6 +6,7 @@ import * as path from "path";
 import { analyzeDataflow } from "./dataflow-analyzer";
 import { startGraphServer } from "./graph-server";
 import { ModuleResolver } from "./module-resolver";
+import { replCommand } from "./repl";
 import { inferSchema, schemaToStroumSource } from "./schema-deriver";
 import { Transpiler } from "./transpiler";
 import { Validator } from "./validator";
@@ -39,6 +40,7 @@ ${colorize("USAGE:", "bright")}
 ${colorize("COMMANDS:", "bright")}
   ${colorize("compile", "green")} <file.stm>     Transpile Stroum to TypeScript
   ${colorize("run", "green")} <file.stm>         Compile and execute a Stroum program
+  ${colorize("repl", "green")}                   Start interactive REPL
   ${colorize("graph", "green")} <file.stm>       Open dataflow graph in browser
   ${colorize("derive", "green")} schema <file>   Infer struct definition from CSV/JSON file
   ${colorize("init", "green")} [name]            Initialize a new Stroum project
@@ -896,6 +898,10 @@ function main() {
 
     case "derive":
       deriveCommand(commandArgs);
+      break;
+
+    case "repl":
+      replCommand();
       break;
 
     case "init":
