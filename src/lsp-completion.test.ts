@@ -1,11 +1,13 @@
 import { CompletionItemKind } from "vscode-languageserver/node";
+import { Lexer } from "./lexer";
 import {
   buildCompletions,
   collectSymbols,
   detectContext,
   getCompletions,
+  getHover,
+  getStdlibNames,
 } from "./lsp-completion";
-import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 
 function parse(source: string) {
@@ -126,7 +128,9 @@ describe("buildCompletions", () => {
   });
 
   it("includes user symbols alongside stdlib in general context", () => {
-    const userSymbols = [{ kind: "function" as const, name: "myFn", detail: "f:myFn x" }];
+    const userSymbols = [
+      { kind: "function" as const, name: "myFn", detail: "f:myFn x" },
+    ];
     const items = buildCompletions("general", userSymbols, true);
     const labels = items.map((i) => i.label);
     expect(labels).toContain("myFn");
@@ -197,5 +201,73 @@ describe("getCompletions", () => {
     const items = getCompletions(module, "5 |>", true);
     const printItem = items.find((i) => i.label === "print");
     expect(printItem?.insertText).toBe("print");
+  });
+});
+
+// ─── getHover ─────────────────────────────────────────────────────────────────
+
+describe("getHover", () => {
+  it("returns signature and doc for a stdlib function", () => {
+    const module = parse("");
+    const hover = getHover("mul", module);
+    expect(hover).not.toBeNull();
+    expect(hover?.signature).toBe("mul(a, b)");
+    expect(hover?.doc).toBe("Multiply two numbers");
+  });
+
+  it("returns signature for a single-param stdlib function", () => {
+    const hover = getHover("print", parse(""));
+    expect(hover?.signature).toBe("print(x)");
+  });
+
+  it("returns user function signature", () => {
+    const module = parse("f:double n => mul(n, 2)");
+    const hover = getHover("double", module);
+    expect(hover?.signature).toBe("f:double n");
+    expect(hover?.doc).toBe("User-defined function");
+  });
+
+  it("returns user binding signature", () => {
+    const module = parse(":count 0");
+    const hover = getHover("count", module);
+    expect(hover?.signature).toBe(":count");
+    expect(hover?.doc).toBe("Binding");
+  });
+
+  it("returns struct signature with fields", () => {
+    const module = parse("s:User {\n  name: String\n  age: Int\n}");
+    const hover = getHover("User", module);
+    expect(hover?.signature).toContain("s:User");
+    expect(hover?.signature).toContain("name: String");
+    expect(hover?.signature).toContain("age: Int");
+    expect(hover?.doc).toBe("Struct");
+  });
+
+  it("returns null for unknown identifier", () => {
+    expect(getHover("nonexistent", parse(""))).toBeNull();
+  });
+
+  it("prefers stdlib over a user function with the same name", () => {
+    // If a user shadowed a stdlib name, stdlib takes priority in hover
+    const module = parse("f:mul a b => add(a, b)");
+    const hover = getHover("mul", module);
+    expect(hover?.doc).toBe("Multiply two numbers");
+  });
+});
+
+// ─── getStdlibNames ───────────────────────────────────────────────────────────
+
+describe("getStdlibNames", () => {
+  it("returns a non-empty array of strings", () => {
+    const names = getStdlibNames();
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((n) => typeof n === "string")).toBe(true);
+  });
+
+  it("includes expected stdlib functions", () => {
+    const names = getStdlibNames();
+    for (const fn of ["add", "mul", "filter", "print", "to_string"]) {
+      expect(names).toContain(fn);
+    }
   });
 });

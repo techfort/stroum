@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as readline from "node:readline";
+import { getStdlibNames } from "./lsp-completion";
 import { ModuleResolver } from "./module-resolver";
 import { Transpiler } from "./transpiler";
 
@@ -161,10 +162,24 @@ export async function replCommand(): Promise<void> {
   let multiLineBuffer: string[] = [];
   const isInteractive = process.stdin.isTTY;
 
+  const completer = (line: string): [string[], string] => {
+    // Extract the partial word at the end of the line
+    const partial = line.match(/[\w:]*$/)?.[0] ?? "";
+    const sessionNames = session.declarations
+      .map((d) => extractName(d))
+      .filter((n) => n !== "it");
+    const allNames = [...getStdlibNames(), ...sessionNames];
+    const hits = partial
+      ? allNames.filter((n) => n.startsWith(partial))
+      : allNames;
+    return [hits, partial];
+  };
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: isInteractive,
+    completer: isInteractive ? completer : undefined,
   });
 
   console.log(

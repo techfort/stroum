@@ -262,6 +262,53 @@ export function buildCompletions(
   return items;
 }
 
+// ─── Hover ────────────────────────────────────────────────────────────────────
+
+export interface HoverContent {
+  signature: string;
+  doc: string;
+}
+
+export function getHover(
+  word: string,
+  module: AST.Module,
+): HoverContent | null {
+  // Check stdlib first
+  const stdlib = STDLIB.find((e) => e.name === word);
+  if (stdlib) {
+    const sig = `${stdlib.name}(${stdlib.params.join(", ")})`;
+    return { signature: sig, doc: stdlib.doc };
+  }
+
+  // Check user-defined symbols
+  for (const def of module.definitions) {
+    if (def.type === "FunctionDeclaration" && def.name === word) {
+      const sig =
+        def.params.length > 0
+          ? `f:${def.name} ${def.params.join(" ")}`
+          : `f:${def.name}`;
+      return { signature: sig, doc: "User-defined function" };
+    }
+    if (def.type === "BindingDeclaration" && def.name === word) {
+      return { signature: `:${def.name}`, doc: "Binding" };
+    }
+    if (def.type === "StructDeclaration" && def.name === word) {
+      const fields = def.fields
+        .map((f) => `  ${f.name}: ${f.typeName}`)
+        .join("\n");
+      return { signature: `s:${def.name} {\n${fields}\n}`, doc: "Struct" };
+    }
+  }
+
+  return null;
+}
+
+// ─── REPL tab-completion names ────────────────────────────────────────────────
+
+export function getStdlibNames(): string[] {
+  return STDLIB.map((e) => e.name);
+}
+
 // ─── Public entry point ───────────────────────────────────────────────────────
 
 export function getCompletions(
