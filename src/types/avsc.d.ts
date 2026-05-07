@@ -1,5 +1,5 @@
 // Type declarations for avsc
-declare module 'avsc' {
+declare module "avsc" {
   export interface Type {
     decode(buffer: Buffer): any;
     encode(value: any): Buffer;
@@ -8,7 +8,9 @@ declare module 'avsc' {
     toBuffer(value: any): Buffer;
   }
 
-  export function createFileDecoder(filePath: string): AsyncIterableIterator<any>;
+  export function createFileDecoder(
+    filePath: string,
+  ): AsyncIterableIterator<any>;
   export function createFileEncoder(filePath: string, schema: Type): any;
 
   export namespace Type {

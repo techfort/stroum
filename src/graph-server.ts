@@ -1,6 +1,6 @@
-import * as http from 'http';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as http from "http";
+import * as path from "path";
 
 export interface GraphServerOptions {
   port: number;
@@ -10,50 +10,56 @@ export interface GraphServerOptions {
 }
 
 const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
 };
 
-export function startGraphServer(opts: GraphServerOptions): Promise<http.Server> {
+export function startGraphServer(
+  opts: GraphServerOptions,
+): Promise<http.Server> {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
-      const url = req.url ?? '/';
+      const url = req.url ?? "/";
 
-      if (url === '/') {
+      if (url === "/") {
         const html = buildHtml(opts);
-        res.writeHead(200, { 'Content-Type': MIME['.html'] });
+        res.writeHead(200, { "Content-Type": MIME[".html"] });
         res.end(html);
         return;
       }
 
-      if (url === '/graph-webview.js') {
-        const filePath = path.join(opts.distDir, 'graph-webview.js');
-        serveFile(filePath, MIME['.js'], res);
+      if (url === "/graph-webview.js") {
+        const filePath = path.join(opts.distDir, "graph-webview.js");
+        serveFile(filePath, MIME[".js"], res);
         return;
       }
 
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Not found');
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Not found");
     });
 
-    server.on('error', (err: NodeJS.ErrnoException) => {
+    server.on("error", (err: NodeJS.ErrnoException) => {
       reject(err);
     });
 
-    server.listen(opts.port, '127.0.0.1', () => {
+    server.listen(opts.port, "127.0.0.1", () => {
       resolve(server);
     });
   });
 }
 
-function serveFile(filePath: string, contentType: string, res: http.ServerResponse): void {
+function serveFile(
+  filePath: string,
+  contentType: string,
+  res: http.ServerResponse,
+): void {
   try {
     const data = fs.readFileSync(filePath);
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not found');
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("Not found");
   }
 }
 
@@ -124,5 +130,5 @@ function buildHtml(opts: GraphServerOptions): string {
 }
 
 function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

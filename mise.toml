@@ -1,0 +1,42 @@
+[tools]
+node = "lts"
+
+[tasks.build]
+description = "Compile TypeScript and copy runtime assets"
+run = "npm run build"
+
+[tasks.test]
+description = "Run all tests"
+run = "npx jest"
+
+[tasks."test:watch"]
+description = "Run tests in watch mode"
+run = "npx jest --watch"
+
+[tasks."test:coverage"]
+description = "Run tests with coverage report"
+run = "npx jest --coverage"
+
+[tasks.lint]
+description = "Run biome linter"
+run = "npx biome lint ."
+
+[tasks.format]
+description = "Format source files with biome"
+run = "npx biome format --write ."
+
+[tasks.check]
+description = "Run biome lint + format check"
+run = "npx biome check ."
+
+[tasks."check:fix"]
+description = "Run biome check and auto-fix issues"
+run = "npx biome check --write ."
+
+[tasks.typecheck]
+description = "Type-check without emitting"
+run = "npx tsc --noEmit"
+
+[tasks.ci]
+description = "Full CI pipeline: typecheck + lint + test"
+depends = ["typecheck", "lint", "test"]

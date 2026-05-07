@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Stroum Language Server (Phase 1 — Diagnostics)
  *
@@ -8,24 +9,24 @@
  * and publishes diagnostics to the client.
  */
 
+import * as path from "path";
 import {
   createConnection,
-  TextDocuments,
-  ProposedFeatures,
-  InitializeParams,
-  InitializeResult,
-  TextDocumentSyncKind,
-  Diagnostic,
+  type Diagnostic,
   DiagnosticSeverity,
   DidChangeConfigurationNotification,
-} from 'vscode-languageserver/node';
-
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import * as path from 'path';
-import { Lexer } from './lexer';
-import { Parser } from './parser';
-import { Validator, ValidationIssue } from './validator';
-import { analyzeDataflow } from './dataflow-analyzer';
+  type InitializeParams,
+  type InitializeResult,
+  ProposedFeatures,
+  TextDocumentSyncKind,
+  TextDocuments,
+} from "vscode-languageserver/node";
+import { TextDocument } from "vscode-languageserver-textdocument";
+import type * as AST from "./ast";
+import { analyzeDataflow } from "./dataflow-analyzer";
+import { Lexer } from "./lexer";
+import { Parser } from "./parser";
+import { type ValidationIssue, Validator } from "./validator";
 
 // ─── Connection ─────────────────────────────────────────────────────────────
 
@@ -38,7 +39,9 @@ let hasWorkspaceFolderCapability = false;
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   const caps = params.capabilities;
   hasConfigCapability = !!(caps.workspace && caps.workspace.configuration);
-  hasWorkspaceFolderCapability = !!(caps.workspace && caps.workspace.workspaceFolders);
+  hasWorkspaceFolderCapability = !!(
+    caps.workspace && caps.workspace.workspaceFolders
+  );
 
   return {
     capabilities: {
@@ -49,7 +52,10 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
 connection.onInitialized(() => {
   if (hasConfigCapability) {
-    connection.client.register(DidChangeConfigurationNotification.type, undefined);
+    connection.client.register(
+      DidChangeConfigurationNotification.type,
+      undefined,
+    );
   }
 });
 
@@ -62,29 +68,33 @@ function validateDocument(doc: TextDocument): void {
   const diagnostics: Diagnostic[] = [];
 
   // Resolve stdlib path relative to this file (dist/language-server.js → ../stdlib)
-  const stdlibPath = path.join(__dirname, '..', 'stdlib');
+  const stdlibPath = path.join(__dirname, "..", "stdlib");
 
   try {
     // Phase 1: Lex
     const lexer = new Lexer(source);
-    let tokens;
+    let tokens: ReturnType<typeof lexer.tokenize>;
     try {
       tokens = lexer.tokenize();
     } catch (e: any) {
-      diagnostics.push(makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error));
+      diagnostics.push(
+        makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error),
+      );
       connection.sendDiagnostics({ uri, diagnostics });
       return;
     }
 
     // Phase 2: Parse
     const parser = new Parser(tokens);
-    let module;
+    let module: AST.Module;
     try {
       module = parser.parse();
     } catch (e: any) {
       // Extract line/col from parser error message if present
       const loc = parseErrorLocation(e.message);
-      diagnostics.push(makeDiagnostic(e.message, loc.line, loc.col, DiagnosticSeverity.Error));
+      diagnostics.push(
+        makeDiagnostic(e.message, loc.line, loc.col, DiagnosticSeverity.Error),
+      );
       connection.sendDiagnostics({ uri, diagnostics });
       return;
     }
@@ -100,17 +110,29 @@ function validateDocument(doc: TextDocument): void {
       }
     } catch (e: any) {
       // Module resolution failures (missing imports, etc.)
-      diagnostics.push(makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error));
+      diagnostics.push(
+        makeDiagnostic(e.message, 0, 0, DiagnosticSeverity.Error),
+      );
     }
   } catch (e: any) {
-    diagnostics.push(makeDiagnostic(`Internal error: ${e.message}`, 0, 0, DiagnosticSeverity.Error));
+    diagnostics.push(
+      makeDiagnostic(
+        `Internal error: ${e.message}`,
+        0,
+        0,
+        DiagnosticSeverity.Error,
+      ),
+    );
   }
 
   connection.sendDiagnostics({ uri, diagnostics });
 }
 
 function issueToDiagnostic(issue: ValidationIssue): Diagnostic {
-  const severity = issue.type === 'error' ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
+  const severity =
+    issue.type === "error"
+      ? DiagnosticSeverity.Error
+      : DiagnosticSeverity.Warning;
   // Stroum locations are 1-based; LSP is 0-based
   const line = Math.max(0, (issue.location.line ?? 1) - 1);
   const col = Math.max(0, (issue.location.column ?? 1) - 1);
@@ -121,11 +143,16 @@ function issueToDiagnostic(issue: ValidationIssue): Diagnostic {
       end: { line, character: col + 1 },
     },
     message: issue.message,
-    source: 'stroum',
+    source: "stroum",
   };
 }
 
-function makeDiagnostic(message: string, line: number, col: number, severity: DiagnosticSeverity): Diagnostic {
+function makeDiagnostic(
+  message: string,
+  line: number,
+  col: number,
+  severity: DiagnosticSeverity,
+): Diagnostic {
   return {
     severity,
     range: {
@@ -133,28 +160,31 @@ function makeDiagnostic(message: string, line: number, col: number, severity: Di
       end: { line: Math.max(0, line - 1), character: Math.max(0, col) },
     },
     message,
-    source: 'stroum',
+    source: "stroum",
   };
 }
 
 function parseErrorLocation(msg: string): { line: number; col: number } {
   // Matches "line N, col M" or "Line N:M" patterns in error messages
-  const m = msg.match(/line[:\s]+(\d+)[,\s]+col[:\s]+(\d+)/i)
-    ?? msg.match(/(\d+):(\d+)/);
+  const m =
+    msg.match(/line[:\s]+(\d+)[,\s]+col[:\s]+(\d+)/i) ??
+    msg.match(/(\d+):(\d+)/);
   if (m) return { line: parseInt(m[1], 10), col: parseInt(m[2], 10) };
   return { line: 1, col: 1 };
 }
 
 function uriToPath(uri: string): string | null {
-  if (uri.startsWith('file://')) {
-    return decodeURIComponent(uri.replace(/^file:\/\//, '').replace(/^\/([A-Z]:)/, '$1'));
+  if (uri.startsWith("file://")) {
+    return decodeURIComponent(
+      uri.replace(/^file:\/\//, "").replace(/^\/([A-Z]:)/, "$1"),
+    );
   }
   return null;
 }
 
 // ─── Custom requests ─────────────────────────────────────────────────────────
 
-connection.onRequest('stroum/dataflow', (params: { uri: string }) => {
+connection.onRequest("stroum/dataflow", (params: { uri: string }) => {
   const doc = documents.get(params.uri);
   if (!doc) return null;
   try {
@@ -168,12 +198,12 @@ connection.onRequest('stroum/dataflow', (params: { uri: string }) => {
 
 // ─── Event hooks ────────────────────────────────────────────────────────────
 
-documents.onDidChangeContent(change => validateDocument(change.document));
-documents.onDidOpen(event => validateDocument(event.document));
-documents.onDidSave(event => validateDocument(event.document));
+documents.onDidChangeContent((change) => validateDocument(change.document));
+documents.onDidOpen((event) => validateDocument(event.document));
+documents.onDidSave((event) => validateDocument(event.document));
 
 // Clear diagnostics when a document is closed
-documents.onDidClose(event => {
+documents.onDidClose((event) => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 

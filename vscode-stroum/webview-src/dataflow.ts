@@ -1,15 +1,15 @@
 /// <reference lib="dom" />
 
-import cytoscape from 'cytoscape';
-import dagre from 'dagre';
-import cytoscapeDagre from 'cytoscape-dagre';
+import cytoscape from "cytoscape";
+import cytoscapeDagre from "cytoscape-dagre";
+import dagre from "dagre";
 
 void dagre;
 cytoscape.use(cytoscapeDagre);
 
 // Local copies of the shared types (mirrors src/dataflow-analyzer.ts exports)
-type DFNodeKind = 'function' | 'binding' | 'stream' | 'tag' | 'fork';
-type DFEdgeKind = 'pipe' | 'call' | 'emit' | 'handler' | 'parallel' | 'outcome';
+type DFNodeKind = "function" | "binding" | "stream" | "tag" | "fork";
+type DFEdgeKind = "pipe" | "call" | "emit" | "handler" | "parallel" | "outcome";
 
 interface DFNode {
   id: string;
@@ -64,32 +64,32 @@ const vscode = acquireVsCodeApi();
 // ─── Visual config ────────────────────────────────────────────────────────────
 
 const BG: Record<DFNodeKind, string> = {
-  function: '#4a90d9',
-  binding:  '#6c757d',
-  stream:   '#e67e22',
-  tag:      '#8e44ad',
-  fork:     '#27ae60',
+  function: "#4a90d9",
+  binding: "#6c757d",
+  stream: "#e67e22",
+  tag: "#8e44ad",
+  fork: "#27ae60",
 };
 
-const STREAM_HIGHLIGHT = '#e74c3c';
+const STREAM_HIGHLIGHT = "#e74c3c";
 const HIGHLIGHT_DURATION_MS = 900;
 
 const EDGE_COLOR: Record<DFEdgeKind, string> = {
-  pipe:     '#a0aec0',
-  call:     '#718096',
-  emit:     '#e67e22',
-  handler:  '#27ae60',
-  parallel: '#27ae60',
-  outcome:  '#8e44ad',
+  pipe: "#a0aec0",
+  call: "#718096",
+  emit: "#e67e22",
+  handler: "#27ae60",
+  parallel: "#27ae60",
+  outcome: "#8e44ad",
 };
 
 const EDGE_DASH: Record<DFEdgeKind, string> = {
-  pipe:     'none',
-  call:     'none',
-  emit:     '6 3',
-  handler:  '3 3',
-  parallel: '10 3',
-  outcome:  '5 3',
+  pipe: "none",
+  call: "none",
+  emit: "6 3",
+  handler: "3 3",
+  parallel: "10 3",
+  outcome: "5 3",
 };
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -99,10 +99,12 @@ let cy: CyInstance | null = null;
 // ─── Graph rendering ─────────────────────────────────────────────────────────
 
 function renderGraph(graph: DataflowGraph): void {
-  const container = document.getElementById('graph')!;
+  const container = document.getElementById("graph")!;
 
   if (cy) {
-    try { cy.destroy(); } catch {}
+    try {
+      cy.destroy();
+    } catch {}
     cy = null;
   }
 
@@ -115,7 +117,7 @@ function renderGraph(graph: DataflowGraph): void {
         label: n.label,
         kind: n.kind,
         isExternal: n.isExternal ?? false,
-        params: n.params?.join(', ') ?? '',
+        params: n.params?.join(", ") ?? "",
       },
     });
   }
@@ -127,7 +129,7 @@ function renderGraph(graph: DataflowGraph): void {
         source: e.from,
         target: e.to,
         kind: e.kind,
-        label: e.label ?? '',
+        label: e.label ?? "",
       },
     });
   }
@@ -136,8 +138,8 @@ function renderGraph(graph: DataflowGraph): void {
     container,
     elements,
     layout: {
-      name: 'dagre',
-      rankDir: 'LR',
+      name: "dagre",
+      rankDir: "LR",
       nodeSep: 60,
       rankSep: 120,
       edgeSep: 20,
@@ -151,59 +153,66 @@ function renderGraph(graph: DataflowGraph): void {
 function buildStyle(): object[] {
   return [
     {
-      selector: 'node',
+      selector: "node",
       style: {
-        label: 'data(label)',
-        'font-size': '12px',
-        'font-family': 'monospace',
-        color: '#fff',
-        'text-valign': 'center',
-        'text-halign': 'center',
-        'text-wrap': 'wrap',
-        'text-max-width': '90px',
-        'border-width': 0,
-        padding: '10px',
-        width: 'label',
-        height: 'label',
+        label: "data(label)",
+        "font-size": "12px",
+        "font-family": "monospace",
+        color: "#fff",
+        "text-valign": "center",
+        "text-halign": "center",
+        "text-wrap": "wrap",
+        "text-max-width": "90px",
+        "border-width": 0,
+        padding: "10px",
+        width: "label",
+        height: "label",
       },
     },
     // Per-kind node styles
-    ...(['function', 'binding', 'stream', 'tag', 'fork'] as DFNodeKind[]).map(kind => ({
-      selector: `node[kind="${kind}"]`,
-      style: {
-        'background-color': BG[kind],
-        shape: nodeShape(kind),
-        ...(kind === 'function' ? {} : {}),
-      },
-    })),
+    ...(["function", "binding", "stream", "tag", "fork"] as DFNodeKind[]).map(
+      (kind) => ({
+        selector: `node[kind="${kind}"]`,
+        style: {
+          "background-color": BG[kind],
+          shape: nodeShape(kind),
+          ...(kind === "function" ? {} : {}),
+        },
+      }),
+    ),
     // External (stdlib) functions — slightly muted
     {
-      selector: 'node[?isExternal]',
+      selector: "node[?isExternal]",
       style: {
-        'background-color': '#3a6fa0',
+        "background-color": "#3a6fa0",
         opacity: 0.75,
       },
     },
     // Edges
     {
-      selector: 'edge',
+      selector: "edge",
       style: {
         width: 2,
-        'target-arrow-shape': 'triangle',
-        'curve-style': 'bezier',
-        label: 'data(label)',
-        'font-size': '10px',
-        color: '#a0aec0',
-        'text-background-color': 'transparent',
+        "target-arrow-shape": "triangle",
+        "curve-style": "bezier",
+        label: "data(label)",
+        "font-size": "10px",
+        color: "#a0aec0",
+        "text-background-color": "transparent",
       },
     },
-    ...(['pipe', 'call', 'emit', 'handler', 'parallel', 'outcome'] as DFEdgeKind[]).map(kind => ({
+    ...(
+      ["pipe", "call", "emit", "handler", "parallel", "outcome"] as DFEdgeKind[]
+    ).map((kind) => ({
       selector: `edge[kind="${kind}"]`,
       style: {
-        'line-color': EDGE_COLOR[kind],
-        'target-arrow-color': EDGE_COLOR[kind],
-        'line-dash-pattern': EDGE_DASH[kind] === 'none' ? [] : EDGE_DASH[kind].split(' ').map(Number),
-        'line-style': EDGE_DASH[kind] === 'none' ? 'solid' : 'dashed',
+        "line-color": EDGE_COLOR[kind],
+        "target-arrow-color": EDGE_COLOR[kind],
+        "line-dash-pattern":
+          EDGE_DASH[kind] === "none"
+            ? []
+            : EDGE_DASH[kind].split(" ").map(Number),
+        "line-style": EDGE_DASH[kind] === "none" ? "solid" : "dashed",
       },
     })),
   ];
@@ -211,37 +220,47 @@ function buildStyle(): object[] {
 
 function nodeShape(kind: DFNodeKind): string {
   switch (kind) {
-    case 'function': return 'ellipse';
-    case 'binding':  return 'roundrectangle';
-    case 'stream':   return 'diamond';
-    case 'tag':      return 'hexagon';
-    case 'fork':     return 'octagon';
+    case "function":
+      return "ellipse";
+    case "binding":
+      return "roundrectangle";
+    case "stream":
+      return "diamond";
+    case "tag":
+      return "hexagon";
+    case "fork":
+      return "octagon";
   }
 }
 
 // ─── Live event handling ──────────────────────────────────────────────────────
 
-function handleEvent(msg: { stream: string; value: unknown; fn: string | null; ts: number }): void {
+function handleEvent(msg: {
+  stream: string;
+  value: unknown;
+  fn: string | null;
+  ts: number;
+}): void {
   const nodeId = `stream:${msg.stream}`;
   if (cy) {
     const node = cy.getElementById(nodeId);
     if (node.length) {
-      node.style({ 'background-color': STREAM_HIGHLIGHT });
+      node.style({ "background-color": STREAM_HIGHLIGHT });
       setTimeout(() => {
-        node.style({ 'background-color': BG.stream });
+        node.style({ "background-color": BG.stream });
       }, HIGHLIGHT_DURATION_MS);
     }
   }
 
-  const list = document.getElementById('log-list')!;
-  const li = document.createElement('li');
+  const list = document.getElementById("log-list")!;
+  const li = document.createElement("li");
   const time = new Date(msg.ts).toLocaleTimeString();
   const valueStr = safeJson(msg.value);
   li.innerHTML =
     `<span class="ts">${time}</span>` +
     `<span class="stream-name">@${msg.stream}</span>` +
     `<span class="value">${escHtml(valueStr)}</span>` +
-    (msg.fn ? `<span class="fn">${escHtml(msg.fn)}()</span>` : '');
+    (msg.fn ? `<span class="fn">${escHtml(msg.fn)}()</span>` : "");
   list.prepend(li);
 
   // Keep log bounded
@@ -250,15 +269,23 @@ function handleEvent(msg: { stream: string; value: unknown; fn: string | null; t
 
 // ─── Status updates ───────────────────────────────────────────────────────────
 
-function updateStatus(state: 'running' | 'stopped' | 'error', message?: string): void {
-  const statusEl = document.getElementById('status')!;
-  const runBtn = document.getElementById('run-btn') as HTMLButtonElement;
-  const stopBtn = document.getElementById('stop-btn') as HTMLButtonElement;
+function updateStatus(
+  state: "running" | "stopped" | "error",
+  message?: string,
+): void {
+  const statusEl = document.getElementById("status")!;
+  const runBtn = document.getElementById("run-btn") as HTMLButtonElement;
+  const stopBtn = document.getElementById("stop-btn") as HTMLButtonElement;
 
-  statusEl.textContent = state === 'running' ? 'Running…' : state === 'error' ? `Error: ${message ?? ''}` : '';
+  statusEl.textContent =
+    state === "running"
+      ? "Running…"
+      : state === "error"
+        ? `Error: ${message ?? ""}`
+        : "";
   statusEl.className = `status-${state}`;
-  runBtn.disabled = state === 'running';
-  stopBtn.disabled = state !== 'running';
+  runBtn.disabled = state === "running";
+  stopBtn.disabled = state !== "running";
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -266,39 +293,57 @@ function updateStatus(state: 'running' | 'stopped' | 'error', message?: string):
 function safeJson(v: unknown): string {
   try {
     const s = JSON.stringify(v);
-    return s !== undefined ? (s.length > 80 ? s.slice(0, 77) + '…' : s) : String(v);
+    return s !== undefined
+      ? s.length > 80
+        ? s.slice(0, 77) + "…"
+        : s
+      : String(v);
   } catch {
     return String(v);
   }
 }
 
 function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // ─── Message listener ─────────────────────────────────────────────────────────
 
-window.addEventListener('message', (event: MessageEvent) => {
+window.addEventListener("message", (event: MessageEvent) => {
   const msg = event.data as { type: string; [k: string]: unknown };
   switch (msg.type) {
-    case 'graph':
+    case "graph":
       renderGraph(msg as unknown as DataflowGraph);
       break;
-    case 'event':
-      handleEvent(msg as { stream: string; value: unknown; fn: string | null; ts: number });
+    case "event":
+      handleEvent(
+        msg as {
+          stream: string;
+          value: unknown;
+          fn: string | null;
+          ts: number;
+        },
+      );
       break;
-    case 'status':
-      updateStatus(msg.state as 'running' | 'stopped' | 'error', msg.message as string | undefined);
+    case "status":
+      updateStatus(
+        msg.state as "running" | "stopped" | "error",
+        msg.message as string | undefined,
+      );
       break;
   }
 });
 
 // ─── Toolbar buttons ──────────────────────────────────────────────────────────
 
-document.getElementById('run-btn')!.addEventListener('click', () => vscode.postMessage({ type: 'run' }));
-document.getElementById('stop-btn')!.addEventListener('click', () => vscode.postMessage({ type: 'stop' }));
+document
+  .getElementById("run-btn")!
+  .addEventListener("click", () => vscode.postMessage({ type: "run" }));
+document
+  .getElementById("stop-btn")!
+  .addEventListener("click", () => vscode.postMessage({ type: "stop" }));
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
-updateStatus('stopped');
-vscode.postMessage({ type: 'ready' });
+updateStatus("stopped");
+vscode.postMessage({ type: "ready" });

@@ -1,4 +1,4 @@
-import { SourceLocation } from './types';
+import type { SourceLocation } from "./types";
 
 // AST Node Types for Stroum
 
@@ -12,7 +12,7 @@ export interface ASTNode {
 // ============================================================================
 
 export interface Module extends ASTNode {
-  type: 'Module';
+  type: "Module";
   imports: ImportDeclaration[];
   sourceDeclarations: SourceDeclaration[];
   sinkDeclarations: SinkDeclaration[];
@@ -27,7 +27,7 @@ export interface Module extends ASTNode {
 // ============================================================================
 
 export interface ImportDeclaration extends ASTNode {
-  type: 'ImportDeclaration';
+  type: "ImportDeclaration";
   modulePath: string; // Module identifier or file path (e.g., "core" or "./utils.stm")
   imports: string[] | null; // Specific functions to import, or null for all
   alias: string | null; // Optional alias for qualified access (e.g., "as c")
@@ -38,13 +38,13 @@ export interface ImportDeclaration extends ASTNode {
 // ============================================================================
 
 export interface SourceDeclaration extends ASTNode {
-  type: 'SourceDeclaration';
+  type: "SourceDeclaration";
   stream: StreamRef;
   source: Expression;
 }
 
 export interface SinkDeclaration extends ASTNode {
-  type: 'SinkDeclaration';
+  type: "SinkDeclaration";
   stream: StreamRef;
   sink: Expression;
 }
@@ -52,27 +52,30 @@ export interface SinkDeclaration extends ASTNode {
 export type RuntimeDeclaration = RunUntilDeclaration | RunForeverDeclaration;
 
 export interface RunUntilDeclaration extends ASTNode {
-  type: 'RunUntilDeclaration';
+  type: "RunUntilDeclaration";
   condition: RuntimeCondition;
 }
 
 export interface RunForeverDeclaration extends ASTNode {
-  type: 'RunForeverDeclaration';
+  type: "RunForeverDeclaration";
 }
 
-export type RuntimeCondition = SignalCondition | StreamCondition | TimeoutCondition;
+export type RuntimeCondition =
+  | SignalCondition
+  | StreamCondition
+  | TimeoutCondition;
 
 export interface SignalCondition {
-  type: 'SignalCondition';
+  type: "SignalCondition";
 }
 
 export interface StreamCondition {
-  type: 'StreamCondition';
+  type: "StreamCondition";
   stream: StreamRef;
 }
 
 export interface TimeoutCondition {
-  type: 'TimeoutCondition';
+  type: "TimeoutCondition";
   duration: Expression;
 }
 
@@ -80,10 +83,13 @@ export interface TimeoutCondition {
 // Declarations
 // ============================================================================
 
-export type Declaration = StructDeclaration | FunctionDeclaration | BindingDeclaration;
+export type Declaration =
+  | StructDeclaration
+  | FunctionDeclaration
+  | BindingDeclaration;
 
 export interface StructDeclaration extends ASTNode {
-  type: 'StructDeclaration';
+  type: "StructDeclaration";
   name: string; // Type name (Capitalised)
   fields: StructField[];
 }
@@ -94,7 +100,7 @@ export interface StructField {
 }
 
 export interface FunctionDeclaration extends ASTNode {
-  type: 'FunctionDeclaration';
+  type: "FunctionDeclaration";
   isRecursive: boolean;
   name: string;
   params: string[]; // parameter names
@@ -103,14 +109,14 @@ export interface FunctionDeclaration extends ASTNode {
 }
 
 export interface BindingDeclaration extends ASTNode {
-  type: 'BindingDeclaration';
+  type: "BindingDeclaration";
   name: string;
   value: Expression;
   hasExplicitSigil: boolean; // whether b: was used
 }
 
 export interface IndentedBody extends ASTNode {
-  type: 'IndentedBody';
+  type: "IndentedBody";
   statements: (BindingDeclaration | Expression)[];
 }
 
@@ -129,39 +135,39 @@ export type Expression =
   | Identifier;
 
 export interface ParallelExpression extends ASTNode {
-  type: 'ParallelExpression';
+  type: "ParallelExpression";
   branches: PipeExpression[];
   gatherPipe: GatherPipe;
 }
 
 export interface GatherPipe extends ASTNode {
-  type: 'GatherPipe';
+  type: "GatherPipe";
   isPartial: boolean; // |?> vs |>
   target: Expression;
   streamEmit: StreamEmit | null;
 }
 
 export interface PipeExpression extends ASTNode {
-  type: 'PipeExpression';
+  type: "PipeExpression";
   stages: Expression[];
   streamEmit: StreamEmit | null;
   outcomeMatches: OutcomeMatch[];
 }
 
 export interface CallExpression extends ASTNode {
-  type: 'CallExpression';
+  type: "CallExpression";
   callee: string;
   args: Expression[];
 }
 
 export interface Lambda extends ASTNode {
-  type: 'Lambda';
+  type: "Lambda";
   params: string[];
   body: Expression;
 }
 
 export interface Identifier extends ASTNode {
-  type: 'Identifier';
+  type: "Identifier";
   name: string;
 }
 
@@ -169,41 +175,47 @@ export interface Identifier extends ASTNode {
 // Literals
 // ============================================================================
 
-export type Literal = NumberLiteral | StringLiteral | InterpolatedStringLiteral | BooleanLiteral | ListLiteral | RecordLiteral;
+export type Literal =
+  | NumberLiteral
+  | StringLiteral
+  | InterpolatedStringLiteral
+  | BooleanLiteral
+  | ListLiteral
+  | RecordLiteral;
 
 export interface NumberLiteral extends ASTNode {
-  type: 'NumberLiteral';
+  type: "NumberLiteral";
   value: number;
 }
 
 export interface StringLiteral extends ASTNode {
-  type: 'StringLiteral';
+  type: "StringLiteral";
   value: string;
   hasInterpolation: boolean; // contains #{}
 }
 
 // A segment in an interpolated string: either a plain text run or an embedded expression.
 export type InterpolationSegment =
-  | { kind: 'text'; value: string }
-  | { kind: 'expr'; expression: Expression };
+  | { kind: "text"; value: string }
+  | { kind: "expr"; expression: Expression };
 
 export interface InterpolatedStringLiteral extends ASTNode {
-  type: 'InterpolatedStringLiteral';
+  type: "InterpolatedStringLiteral";
   segments: InterpolationSegment[];
 }
 
 export interface BooleanLiteral extends ASTNode {
-  type: 'BooleanLiteral';
+  type: "BooleanLiteral";
   value: boolean;
 }
 
 export interface ListLiteral extends ASTNode {
-  type: 'ListLiteral';
+  type: "ListLiteral";
   elements: Expression[];
 }
 
 export interface RecordLiteral extends ASTNode {
-  type: 'RecordLiteral';
+  type: "RecordLiteral";
   typeName: string;
   fields: RecordField[];
 }
@@ -218,7 +230,7 @@ export interface RecordField {
 // ============================================================================
 
 export interface IfExpression extends ASTNode {
-  type: 'IfExpression';
+  type: "IfExpression";
   condition: Expression;
   thenBranch: Expression;
   elseBranch: Expression;
@@ -230,14 +242,14 @@ export interface IfExpression extends ASTNode {
 
 // A stream target is either a static string literal or a dynamic binding reference.
 export interface StreamRef {
-  name: string;       // string value (static) or binding identifier (dynamic)
+  name: string; // string value (static) or binding identifier (dynamic)
   isDynamic: boolean; // true when @ok (identifier), false when @"ok" (literal)
 }
 
 // A tag reference — always a static string name.
 // .".just right" uses a string literal; .fail uses an identifier (treated as static tag name).
 export interface TagRef {
-  name: string;   // the tag name string
+  name: string; // the tag name string
 }
 
 // ============================================================================
@@ -246,21 +258,21 @@ export interface TagRef {
 
 // ."tag" value  or  .name value  — wraps value with an outcome tag.
 export interface TaggedExpression extends ASTNode {
-  type: 'TaggedExpression';
+  type: "TaggedExpression";
   tag: TagRef;
   value: Expression;
 }
 
 export interface StreamEmit extends ASTNode {
-  type: 'StreamEmit';
+  type: "StreamEmit";
   isRedirect: boolean; // @> vs @
   streams: StreamRef[];
   terminates: boolean; // XX suffix
 }
 
 export interface OutcomeMatch extends ASTNode {
-  type: 'OutcomeMatch';
-  tag: TagRef;          // the outcome tag to match (was: outcomeName: string)
+  type: "OutcomeMatch";
+  tag: TagRef; // the outcome tag to match (was: outcomeName: string)
   handler: Expression;
   streamEmit: StreamEmit | null;
 }
@@ -272,7 +284,7 @@ export interface OutcomeMatch extends ASTNode {
 export type Contingency = OnHandler | RouteDeclaration | OutcomeMatch;
 
 export interface OnHandler extends ASTNode {
-  type: 'OnHandler';
+  type: "OnHandler";
   streamPattern: string; // may contain * and #{}
   handler: Lambda;
   streamEmit: StreamEmit | null;
@@ -283,7 +295,7 @@ export interface OnHandler extends ASTNode {
 // Subscribes the pipeline as the continuation handler for a stream.
 // The emitted value becomes the first input to the pipeline.
 export interface RouteDeclaration extends ASTNode {
-  type: 'RouteDeclaration';
+  type: "RouteDeclaration";
   streamPattern: StreamRef;
   pipeline: Expression; // the pipe chain — receives emitted value as first arg
 }

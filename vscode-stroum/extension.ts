@@ -1,16 +1,25 @@
-import * as path from 'path';
-import * as fs from 'fs';
-import * as net from 'net';
-import * as cp from 'child_process';
-import * as os from 'os';
-import * as crypto from 'crypto';
-import { workspace, ExtensionContext, window, commands, TextDocument, Uri, WebviewPanel, ViewColumn } from 'vscode';
+import * as cp from "child_process";
+import * as crypto from "crypto";
+import * as fs from "fs";
+import * as net from "net";
+import * as os from "os";
+import * as path from "path";
+import {
+  commands,
+  type ExtensionContext,
+  type TextDocument,
+  Uri,
+  ViewColumn,
+  type WebviewPanel,
+  window,
+  workspace,
+} from "vscode";
 import {
   LanguageClient,
-  LanguageClientOptions,
-  ServerOptions,
+  type LanguageClientOptions,
+  type ServerOptions,
   TransportKind,
-} from 'vscode-languageclient/node';
+} from "vscode-languageclient/node";
 
 let client: LanguageClient;
 
@@ -34,9 +43,11 @@ function resolveWorkspaceModule(relativePath: string): string | undefined {
 }
 
 function analyzeGraphLocally(doc: TextDocument): DataflowGraph | null {
-  const lexerPath = resolveWorkspaceModule(path.join('dist', 'lexer.js'));
-  const parserPath = resolveWorkspaceModule(path.join('dist', 'parser.js'));
-  const analyzerPath = resolveWorkspaceModule(path.join('dist', 'dataflow-analyzer.js'));
+  const lexerPath = resolveWorkspaceModule(path.join("dist", "lexer.js"));
+  const parserPath = resolveWorkspaceModule(path.join("dist", "parser.js"));
+  const analyzerPath = resolveWorkspaceModule(
+    path.join("dist", "dataflow-analyzer.js"),
+  );
 
   if (!lexerPath || !parserPath || !analyzerPath) {
     return null;
@@ -45,7 +56,9 @@ function analyzeGraphLocally(doc: TextDocument): DataflowGraph | null {
   try {
     const { Lexer } = require(lexerPath) as { Lexer: WorkspaceLexer };
     const { Parser } = require(parserPath) as { Parser: WorkspaceParser };
-    const { analyzeDataflow } = require(analyzerPath) as { analyzeDataflow: AnalyzeDataflow };
+    const { analyzeDataflow } = require(analyzerPath) as {
+      analyzeDataflow: AnalyzeDataflow;
+    };
     const tokens = new Lexer(doc.getText()).tokenize();
     const ast = new Parser(tokens).parse();
     return analyzeDataflow(ast);
@@ -58,7 +71,11 @@ export function activate(context: ExtensionContext): void {
   // ── Language server ────────────────────────────────────────────────────────
   let serverModule: string | undefined;
   for (const folder of workspace.workspaceFolders ?? []) {
-    const candidate = path.join(folder.uri.fsPath, 'dist', 'language-server.js');
+    const candidate = path.join(
+      folder.uri.fsPath,
+      "dist",
+      "language-server.js",
+    );
     if (fs.existsSync(candidate)) {
       serverModule = candidate;
       break;
@@ -71,44 +88,49 @@ export function activate(context: ExtensionContext): void {
       debug: {
         module: serverModule,
         transport: TransportKind.ipc,
-        options: { execArgv: ['--nolazy', '--inspect=6009'] },
+        options: { execArgv: ["--nolazy", "--inspect=6009"] },
       },
     };
 
     const clientOptions: LanguageClientOptions = {
-      documentSelector: [{ scheme: 'file', language: 'stroum' }],
+      documentSelector: [{ scheme: "file", language: "stroum" }],
       synchronize: {
-        fileEvents: workspace.createFileSystemWatcher('**/*.stm'),
+        fileEvents: workspace.createFileSystemWatcher("**/*.stm"),
       },
     };
 
-    client = new LanguageClient('stroum', 'Stroum Language Server', serverOptions, clientOptions);
+    client = new LanguageClient(
+      "stroum",
+      "Stroum Language Server",
+      serverOptions,
+      clientOptions,
+    );
     client.start();
   } else {
     void window.showWarningMessage(
-      'Stroum: could not find dist/language-server.js — run "npm run build" for diagnostics and dataflow graph support.'
+      'Stroum: could not find dist/language-server.js — run "npm run build" for diagnostics and dataflow graph support.',
     );
   }
 
   // ── Dataflow panel command ─────────────────────────────────────────────────
   context.subscriptions.push(
-    commands.registerCommand('stroum.showDataflowPanel', () => {
+    commands.registerCommand("stroum.showDataflowPanel", () => {
       const doc = window.activeTextEditor?.document;
-      if (!doc || !doc.fileName.endsWith('.stm')) {
-        void window.showErrorMessage('Stroum: open a .stm file first');
+      if (!doc || !doc.fileName.endsWith(".stm")) {
+        void window.showErrorMessage("Stroum: open a .stm file first");
         return;
       }
       DataflowPanel.createOrShow(context.extensionUri, doc);
-    })
+    }),
   );
 
   // Refresh graph when the active .stm file changes
   context.subscriptions.push(
-    window.onDidChangeActiveTextEditor(e => {
-      if (e?.document.fileName.endsWith('.stm')) {
+    window.onDidChangeActiveTextEditor((e) => {
+      if (e?.document.fileName.endsWith(".stm")) {
         DataflowPanel.current?.loadGraph(e.document);
       }
-    })
+    }),
   );
 }
 
@@ -138,26 +160,30 @@ class DataflowPanel {
       return;
     }
     const panel = window.createWebviewPanel(
-      'stroumDataflow',
-      'Stroum Dataflow',
+      "stroumDataflow",
+      "Stroum Dataflow",
       ViewColumn.Beside,
       {
         enableScripts: true,
-        localResourceRoots: [Uri.joinPath(extensionUri, 'media')],
+        localResourceRoots: [Uri.joinPath(extensionUri, "media")],
         retainContextWhenHidden: true,
-      }
+      },
     );
     DataflowPanel.current = new DataflowPanel(panel, extensionUri, doc);
   }
 
-  private constructor(panel: WebviewPanel, extensionUri: Uri, doc: TextDocument) {
+  private constructor(
+    panel: WebviewPanel,
+    extensionUri: Uri,
+    doc: TextDocument,
+  ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._doc = doc;
 
     this._panel.webview.html = this._buildHtml();
     this._panel.onDidDispose(() => this.dispose());
-    this._panel.webview.onDidReceiveMessage(msg => this._handleMessage(msg));
+    this._panel.webview.onDidReceiveMessage((msg) => this._handleMessage(msg));
   }
 
   async loadGraph(doc: TextDocument): Promise<void> {
@@ -166,7 +192,9 @@ class DataflowPanel {
 
     try {
       if (client) {
-        graph = await client.sendRequest('stroum/dataflow', { uri: doc.uri.toString() }) as DataflowGraph | null;
+        graph = (await client.sendRequest("stroum/dataflow", {
+          uri: doc.uri.toString(),
+        })) as DataflowGraph | null;
       }
     } catch {
       graph = null;
@@ -177,25 +205,25 @@ class DataflowPanel {
     }
 
     if (graph) {
-      void this._panel.webview.postMessage({ type: 'graph', ...graph });
+      void this._panel.webview.postMessage({ type: "graph", ...graph });
     } else {
       void this._panel.webview.postMessage({
-        type: 'status',
-        state: 'error',
-        message: 'Unable to analyze graph for the current file.',
+        type: "status",
+        state: "error",
+        message: "Unable to analyze graph for the current file.",
       });
     }
   }
 
   private _handleMessage(msg: { type: string }): void {
     switch (msg.type) {
-      case 'ready':
+      case "ready":
         void this.loadGraph(this._doc);
         break;
-      case 'run':
+      case "run":
         void this._startRun();
         break;
-      case 'stop':
+      case "stop":
         this._stopRun();
         break;
     }
@@ -206,20 +234,20 @@ class DataflowPanel {
 
     this._socketPath = path.join(os.tmpdir(), `stroum-${Date.now()}.sock`);
 
-    this._server = net.createServer(socket => {
-      let buf = '';
-      socket.on('data', chunk => {
+    this._server = net.createServer((socket) => {
+      let buf = "";
+      socket.on("data", (chunk) => {
         buf += chunk.toString();
-        const lines = buf.split('\n');
+        const lines = buf.split("\n");
         buf = lines.pop()!;
         for (const line of lines) {
           if (!line.trim()) continue;
           try {
             const msg = JSON.parse(line) as { type: string };
-            if (msg.type === 'event' || msg.type === 'exit') {
+            if (msg.type === "event" || msg.type === "exit") {
               void this._panel.webview.postMessage(msg);
             }
-            if (msg.type === 'exit') this._stopRun();
+            if (msg.type === "exit") this._stopRun();
           } catch {
             // malformed JSON — ignore
           }
@@ -229,61 +257,85 @@ class DataflowPanel {
 
     await new Promise<void>((resolve, reject) => {
       this._server!.listen(this._socketPath!, (err?: Error) => {
-        if (err) reject(err); else resolve();
+        if (err) reject(err);
+        else resolve();
       });
     });
 
     // Find the stroum CLI in the workspace
     let cliPath: string | undefined;
     for (const folder of workspace.workspaceFolders ?? []) {
-      const candidate = path.join(folder.uri.fsPath, 'dist', 'cli.js');
-      if (fs.existsSync(candidate)) { cliPath = candidate; break; }
+      const candidate = path.join(folder.uri.fsPath, "dist", "cli.js");
+      if (fs.existsSync(candidate)) {
+        cliPath = candidate;
+        break;
+      }
     }
 
     if (!cliPath) {
-      void window.showErrorMessage('Stroum: could not find dist/cli.js. Run "npm run build" first.');
+      void window.showErrorMessage(
+        'Stroum: could not find dist/cli.js. Run "npm run build" first.',
+      );
       this._stopRun();
       return;
     }
 
-    void this._panel.webview.postMessage({ type: 'status', state: 'running' });
+    void this._panel.webview.postMessage({ type: "status", state: "running" });
 
-    this._child = cp.spawn('node', [cliPath, 'run', this._doc.fileName, '--ipc', this._socketPath!], {
-      stdio: 'pipe',
-    });
+    this._child = cp.spawn(
+      "node",
+      [cliPath, "run", this._doc.fileName, "--ipc", this._socketPath!],
+      {
+        stdio: "pipe",
+      },
+    );
 
-    this._child.on('exit', () => this._stopRun());
-    this._child.on('error', (err) => {
-      void this._panel.webview.postMessage({ type: 'status', state: 'error', message: err.message });
+    this._child.on("exit", () => this._stopRun());
+    this._child.on("error", (err) => {
+      void this._panel.webview.postMessage({
+        type: "status",
+        state: "error",
+        message: err.message,
+      });
       this._stopRun();
     });
   }
 
   private _stopRun(): void {
-    try { this._child?.kill(); } catch {}
-    try { this._server?.close(); } catch {}
+    try {
+      this._child?.kill();
+    } catch {}
+    try {
+      this._server?.close();
+    } catch {}
     if (this._socketPath) {
-      try { fs.unlinkSync(this._socketPath); } catch {}
+      try {
+        fs.unlinkSync(this._socketPath);
+      } catch {}
       this._socketPath = undefined;
     }
     this._child = undefined;
     this._server = undefined;
-    void this._panel.webview.postMessage({ type: 'status', state: 'stopped' });
+    void this._panel.webview.postMessage({ type: "status", state: "stopped" });
   }
 
   private _buildHtml(): string {
     const webview = this._panel.webview;
-    const mediaUri = Uri.joinPath(this._extensionUri, 'media');
+    const mediaUri = Uri.joinPath(this._extensionUri, "media");
 
     function res(rel: string): string {
       return webview.asWebviewUri(Uri.joinPath(mediaUri, rel)).toString();
     }
 
-    const nonce = crypto.randomBytes(16).toString('hex');
+    const nonce = crypto.randomBytes(16).toString("hex");
 
     // Read the HTML template and substitute placeholders
-    const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'dataflow.html');
-    let html = fs.readFileSync(htmlPath, 'utf8');
+    const htmlPath = path.join(
+      this._extensionUri.fsPath,
+      "media",
+      "dataflow.html",
+    );
+    let html = fs.readFileSync(htmlPath, "utf8");
     html = html
       .replace(/\{\{nonce\}\}/g, nonce)
       .replace(/\{\{cspSource\}\}/g, webview.cspSource)

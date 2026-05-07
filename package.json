@@ -10,6 +10,9 @@
     "build": "tsc && cp src/runtime-template.ts dist/ && mkdir -p dist/stdlib && cp stdlib/*.ts dist/stdlib/ && node stdlib/build-stdlib.cjs && npm run build:graph-webview",
     "build:graph-webview": "esbuild src/graph-webview.ts --bundle --outfile=dist/graph-webview.js --format=iife --target=es2020 --platform=browser",
     "test": "jest",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
     "dev": "ts-node src/cli.ts"
   },
   "keywords": [
@@ -20,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
     "@types/cytoscape": "^3.21.9",
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
