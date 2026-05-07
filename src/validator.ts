@@ -77,6 +77,11 @@ export class Validator {
       this.validateSinkDeclaration(sinkDecl);
     }
 
+    // Validate test declarations
+    for (const testDecl of module.testDeclarations) {
+      this.validateTestDeclaration(testDecl);
+    }
+
     // Validate primary expressions
     for (const primaryExpr of module.primaryExpressions) {
       this.validateExpression(primaryExpr);
@@ -104,6 +109,20 @@ export class Validator {
 
   private validateSinkDeclaration(sinkDecl: AST.SinkDeclaration): void {
     this.validateExpression(sinkDecl.sink);
+  }
+
+  private validateTestDeclaration(testDecl: AST.TestDeclaration): void {
+    const saved = this.currentScope;
+    this.currentScope = new Set(saved);
+    for (const stmt of testDecl.body.statements) {
+      if (stmt.type === 'BindingDeclaration') {
+        this.validateExpression(stmt.value);
+        this.currentScope.add(stmt.name);
+      } else {
+        this.validateExpression(stmt);
+      }
+    }
+    this.currentScope = saved;
   }
 
   private hasOpenEndedSource(sourceDeclarations: AST.SourceDeclaration[]): boolean {

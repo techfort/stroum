@@ -23,7 +23,7 @@ export class Transpiler {
     
     // Auto-import stdlib functions (unless --no-stdlib was used)
     if (this.stdlibPath) {
-      this.emit(`import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json } from './stdlib-runtime';`);
+      this.emit(`import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises } from './stdlib-runtime';`);
     }
     
     // Emit imports for imported modules
@@ -97,7 +97,67 @@ export class Transpiler {
       this.emit('})();');
     }
 
+    // Emit test runner when the module contains test declarations
+    if (module.testDeclarations.length > 0) {
+      this.emit('');
+      this.emit('// Test runner');
+      this.emit('(async () => {');
+      this.indent++;
+      this.emit('const __testResults: Array<{ name: string; passed: boolean; error?: string }> = [];');
+
+      for (const testDecl of module.testDeclarations) {
+        this.transpileTestDeclaration(testDecl);
+      }
+
+      this.emit('');
+      this.emit('const __passed = __testResults.filter(r => r.passed).length;');
+      this.emit('const __failed = __testResults.filter(r => !r.passed).length;');
+      this.emit('for (const __r of __testResults) {');
+      this.indent++;
+      this.emit('if (__r.passed) { console.log(`  ✓ ${__r.name}`); }');
+      this.emit('else { console.log(`  ✗ ${__r.name}\\n    ${__r.error}`); }');
+      this.indent--;
+      this.emit('}');
+      this.emit('console.log(`\\n${__passed} passed, ${__failed} failed`);');
+      this.emit('if (__failed > 0) process.exit(1);');
+
+      this.indent--;
+      this.emit('})();');
+    }
+
     return this.output.join('\n');
+  }
+
+  private transpileTestDeclaration(testDecl: AST.TestDeclaration): void {
+    const label = JSON.stringify(testDecl.label);
+    this.emit('');
+    this.emit(`// Test: ${label}`);
+    this.emit('{');
+    this.indent++;
+    this.emit(`try {`);
+    this.indent++;
+    this.emit('await (async () => {');
+    this.indent++;
+    for (const stmt of testDecl.body.statements) {
+      if (stmt.type === 'BindingDeclaration') {
+        const val = this.transpileExpression(stmt.value);
+        this.emit(`const ${stmt.name} = await ${val};`);
+      } else {
+        const expr = this.transpileExpression(stmt);
+        this.emit(`await ${expr};`);
+      }
+    }
+    this.indent--;
+    this.emit('})();');
+    this.indent--;
+    this.emit(`__testResults.push({ name: ${label}, passed: true });`);
+    this.emit(`} catch (__e: any) {`);
+    this.indent++;
+    this.emit(`__testResults.push({ name: ${label}, passed: false, error: __e?.message ?? String(__e) });`);
+    this.indent--;
+    this.emit('}');
+    this.indent--;
+    this.emit('}');
   }
 
   private transpileImport(importDecl: AST.ImportDeclaration, currentFilePath?: string): void {
@@ -566,6 +626,11 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
       return `${sink.name}(${valueVar})`;
     }
 
+    if (sink.type === 'CallExpression' && this.isSinkFactory(sink.callee)) {
+      const args = sink.args.map(a => this.transpileExpression(a));
+      return `(${sink.callee}(${args.join(', ')}))(${valueVar})`;
+    }
+
     if (sink.type === 'CallExpression') {
       const hasPlaceholder = sink.args.some(a => a.type === 'Identifier' && a.name === '_');
       if (hasPlaceholder) {
@@ -617,6 +682,10 @@ ${pipe.outcomeMatches.map(m => this.transpileOutcomeMatchInline(m)).join('\n')}
 
   private isCallbackSource(callee: string): boolean {
     return new Set(['watch_file']).has(callee);
+  }
+
+  private isSinkFactory(callee: string): boolean {
+    return new Set(['file_sink', 'jsonl_sink', 'log_sink', 'http_sink']).has(callee);
   }
 
   private transpileRouteDeclaration(route: AST.RouteDeclaration): void {

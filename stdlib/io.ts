@@ -17,6 +17,11 @@ export async function append_file(path, content) {
   return await __builtin_append_file(path, content);
 }
 
+export async function jsonl_file(path, value) {
+  return await __builtin_append_file(path, `${await to_string(value)}
+`);
+}
+
 export async function file_exists(path) {
   return await __builtin_file_exists(path);
 }
@@ -59,4 +64,8 @@ export async function path_ext(path) {
 
 export async function watch_file(path, callback) {
   return await __builtin_watch_file(path, callback);
+}
+
+export async function file_sink(path) {
+  return await __builtin_file_sink(path);
 }

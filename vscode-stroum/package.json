@@ -12,7 +12,6 @@
   "main": "./out/extension.js",
   "extensionKind": ["ui", "workspace"],
   "activationEvents": [
-    "onLanguage:stroum",
     "onStartupFinished"
   ],
   "engines": {

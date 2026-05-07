@@ -4,7 +4,7 @@
  *
  * Implements the Language Server Protocol over stdio.
  * On every document open/change/save it runs the full
- * Stroum compiler pipeline (lexer → parser → validator)
+ * Stroum compiler pipeline (preprocessor → lexer → parser → validator)
  * and publishes diagnostics to the client.
  */
 
@@ -25,6 +25,7 @@ import * as path from 'path';
 import { Lexer } from './lexer';
 import { Parser } from './parser';
 import { Validator, ValidationIssue } from './validator';
+import { preprocess, hasDirectives } from './preprocessor';
 import { analyzeDataflow } from './dataflow-analyzer';
 
 // ─── Connection ─────────────────────────────────────────────────────────────
@@ -65,8 +66,19 @@ function validateDocument(doc: TextDocument): void {
   const stdlibPath = path.join(__dirname, '..', 'stdlib');
 
   try {
+    // Phase 0: Preprocess (#derive and other directives)
+    let processedSource = source;
+    if (hasDirectives(source)) {
+      try {
+        processedSource = preprocess(source, filePath ?? undefined).source;
+      } catch {
+        // If preprocessing fails (e.g. missing CSV), fall through with raw source
+        // so the lexer/parser can still provide partial diagnostics.
+      }
+    }
+
     // Phase 1: Lex
-    const lexer = new Lexer(source);
+    const lexer = new Lexer(processedSource);
     let tokens;
     try {
       tokens = lexer.tokenize();

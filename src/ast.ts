@@ -17,6 +17,7 @@ export interface Module extends ASTNode {
   sourceDeclarations: SourceDeclaration[];
   sinkDeclarations: SinkDeclaration[];
   definitions: Declaration[];
+  testDeclarations: TestDeclaration[];
   primaryExpressions: Expression[];
   contingencies: Contingency[];
   runtimeDeclaration: RuntimeDeclaration | null;
@@ -81,6 +82,12 @@ export interface TimeoutCondition {
 // ============================================================================
 
 export type Declaration = StructDeclaration | FunctionDeclaration | BindingDeclaration;
+
+export interface TestDeclaration extends ASTNode {
+  type: 'TestDeclaration';
+  label: string;
+  body: IndentedBody;
+}
 
 export interface StructDeclaration extends ASTNode {
   type: 'StructDeclaration';
