@@ -27,7 +27,7 @@ interface ReplSession {
   declarations: string[];
 }
 
-function isDeclaration(line: string): boolean {
+export function isDeclaration(line: string): boolean {
   // f:name — function; s:Name — struct; rec f:name — recursive function
   // :name expr — binding (short); b: :name expr — binding (explicit sigil)
   return (
@@ -39,7 +39,7 @@ function isDeclaration(line: string): boolean {
   );
 }
 
-function extractName(line: string): string {
+export function extractName(line: string): string {
   const m =
     line.match(/^f:(\w+)/) ||
     line.match(/^s:(\w+)/) ||
@@ -49,12 +49,12 @@ function extractName(line: string): string {
   return m ? m[1] : "it";
 }
 
-function needsContinuation(line: string): boolean {
+export function needsContinuation(line: string): boolean {
   const t = line.trimEnd();
   return t.endsWith("=>") || t.endsWith("|>") || t.endsWith(",");
 }
 
-async function evalExpression(
+export async function evalExpression(
   source: string,
   session: ReplSession,
   tempDir: string,
