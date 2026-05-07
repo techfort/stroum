@@ -1,9 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { Lexer } from './lexer';
-import { Parser } from './parser';
-import * as AST from './ast';
-import { preprocess, hasDirectives } from './preprocessor';
+import * as fs from "fs";
+import * as path from "path";
+import type * as AST from "./ast";
+import { Lexer } from "./lexer";
+import { Parser } from "./parser";
+import { hasDirectives, preprocess } from "./preprocessor";
 
 export interface ResolvedModule {
   filePath: string;
@@ -18,7 +18,7 @@ export class ModuleResolver {
 
   constructor(stdlibPath?: string) {
     // Default stdlib path relative to this file
-    this.stdlibPath = stdlibPath || path.join(__dirname, '../stdlib');
+    this.stdlibPath = stdlibPath || path.join(__dirname, "../stdlib");
   }
 
   /**
@@ -26,20 +26,24 @@ export class ModuleResolver {
    */
   resolveModulePath(modulePath: string, fromFile: string): string {
     // If it's a file path (starts with ./ or ../ or is absolute), resolve relative to fromFile
-    if (modulePath.startsWith('./') || modulePath.startsWith('../') || path.isAbsolute(modulePath)) {
+    if (
+      modulePath.startsWith("./") ||
+      modulePath.startsWith("../") ||
+      path.isAbsolute(modulePath)
+    ) {
       const fromDir = path.dirname(fromFile);
       const resolved = path.resolve(fromDir, modulePath);
-      
+
       // Add .stm extension if not present
-      if (!resolved.endsWith('.stm')) {
-        return resolved + '.stm';
+      if (!resolved.endsWith(".stm")) {
+        return resolved + ".stm";
       }
       return resolved;
     }
 
     // Otherwise, it's a stdlib module name (e.g., "core")
     const stdlibFile = path.join(this.stdlibPath, `${modulePath}.stm`);
-    
+
     if (fs.existsSync(stdlibFile)) {
       return stdlibFile;
     }
@@ -51,8 +55,8 @@ export class ModuleResolver {
 
     throw new Error(
       `[stroum] Module resolution error: Cannot find module "${modulePath}"\n` +
-      `  Searched: ${stdlibFile}\n` +
-      `  From: ${fromFile}`
+        `  Searched: ${stdlibFile}\n` +
+        `  From: ${fromFile}`,
     );
   }
 
@@ -67,10 +71,10 @@ export class ModuleResolver {
 
     // Check for circular dependencies
     if (this.resolvingStack.has(filePath)) {
-      const cycle = Array.from(this.resolvingStack).join(' -> ');
+      const cycle = Array.from(this.resolvingStack).join(" -> ");
       throw new Error(
         `[stroum] Circular dependency detected:\n` +
-        `  ${cycle} -> ${filePath}`
+          `  ${cycle} -> ${filePath}`,
       );
     }
 
@@ -83,14 +87,14 @@ export class ModuleResolver {
         throw new Error(`[stroum] Module file not found: ${filePath}`);
       }
 
-      let source = fs.readFileSync(filePath, 'utf-8');
-      
+      let source = fs.readFileSync(filePath, "utf-8");
+
       // Preprocess source to expand compile-time directives
       if (hasDirectives(source)) {
         const result = preprocess(source, filePath);
         source = result.source;
       }
-      
+
       const lexer = new Lexer(source);
       const tokens = lexer.tokenize();
       const parser = new Parser(tokens);
@@ -106,7 +110,7 @@ export class ModuleResolver {
       const resolved: ResolvedModule = {
         filePath,
         module,
-        dependencies
+        dependencies,
       };
 
       // Cache it

@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { spawn } from 'child_process';
-import { Lexer } from './lexer';
-import { Parser } from './parser';
-import { Validator } from './validator';
-import { Transpiler } from './transpiler';
-import { ModuleResolver } from './module-resolver';
-import { inferSchema, schemaToStroumSource } from './schema-deriver';
-import { analyzeDataflow } from './dataflow-analyzer';
-import { startGraphServer } from './graph-server';
+import { spawn } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import { analyzeDataflow } from "./dataflow-analyzer";
+import { startGraphServer } from "./graph-server";
+import { Lexer } from "./lexer";
+import { ModuleResolver } from "./module-resolver";
+import { Parser } from "./parser";
+import { inferSchema, schemaToStroumSource } from "./schema-deriver";
+import { Transpiler } from "./transpiler";
+import { Validator } from "./validator";
 
-const VERSION = '1.0.0';
+const VERSION = "1.0.0";
 
 // ANSI color codes
 const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m',
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  cyan: "\x1b[36m",
 };
 
 function colorize(text: string, color: keyof typeof colors): string {
@@ -32,48 +32,48 @@ function colorize(text: string, color: keyof typeof colors): string {
 
 function showHelp() {
   console.log(`
-${colorize('Stroum', 'cyan')} ${colorize(`v${VERSION}`, 'bright')}
-${colorize('A functional, pipe-first, stream-oriented programming language', 'blue')}
+${colorize("Stroum", "cyan")} ${colorize(`v${VERSION}`, "bright")}
+${colorize("A functional, pipe-first, stream-oriented programming language", "blue")}
 
-${colorize('USAGE:', 'bright')}
+${colorize("USAGE:", "bright")}
   stroum <command> [options]
 
-${colorize('COMMANDS:', 'bright')}
-  ${colorize('compile', 'green')} <file.stm>     Transpile Stroum to TypeScript
-  ${colorize('run', 'green')} <file.stm>         Compile and execute a Stroum program
-  ${colorize('graph', 'green')} <file.stm>       Open dataflow graph in browser
-  ${colorize('derive', 'green')} schema <file>   Infer struct definition from CSV/JSON file
-  ${colorize('init', 'green')} [name]            Initialize a new Stroum project
-  ${colorize('version', 'green')}                Show version information
-  ${colorize('help', 'green')}                   Show this help message
+${colorize("COMMANDS:", "bright")}
+  ${colorize("compile", "green")} <file.stm>     Transpile Stroum to TypeScript
+  ${colorize("run", "green")} <file.stm>         Compile and execute a Stroum program
+  ${colorize("graph", "green")} <file.stm>       Open dataflow graph in browser
+  ${colorize("derive", "green")} schema <file>   Infer struct definition from CSV/JSON file
+  ${colorize("init", "green")} [name]            Initialize a new Stroum project
+  ${colorize("version", "green")}                Show version information
+  ${colorize("help", "green")}                   Show this help message
 
-${colorize('GRAPH OPTIONS:', 'bright')}
+${colorize("GRAPH OPTIONS:", "bright")}
   --port <n>              Port to serve on (default: 3847)
   --no-open               Print URL but do not auto-open browser
 
-${colorize('RUN OPTIONS:', 'bright')}
+${colorize("RUN OPTIONS:", "bright")}
   --trace                 Print a stream trace summary after execution
 
-${colorize('DERIVE OPTIONS:', 'bright')}
+${colorize("DERIVE OPTIONS:", "bright")}
   --name <StructName>     Name for the generated struct (default: inferred from filename)
   --output <file>         Write output to file instead of stdout
 
-${colorize('DERIVE OPTIONS:', 'bright')}
+${colorize("DERIVE OPTIONS:", "bright")}
   --name <StructName>     Name for the generated struct (default: inferred from filename)
   --output <file>         Write output to file instead of stdout
 
-${colorize('COMPILE OPTIONS:', 'bright')}
+${colorize("COMPILE OPTIONS:", "bright")}
   -o, --output <file>     Specify output file (default: input.ts)
   --ast                   Dump AST as JSON instead of compiling
   --no-stdlib             Disable automatic stdlib import
 
-${colorize('MODULE SYSTEM:', 'bright')}
+${colorize("MODULE SYSTEM:", "bright")}
   i:core                  Import stdlib module (auto-imported by default)
   i:"./file.stm"          Import local module
   i:core add, mul         Selective imports
   i:core as c             Qualified imports (use as c:add, c:mul)
 
-${colorize('EXAMPLES:', 'bright')}
+${colorize("EXAMPLES:", "bright")}
   stroum init my-project
   stroum compile app.stm
   stroum compile app.stm -o build/app.ts
@@ -86,7 +86,7 @@ ${colorize('EXAMPLES:', 'bright')}
   stroum derive schema data/users.csv --name UserRow
   stroum derive schema data/users.csv --name UserRow
 
-${colorize('DOCUMENTATION:', 'bright')}
+${colorize("DOCUMENTATION:", "bright")}
   README.md               Getting started guide
   PHASE5-COMPLETE.md      CLI documentation
   PHASE4-COMPLETE.md      Transpiler documentation
@@ -95,165 +95,200 @@ ${colorize('DOCUMENTATION:', 'bright')}
 }
 
 function showVersion() {
-  console.log(`${colorize('Stroum', 'cyan')} ${colorize(`v${VERSION}`, 'bright')}`);
+  console.log(
+    `${colorize("Stroum", "cyan")} ${colorize(`v${VERSION}`, "bright")}`,
+  );
   console.log(`Node ${process.version}`);
 }
 
 function compileCommand(args: string[]) {
-    const inputFile = args[0];
-    
-    if (!inputFile) {
-      console.error(colorize('Error:', 'red') + ' input file required');
-      console.error('Usage: stroum compile <input.stm> [-o <output.ts>] [--ast] [--no-stdlib]');
+  const inputFile = args[0];
+
+  if (!inputFile) {
+    console.error(colorize("Error:", "red") + " input file required");
+    console.error(
+      "Usage: stroum compile <input.stm> [-o <output.ts>] [--ast] [--no-stdlib]",
+    );
+    process.exit(1);
+  }
+
+  let outputFile: string | null = null;
+  let dumpAst = false;
+  let useStdlib = true;
+
+  // Parse flags
+  for (let i = 1; i < args.length; i++) {
+    if ((args[i] === "-o" || args[i] === "--output") && i + 1 < args.length) {
+      outputFile = args[i + 1];
+      i++;
+    } else if (args[i] === "--ast") {
+      dumpAst = true;
+    } else if (args[i] === "--no-stdlib") {
+      useStdlib = false;
+    }
+  }
+
+  try {
+    const absoluteInputFile = path.resolve(inputFile);
+
+    // Determine stdlib path
+    const stdlibPath = useStdlib
+      ? path.join(__dirname, "..", "stdlib")
+      : undefined;
+
+    // Phase 1-2: Resolve all modules and parse them
+    const resolver = new ModuleResolver(stdlibPath);
+    resolver.loadModule(absoluteInputFile); // Load main file and all dependencies
+    const modules = resolver.getModulesInOrder(); // Get all modules in dependency order
+
+    if (dumpAst) {
+      // Dump AST for all modules
+      const allAsts = modules.map((mod) => ({
+        path: mod.filePath,
+        ast: mod.module,
+      }));
+      console.log(JSON.stringify(allAsts, null, 2));
+      process.exit(0);
+    }
+
+    // Phase 3: Validation (validates all modules together)
+    const validator = new Validator(stdlibPath);
+    const allIssues = [];
+
+    for (const resolvedModule of modules) {
+      const issues = validator.validate(resolvedModule.module);
+      allIssues.push(
+        ...issues.map((issue) => ({ ...issue, file: resolvedModule.filePath })),
+      );
+    }
+
+    // Report errors and warnings
+    const errors = allIssues.filter((i) => i.type === "error");
+    const warnings = allIssues.filter((i) => i.type === "warning");
+
+    for (const warning of warnings) {
+      const location = warning.file
+        ? `${path.relative(process.cwd(), warning.file)}:`
+        : "";
+      console.error(
+        colorize("[warning]", "yellow") +
+          ` ${location}line ${warning.location.line}, col ${warning.location.column}: ${warning.message}`,
+      );
+    }
+
+    for (const error of errors) {
+      const location = error.file
+        ? `${path.relative(process.cwd(), error.file)}:`
+        : "";
+      console.error(
+        colorize("[error]", "red") +
+          ` ${location}line ${error.location.line}, col ${error.location.column}: ${error.message}`,
+      );
+    }
+
+    if (errors.length > 0) {
+      console.error(
+        colorize(`Validation failed with ${errors.length} error(s)`, "red"),
+      );
       process.exit(1);
     }
 
-    let outputFile: string | null = null;
-    let dumpAst = false;
-    let useStdlib = true;
+    // Phase 4: Transpilation
+    const transpiler = new Transpiler(stdlibPath);
 
-    // Parse flags
-    for (let i = 1; i < args.length; i++) {
-      if ((args[i] === '-o' || args[i] === '--output') && i + 1 < args.length) {
-        outputFile = args[i + 1];
-        i++;
-      } else if (args[i] === '--ast') {
-        dumpAst = true;
-      } else if (args[i] === '--no-stdlib') {
-        useStdlib = false;
-      }
+    // Determine output file for the main module
+    if (!outputFile) {
+      outputFile = inputFile.replace(/\.stm$/, ".ts");
     }
 
-    try {
-      const absoluteInputFile = path.resolve(inputFile);
-      
-      // Determine stdlib path
-      const stdlibPath = useStdlib ? path.join(__dirname, '..', 'stdlib') : undefined;
-      
-      // Phase 1-2: Resolve all modules and parse them
-      const resolver = new ModuleResolver(stdlibPath);
-      resolver.loadModule(absoluteInputFile); // Load main file and all dependencies
-      const modules = resolver.getModulesInOrder(); // Get all modules in dependency order
-      
-      if (dumpAst) {
-        // Dump AST for all modules
-        const allAsts = modules.map(mod => ({
-          path: mod.filePath,
-          ast: mod.module
-        }));
-        console.log(JSON.stringify(allAsts, null, 2));
-        process.exit(0);
+    // Transpile all modules
+    for (const resolvedModule of modules) {
+      const tsCode = transpiler.transpile(
+        resolvedModule.module,
+        resolvedModule.filePath,
+      );
+
+      // Use custom output file for main module, default location for imports
+      let moduleOutputFile: string;
+      if (resolvedModule.filePath === absoluteInputFile) {
+        // Main module - use the specified output file
+        moduleOutputFile = outputFile;
+      } else {
+        // Imported module - write next to source
+        moduleOutputFile = resolvedModule.filePath.replace(/\.stm$/, ".ts");
       }
 
-      // Phase 3: Validation (validates all modules together)
-      const validator = new Validator(stdlibPath);
-      let allIssues = [];
-      
-      for (const resolvedModule of modules) {
-        const issues = validator.validate(resolvedModule.module);
-        allIssues.push(...issues.map(issue => ({ ...issue, file: resolvedModule.filePath })));
-      }
-      
-      // Report errors and warnings
-      const errors = allIssues.filter(i => i.type === 'error');
-      const warnings = allIssues.filter(i => i.type === 'warning');
-      
-      for (const warning of warnings) {
-        const location = warning.file ? `${path.relative(process.cwd(), warning.file)}:` : '';
-        console.error(colorize('[warning]', 'yellow') + ` ${location}line ${warning.location.line}, col ${warning.location.column}: ${warning.message}`);
-      }
-      
-      for (const error of errors) {
-        const location = error.file ? `${path.relative(process.cwd(), error.file)}:` : '';
-        console.error(colorize('[error]', 'red') + ` ${location}line ${error.location.line}, col ${error.location.column}: ${error.message}`);
-      }
-      
-      if (errors.length > 0) {
-        console.error(colorize(`Validation failed with ${errors.length} error(s)`, 'red'));
-        process.exit(1);
-      }
-
-      // Phase 4: Transpilation
-      const transpiler = new Transpiler(stdlibPath);
-      
-      // Determine output file for the main module
-      if (!outputFile) {
-        outputFile = inputFile.replace(/\.stm$/, '.ts');
-      }
-      
-      // Transpile all modules
-      for (const resolvedModule of modules) {
-        const tsCode = transpiler.transpile(resolvedModule.module, resolvedModule.filePath);
-        
-        // Use custom output file for main module, default location for imports
-        let moduleOutputFile: string;
-        if (resolvedModule.filePath === absoluteInputFile) {
-          // Main module - use the specified output file
-          moduleOutputFile = outputFile;
-        } else {
-          // Imported module - write next to source
-          moduleOutputFile = resolvedModule.filePath.replace(/\.stm$/, '.ts');
-        }
-        
-        fs.writeFileSync(moduleOutputFile, tsCode);
-      }
-      
-      // Emit runtime file in the same directory as the main output
-      const outputDir = path.dirname(path.resolve(outputFile));
-      Transpiler.emitRuntime(outputDir);
-      
-      console.log(colorize('✓', 'green') + ' Transpilation successful');
-      console.log(`  Main output: ${colorize(outputFile, 'cyan')}`);
-      if (modules.length > 1) {
-        console.log(`  ${modules.length - 1} imported module(s) compiled`);
-      }
-      console.log(`  Runtime: ${colorize(path.join(outputDir, 'stroum-runtime.ts'), 'cyan')}`);
-      if (warnings.length > 0) {
-        console.log(colorize(`  ${warnings.length} warning(s) reported`, 'yellow'));
-      }
-      
-    } catch (error: any) {
-      console.error(colorize('Error:', 'red'), error.message);
-      if (error.stack) {
-        console.error(error.stack);
-      }
-      process.exit(1);
+      fs.writeFileSync(moduleOutputFile, tsCode);
     }
+
+    // Emit runtime file in the same directory as the main output
+    const outputDir = path.dirname(path.resolve(outputFile));
+    Transpiler.emitRuntime(outputDir);
+
+    console.log(colorize("✓", "green") + " Transpilation successful");
+    console.log(`  Main output: ${colorize(outputFile, "cyan")}`);
+    if (modules.length > 1) {
+      console.log(`  ${modules.length - 1} imported module(s) compiled`);
+    }
+    console.log(
+      `  Runtime: ${colorize(path.join(outputDir, "stroum-runtime.ts"), "cyan")}`,
+    );
+    if (warnings.length > 0) {
+      console.log(
+        colorize(`  ${warnings.length} warning(s) reported`, "yellow"),
+      );
+    }
+  } catch (error: any) {
+    console.error(colorize("Error:", "red"), error.message);
+    if (error.stack) {
+      console.error(error.stack);
+    }
+    process.exit(1);
+  }
 }
 
 function runCommand(args: string[]) {
-  const traceMode = args.includes('--trace');
-  const ipcIndex = args.indexOf('--ipc');
+  const traceMode = args.includes("--trace");
+  const ipcIndex = args.indexOf("--ipc");
   const ipcSocket = ipcIndex !== -1 ? args[ipcIndex + 1] : null;
-  const inputFile = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--ipc');
+  const inputFile = args.find(
+    (a, i) => !a.startsWith("--") && args[i - 1] !== "--ipc",
+  );
 
   if (!inputFile) {
-    console.error(colorize('Error:', 'red') + ' input file required');
-    console.error('Usage: stroum run <input.stm>');
+    console.error(colorize("Error:", "red") + " input file required");
+    console.error("Usage: stroum run <input.stm>");
     process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
-    console.error(colorize('Error:', 'red') + ` file not found: ${inputFile}`);
+    console.error(colorize("Error:", "red") + ` file not found: ${inputFile}`);
     process.exit(1);
   }
 
-  const os = require('os');
+  const os = require("os");
   const absoluteInputFile = path.resolve(inputFile);
-  const basename = path.basename(inputFile, '.stm');
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stroum-'));
+  const basename = path.basename(inputFile, ".stm");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "stroum-"));
 
   // Cleanup on exit
-  const cleanup = () => { try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {} };
-  process.on('exit', cleanup);
-  process.on('SIGINT', () => { cleanup(); process.exit(130); });
+  const cleanup = () => {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  };
+  process.on("exit", cleanup);
+  process.on("SIGINT", () => {
+    cleanup();
+    process.exit(130);
+  });
 
-  console.log(colorize(`🚀 Executing Stroum file: ${inputFile}`, 'cyan'));
-  console.log('');
+  console.log(colorize(`🚀 Executing Stroum file: ${inputFile}`, "cyan"));
+  console.log("");
 
   // Step 1: Transpile to temp dir
-  console.log('📝 Transpiling to TypeScript...');
-  const stdlibPath = path.join(__dirname, '..', 'stdlib');
+  console.log("📝 Transpiling to TypeScript...");
+  const stdlibPath = path.join(__dirname, "..", "stdlib");
   const outputTs = path.join(tempDir, `${basename}.ts`);
 
   try {
@@ -268,19 +303,27 @@ function runCommand(args: string[]) {
       allIssues.push(...issues.map((i: any) => ({ ...i, file: mod.filePath })));
     }
 
-    const errors = allIssues.filter((i: any) => i.type === 'error');
-    const warnings = allIssues.filter((i: any) => i.type === 'warning');
+    const errors = allIssues.filter((i: any) => i.type === "error");
+    const warnings = allIssues.filter((i: any) => i.type === "warning");
 
     for (const w of warnings) {
-      const loc = w.file ? `${path.relative(process.cwd(), w.file)}:` : '';
-      console.error(colorize('[warning]', 'yellow') + ` ${loc}line ${w.location.line}, col ${w.location.column}: ${w.message}`);
+      const loc = w.file ? `${path.relative(process.cwd(), w.file)}:` : "";
+      console.error(
+        colorize("[warning]", "yellow") +
+          ` ${loc}line ${w.location.line}, col ${w.location.column}: ${w.message}`,
+      );
     }
     for (const e of errors) {
-      const loc = e.file ? `${path.relative(process.cwd(), e.file)}:` : '';
-      console.error(colorize('[error]', 'red') + ` ${loc}line ${e.location.line}, col ${e.location.column}: ${e.message}`);
+      const loc = e.file ? `${path.relative(process.cwd(), e.file)}:` : "";
+      console.error(
+        colorize("[error]", "red") +
+          ` ${loc}line ${e.location.line}, col ${e.location.column}: ${e.message}`,
+      );
     }
     if (errors.length > 0) {
-      console.error(colorize(`Validation failed with ${errors.length} error(s)`, 'red'));
+      console.error(
+        colorize(`Validation failed with ${errors.length} error(s)`, "red"),
+      );
       cleanup();
       process.exit(1);
     }
@@ -288,69 +331,85 @@ function runCommand(args: string[]) {
     const transpiler = new Transpiler(stdlibPath);
     for (const mod of modules) {
       const tsCode = transpiler.transpile(mod.module, mod.filePath);
-      const outFile = mod.filePath === absoluteInputFile
-        ? outputTs
-        : path.join(tempDir, path.basename(mod.filePath, '.stm') + '.ts');
+      const outFile =
+        mod.filePath === absoluteInputFile
+          ? outputTs
+          : path.join(tempDir, path.basename(mod.filePath, ".stm") + ".ts");
       fs.writeFileSync(outFile, tsCode);
     }
     Transpiler.emitRuntime(tempDir);
 
     // Symlink node_modules to temp directory for dependency resolution
-    const projectRoot = path.join(__dirname, '..');
-    const tempNodeModules = path.join(tempDir, 'node_modules');
-    const projectNodeModules = path.join(projectRoot, 'node_modules');
+    const projectRoot = path.join(__dirname, "..");
+    const tempNodeModules = path.join(tempDir, "node_modules");
+    const projectNodeModules = path.join(projectRoot, "node_modules");
     if (fs.existsSync(projectNodeModules) && !fs.existsSync(tempNodeModules)) {
-      fs.symlinkSync(projectNodeModules, tempNodeModules, 'dir');
+      fs.symlinkSync(projectNodeModules, tempNodeModules, "dir");
     }
 
     // Copy schema-deriver for runtime schema inference
-    const schemaDeriver = path.join(__dirname, 'schema-deriver.js');
+    const schemaDeriver = path.join(__dirname, "schema-deriver.js");
     if (fs.existsSync(schemaDeriver)) {
-      fs.copyFileSync(schemaDeriver, path.join(tempDir, 'schema-deriver.js'));
+      fs.copyFileSync(schemaDeriver, path.join(tempDir, "schema-deriver.js"));
     }
 
-    console.log(colorize('✓', 'green') + ' Transpilation successful');
-    if (modules.length > 1) console.log(`  ${modules.length - 1} imported module(s) compiled`);
-    console.log(`  Runtime: ${colorize(path.join(tempDir, 'stroum-runtime.ts'), 'cyan')}`);
+    console.log(colorize("✓", "green") + " Transpilation successful");
+    if (modules.length > 1)
+      console.log(`  ${modules.length - 1} imported module(s) compiled`);
+    console.log(
+      `  Runtime: ${colorize(path.join(tempDir, "stroum-runtime.ts"), "cyan")}`,
+    );
   } catch (err: any) {
-    console.error(colorize('Error:', 'red'), err.message);
+    console.error(colorize("Error:", "red"), err.message);
     cleanup();
     process.exit(1);
   }
 
   // Step 2: Compile TS → JS
-  console.log('📝 Compiling to JavaScript...');
-  const tscPath = path.join(__dirname, '..', 'node_modules', '.bin', 'tsc');
+  console.log("📝 Compiling to JavaScript...");
+  const tscPath = path.join(__dirname, "..", "node_modules", ".bin", "tsc");
   const tscArgs = [
     outputTs,
-    path.join(tempDir, 'stroum-runtime.ts'),
-    path.join(tempDir, 'stdlib-runtime.ts'),
-    '--outDir', tempDir,
-    '--module', 'commonjs',
-    '--target', 'es2020',
-    '--moduleResolution', 'node',
-    '--esModuleInterop', 'true',
-    '--skipLibCheck',
+    path.join(tempDir, "stroum-runtime.ts"),
+    path.join(tempDir, "stdlib-runtime.ts"),
+    "--outDir",
+    tempDir,
+    "--module",
+    "commonjs",
+    "--target",
+    "es2020",
+    "--moduleResolution",
+    "node",
+    "--esModuleInterop",
+    "true",
+    "--skipLibCheck",
   ];
 
-  const tscResult = require('child_process').spawnSync(tscPath, tscArgs, {
+  const tscResult = require("child_process").spawnSync(tscPath, tscArgs, {
     cwd: __dirname,
-    encoding: 'utf-8',
+    encoding: "utf-8",
   });
   if (tscResult.stdout) process.stderr.write(tscResult.stdout);
   if (tscResult.stderr) process.stderr.write(tscResult.stderr);
 
   // Step 3: Execute
-  console.log('📝 Executing...');
-  console.log('');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('                    STROUM PROGRAM OUTPUT');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('');
+  console.log("📝 Executing...");
+  console.log("");
+  console.log(
+    "═══════════════════════════════════════════════════════════════",
+  );
+  console.log("                    STROUM PROGRAM OUTPUT");
+  console.log(
+    "═══════════════════════════════════════════════════════════════",
+  );
+  console.log("");
 
   const outputJs = path.join(tempDir, `${basename}.js`);
   if (!fs.existsSync(outputJs)) {
-    console.error(colorize('Error:', 'red') + ' Compilation produced no output. Check TypeScript errors above.');
+    console.error(
+      colorize("Error:", "red") +
+        " Compilation produced no output. Check TypeScript errors above.",
+    );
     cleanup();
     process.exit(1);
   }
@@ -358,44 +417,48 @@ function runCommand(args: string[]) {
   // Run with the original cwd so relative paths in the program resolve correctly.
   // Module imports (require('./stroum-runtime')) resolve relative to the .js file, not cwd.
   const nodeEnv = { ...process.env };
-  if (traceMode) nodeEnv.STROUM_TRACE = '1';
+  if (traceMode) nodeEnv.STROUM_TRACE = "1";
   if (ipcSocket) nodeEnv.STROUM_IPC_SOCKET = ipcSocket;
 
-  const nodeResult = spawn('node', [outputJs], {
-    stdio: 'inherit',
+  const nodeResult = spawn("node", [outputJs], {
+    stdio: "inherit",
     env: nodeEnv,
   });
-  nodeResult.on('exit', (code) => {
+  nodeResult.on("exit", (code) => {
     if (code === 0) {
-      console.log(colorize('✅ Execution complete!', 'green'));
+      console.log(colorize("✅ Execution complete!", "green"));
     } else {
-      console.log(colorize(`❌ Process exited with code ${code}`, 'red'));
+      console.log(colorize(`❌ Process exited with code ${code}`, "red"));
     }
     cleanup();
     process.exit(code || 0);
   });
-  nodeResult.on('error', (err) => {
-    console.error(colorize('Error:', 'red'), err.message);
+  nodeResult.on("error", (err) => {
+    console.error(colorize("Error:", "red"), err.message);
     cleanup();
     process.exit(1);
   });
 }
 
 function initCommand(args: string[]) {
-  const projectName = args[0] || 'my-stroum-project';
+  const projectName = args[0] || "my-stroum-project";
   const projectPath = path.resolve(process.cwd(), projectName);
 
   if (fs.existsSync(projectPath)) {
-    console.error(colorize('Error:', 'red') + ` directory already exists: ${projectName}`);
+    console.error(
+      colorize("Error:", "red") + ` directory already exists: ${projectName}`,
+    );
     process.exit(1);
   }
 
-  console.log(colorize('✨ Creating new Stroum project:', 'cyan') + ` ${projectName}`);
-  
+  console.log(
+    colorize("✨ Creating new Stroum project:", "cyan") + ` ${projectName}`,
+  );
+
   // Create project directory
   fs.mkdirSync(projectPath);
-  fs.mkdirSync(path.join(projectPath, 'src'));
-  
+  fs.mkdirSync(path.join(projectPath, "src"));
+
   // Create a sample Stroum file
   const sampleStm = `-- Hello World in Stroum
 -- A simple example demonstrating pipe operations
@@ -410,8 +473,8 @@ f:compute => add(double(5), double(3))
 compute()
 `;
 
-  fs.writeFileSync(path.join(projectPath, 'src', 'hello.stm'), sampleStm);
-  
+  fs.writeFileSync(path.join(projectPath, "src", "hello.stm"), sampleStm);
+
   // Create README
   const readme = `# ${projectName}
 
@@ -437,37 +500,41 @@ stroum run src/hello.stm
 - [Language Specification](../PHASE4-COMPLETE.md)
 `;
 
-  fs.writeFileSync(path.join(projectPath, 'README.md'), readme);
-  
+  fs.writeFileSync(path.join(projectPath, "README.md"), readme);
+
   console.log();
-  console.log(colorize('✓', 'green') + ' Created project structure:');
+  console.log(colorize("✓", "green") + " Created project structure:");
   console.log(`  ${projectName}/`);
   console.log(`  ├── src/`);
   console.log(`  │   └── hello.stm`);
   console.log(`  └── README.md`);
   console.log();
-  console.log('Next steps:');
-  console.log(`  ${colorize('cd', 'cyan')} ${projectName}`);
-  console.log(`  ${colorize('stroum run', 'cyan')} src/hello.stm`);
+  console.log("Next steps:");
+  console.log(`  ${colorize("cd", "cyan")} ${projectName}`);
+  console.log(`  ${colorize("stroum run", "cyan")} src/hello.stm`);
   console.log();
 }
 
 function deriveCommand(args: string[]) {
-  if (args.length === 0 || args[0] !== 'schema') {
-    console.error(colorize('Error:', 'red') + ' derive requires a subcommand');
-    console.error('Usage: stroum derive schema <file> [--name <StructName>] [--output <file>]');
+  if (args.length === 0 || args[0] !== "schema") {
+    console.error(colorize("Error:", "red") + " derive requires a subcommand");
+    console.error(
+      "Usage: stroum derive schema <file> [--name <StructName>] [--output <file>]",
+    );
     process.exit(1);
   }
 
   const inputFile = args[1];
   if (!inputFile) {
-    console.error(colorize('Error:', 'red') + ' input file required');
-    console.error('Usage: stroum derive schema <file> [--name <StructName>] [--output <file>]');
+    console.error(colorize("Error:", "red") + " input file required");
+    console.error(
+      "Usage: stroum derive schema <file> [--name <StructName>] [--output <file>]",
+    );
     process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
-    console.error(colorize('Error:', 'red') + ` file not found: ${inputFile}`);
+    console.error(colorize("Error:", "red") + ` file not found: ${inputFile}`);
     process.exit(1);
   }
 
@@ -476,10 +543,10 @@ function deriveCommand(args: string[]) {
   let outputFile: string | null = null;
 
   for (let i = 2; i < args.length; i++) {
-    if (args[i] === '--name' && i + 1 < args.length) {
+    if (args[i] === "--name" && i + 1 < args.length) {
       structName = args[i + 1];
       i++;
-    } else if (args[i] === '--output' && i + 1 < args.length) {
+    } else if (args[i] === "--output" && i + 1 < args.length) {
       outputFile = args[i + 1];
       i++;
     }
@@ -489,7 +556,9 @@ function deriveCommand(args: string[]) {
   if (!structName) {
     const basename = path.basename(inputFile, path.extname(inputFile));
     // Capitalize first letter and make valid type name
-    structName = basename.charAt(0).toUpperCase() + basename.slice(1).replace(/[^a-zA-Z0-9]/g, '');
+    structName =
+      basename.charAt(0).toUpperCase() +
+      basename.slice(1).replace(/[^a-zA-Z0-9]/g, "");
   }
 
   try {
@@ -497,13 +566,15 @@ function deriveCommand(args: string[]) {
     const source = schemaToStroumSource(schema);
 
     if (outputFile) {
-      fs.writeFileSync(outputFile, source + '\n');
-      console.log(colorize('✓', 'green') + ` Struct definition written to ${outputFile}`);
+      fs.writeFileSync(outputFile, source + "\n");
+      console.log(
+        colorize("✓", "green") + ` Struct definition written to ${outputFile}`,
+      );
     } else {
       console.log(source);
     }
   } catch (err: any) {
-    console.error(colorize('Error:', 'red'), err.message);
+    console.error(colorize("Error:", "red"), err.message);
     process.exit(1);
   }
 }
@@ -511,13 +582,13 @@ function deriveCommand(args: string[]) {
 function findTestFiles(target: string): string[] {
   const stat = fs.statSync(target, { throwIfNoEntry: false });
   if (!stat) return [];
-  if (stat.isFile()) return target.endsWith('.stm') ? [target] : [];
+  if (stat.isFile()) return target.endsWith(".stm") ? [target] : [];
   const results: string[] = [];
   for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
     const full = path.join(target, entry.name);
-    if (entry.isDirectory() && entry.name !== 'node_modules') {
+    if (entry.isDirectory() && entry.name !== "node_modules") {
       results.push(...findTestFiles(full));
-    } else if (entry.isFile() && entry.name.endsWith('.test.stm')) {
+    } else if (entry.isFile() && entry.name.endsWith(".test.stm")) {
       results.push(full);
     }
   }
@@ -526,13 +597,17 @@ function findTestFiles(target: string): string[] {
 
 function runTestFile(inputFile: string): Promise<number> {
   return new Promise((resolve) => {
-    const os = require('os');
+    const os = require("os");
     const absoluteInputFile = path.resolve(inputFile);
-    const basename = path.basename(inputFile, '.stm');
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stroum-test-'));
-    const cleanup = () => { try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {} };
+    const basename = path.basename(inputFile, ".stm");
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "stroum-test-"));
+    const cleanup = () => {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    };
 
-    const stdlibPath = path.join(__dirname, '..', 'stdlib');
+    const stdlibPath = path.join(__dirname, "..", "stdlib");
     const outputTs = path.join(tempDir, `${basename}.ts`);
 
     try {
@@ -543,10 +618,13 @@ function runTestFile(inputFile: string): Promise<number> {
       const validator = new Validator(stdlibPath);
       for (const mod of modules) {
         const issues = validator.validate(mod.module, mod.filePath);
-        const errors = issues.filter((i: any) => i.type === 'error');
+        const errors = issues.filter((i: any) => i.type === "error");
         if (errors.length > 0) {
           for (const e of errors) {
-            console.error(colorize('[error]', 'red') + ` ${path.relative(process.cwd(), mod.filePath)}:line ${e.location.line}, col ${e.location.column}: ${e.message}`);
+            console.error(
+              colorize("[error]", "red") +
+                ` ${path.relative(process.cwd(), mod.filePath)}:line ${e.location.line}, col ${e.location.column}: ${e.message}`,
+            );
           }
           cleanup();
           resolve(1);
@@ -557,58 +635,78 @@ function runTestFile(inputFile: string): Promise<number> {
       const transpiler = new Transpiler(stdlibPath);
       for (const mod of modules) {
         const tsCode = transpiler.transpile(mod.module, mod.filePath);
-        const outFile = mod.filePath === absoluteInputFile
-          ? outputTs
-          : path.join(tempDir, path.basename(mod.filePath, '.stm') + '.ts');
+        const outFile =
+          mod.filePath === absoluteInputFile
+            ? outputTs
+            : path.join(tempDir, path.basename(mod.filePath, ".stm") + ".ts");
         fs.writeFileSync(outFile, tsCode);
       }
       Transpiler.emitRuntime(tempDir);
 
-      const projectRoot = path.join(__dirname, '..');
-      const tempNodeModules = path.join(tempDir, 'node_modules');
-      const projectNodeModules = path.join(projectRoot, 'node_modules');
-      if (fs.existsSync(projectNodeModules) && !fs.existsSync(tempNodeModules)) {
-        fs.symlinkSync(projectNodeModules, tempNodeModules, 'dir');
+      const projectRoot = path.join(__dirname, "..");
+      const tempNodeModules = path.join(tempDir, "node_modules");
+      const projectNodeModules = path.join(projectRoot, "node_modules");
+      if (
+        fs.existsSync(projectNodeModules) &&
+        !fs.existsSync(tempNodeModules)
+      ) {
+        fs.symlinkSync(projectNodeModules, tempNodeModules, "dir");
       }
     } catch (err: any) {
-      console.error(colorize('Error:', 'red'), err.message);
+      console.error(colorize("Error:", "red"), err.message);
       cleanup();
       resolve(1);
       return;
     }
 
-    const tscPath = path.join(__dirname, '..', 'node_modules', '.bin', 'tsc');
+    const tscPath = path.join(__dirname, "..", "node_modules", ".bin", "tsc");
     const tscArgs = [
       outputTs,
-      path.join(tempDir, 'stroum-runtime.ts'),
-      path.join(tempDir, 'stdlib-runtime.ts'),
-      '--outDir', tempDir,
-      '--module', 'commonjs',
-      '--target', 'es2020',
-      '--moduleResolution', 'node',
-      '--esModuleInterop', 'true',
-      '--skipLibCheck',
+      path.join(tempDir, "stroum-runtime.ts"),
+      path.join(tempDir, "stdlib-runtime.ts"),
+      "--outDir",
+      tempDir,
+      "--module",
+      "commonjs",
+      "--target",
+      "es2020",
+      "--moduleResolution",
+      "node",
+      "--esModuleInterop",
+      "true",
+      "--skipLibCheck",
     ];
-    const tscResult = require('child_process').spawnSync(tscPath, tscArgs, { encoding: 'utf-8' });
+    const tscResult = require("child_process").spawnSync(tscPath, tscArgs, {
+      encoding: "utf-8",
+    });
     if (tscResult.stderr) process.stderr.write(tscResult.stderr);
 
     const outputJs = path.join(tempDir, `${basename}.js`);
     if (!fs.existsSync(outputJs)) {
-      console.error(colorize('Error:', 'red') + ' TypeScript compilation failed');
+      console.error(
+        colorize("Error:", "red") + " TypeScript compilation failed",
+      );
       cleanup();
       resolve(1);
       return;
     }
 
-    const child = spawn('node', [outputJs], { stdio: 'inherit' });
-    child.on('exit', (code) => { cleanup(); resolve(code ?? 1); });
-    child.on('error', (err) => { console.error(err.message); cleanup(); resolve(1); });
+    const child = spawn("node", [outputJs], { stdio: "inherit" });
+    child.on("exit", (code) => {
+      cleanup();
+      resolve(code ?? 1);
+    });
+    child.on("error", (err) => {
+      console.error(err.message);
+      cleanup();
+      resolve(1);
+    });
   });
 }
 
 async function testCommand(args: string[]) {
-  const targets = args.filter(a => !a.startsWith('--'));
-  const searchRoots = targets.length > 0 ? targets : ['.'];
+  const targets = args.filter((a) => !a.startsWith("--"));
+  const searchRoots = targets.length > 0 ? targets : ["."];
 
   const testFiles: string[] = [];
   for (const root of searchRoots) {
@@ -616,19 +714,21 @@ async function testCommand(args: string[]) {
   }
 
   if (testFiles.length === 0) {
-    console.log(colorize('No test files found', 'yellow') + ' (looking for *.test.stm)');
+    console.log(
+      colorize("No test files found", "yellow") + " (looking for *.test.stm)",
+    );
     process.exit(0);
   }
 
-  console.log(colorize(`Running ${testFiles.length} test file(s)`, 'cyan'));
-  console.log('');
+  console.log(colorize(`Running ${testFiles.length} test file(s)`, "cyan"));
+  console.log("");
 
   let anyFailed = false;
   for (const file of testFiles) {
-    console.log(colorize(path.relative(process.cwd(), file), 'bright'));
+    console.log(colorize(path.relative(process.cwd(), file), "bright"));
     const code = await runTestFile(file);
     if (code !== 0) anyFailed = true;
-    console.log('');
+    console.log("");
   }
 
   process.exit(anyFailed ? 1 : 0);
@@ -641,43 +741,48 @@ async function graphCommand(args: string[]) {
   let inputFile: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--port' || args[i] === '-p') && i + 1 < args.length) {
+    if ((args[i] === "--port" || args[i] === "-p") && i + 1 < args.length) {
       const parsed = parseInt(args[i + 1], 10);
       if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
-        console.error(colorize('Error:', 'red') + ` invalid port: ${args[i + 1]}`);
+        console.error(
+          colorize("Error:", "red") + ` invalid port: ${args[i + 1]}`,
+        );
         process.exit(1);
       }
       port = parsed;
       i++;
-    } else if (args[i] === '--no-open') {
+    } else if (args[i] === "--no-open") {
       openBrowser = false;
-    } else if (!args[i].startsWith('-')) {
+    } else if (!args[i].startsWith("-")) {
       inputFile = args[i];
     }
   }
 
   if (!inputFile) {
-    console.error(colorize('Error:', 'red') + ' input file required');
-    console.error('Usage: stroum graph <input.stm> [--port <n>] [--no-open]');
+    console.error(colorize("Error:", "red") + " input file required");
+    console.error("Usage: stroum graph <input.stm> [--port <n>] [--no-open]");
     process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
-    console.error(colorize('Error:', 'red') + ` file not found: ${inputFile}`);
+    console.error(colorize("Error:", "red") + ` file not found: ${inputFile}`);
     process.exit(1);
   }
 
   try {
     const absoluteInputFile = path.resolve(inputFile);
-    const stdlibPath = path.join(__dirname, '..', 'stdlib');
+    const stdlibPath = path.join(__dirname, "..", "stdlib");
 
     const resolver = new ModuleResolver(stdlibPath);
     resolver.loadModule(absoluteInputFile);
     const modules = resolver.getModulesInOrder();
 
-    const mainModule = modules.find(m => m.filePath === absoluteInputFile);
+    const mainModule = modules.find((m) => m.filePath === absoluteInputFile);
     if (!mainModule) {
-      console.error(colorize('Error:', 'red') + ' could not locate main module after resolution');
+      console.error(
+        colorize("Error:", "red") +
+          " could not locate main module after resolution",
+      );
       process.exit(1);
     }
 
@@ -685,12 +790,20 @@ async function graphCommand(args: string[]) {
     const graphJson = JSON.stringify(graph);
     const filename = path.basename(inputFile);
 
-    const server = await startGraphServer({ port, graphJson, distDir: __dirname, filename });
+    const server = await startGraphServer({
+      port,
+      graphJson,
+      distDir: __dirname,
+      filename,
+    });
     const addr = server.address() as { port: number };
     const actualPort = addr.port;
     const url = `http://localhost:${actualPort}`;
 
-    console.log(colorize('✓', 'green') + ` Dataflow graph ready at ${colorize(url, 'cyan')}`);
+    console.log(
+      colorize("✓", "green") +
+        ` Dataflow graph ready at ${colorize(url, "cyan")}`,
+    );
     console.log(`  File: ${inputFile}`);
     console.log(`  Press Ctrl+C to stop`);
 
@@ -698,10 +811,13 @@ async function graphCommand(args: string[]) {
       openUrl(url);
     }
   } catch (err: any) {
-    if (err.code === 'EADDRINUSE') {
-      console.error(colorize('Error:', 'red') + ` port ${port} is already in use. Try --port <other>`);
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        colorize("Error:", "red") +
+          ` port ${port} is already in use. Try --port <other>`,
+      );
     } else {
-      console.error(colorize('Error:', 'red'), err.message);
+      console.error(colorize("Error:", "red"), err.message);
     }
     process.exit(1);
   }
@@ -710,20 +826,21 @@ async function graphCommand(args: string[]) {
 function openUrl(url: string): void {
   const platform = process.platform;
   // WSL: prefer wslview (wslu package) or powershell.exe fallback
-  const isWsl = platform === 'linux' && !!process.env.WSL_DISTRO_NAME;
-  const cmd = platform === 'darwin'
-    ? 'open'
-    : platform === 'win32'
-    ? 'start'
-    : isWsl
-    ? 'wslview'
-    : 'xdg-open';
+  const isWsl = platform === "linux" && !!process.env.WSL_DISTRO_NAME;
+  const cmd =
+    platform === "darwin"
+      ? "open"
+      : platform === "win32"
+        ? "start"
+        : isWsl
+          ? "wslview"
+          : "xdg-open";
   const child = spawn(cmd, [url], {
     detached: true,
-    stdio: 'ignore',
-    shell: platform === 'win32',
+    stdio: "ignore",
+    shell: platform === "win32",
   });
-  child.on('error', () => {
+  child.on("error", () => {
     // Browser open failed silently — user can visit the URL manually
   });
   child.unref();
@@ -731,7 +848,7 @@ function openUrl(url: string): void {
 
 function main() {
   const args = process.argv.slice(2);
-  
+
   if (args.length === 0) {
     showHelp();
     process.exit(0);
@@ -739,47 +856,49 @@ function main() {
 
   const command = args[0];
   const commandArgs = args.slice(1);
-  
+
   switch (command) {
-    case 'compile':
+    case "compile":
       compileCommand(commandArgs);
       break;
-    
-    case 'run':
+
+    case "run":
       runCommand(commandArgs);
       break;
 
-    case 'test':
+    case "test":
       testCommand(commandArgs);
       break;
 
-    case 'graph':
+    case "graph":
       graphCommand(commandArgs);
       break;
 
-    case 'derive':
+    case "derive":
       deriveCommand(commandArgs);
       break;
-    
-    case 'init':
+
+    case "init":
       initCommand(commandArgs);
       break;
-    
-    case 'version':
-    case '-v':
-    case '--version':
+
+    case "version":
+    case "-v":
+    case "--version":
       showVersion();
       break;
-    
-    case 'help':
-    case '-h':
-    case '--help':
+
+    case "help":
+    case "-h":
+    case "--help":
       showHelp();
       break;
-    
+
     default:
-      console.error(colorize('Error:', 'red') + ` unknown command: ${command}`);
-      console.error('Run ' + colorize('stroum help', 'cyan') + ' for usage information');
+      console.error(colorize("Error:", "red") + ` unknown command: ${command}`);
+      console.error(
+        "Run " + colorize("stroum help", "cyan") + " for usage information",
+      );
       process.exit(1);
   }
 }

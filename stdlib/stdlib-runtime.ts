@@ -1,16 +1,16 @@
 /**
  * Stroum Standard Library - Runtime Implementation
  * Version 1.0.0
- * 
+ *
  * TypeScript/JavaScript implementations of standard library functions
  */
 
-import * as _fs from 'fs';
-import * as _path from 'path';
-import { exec as _execCb } from 'child_process';
-import { promisify as _promisify } from 'util';
-import * as _Papa from 'papaparse';
-import { __router } from './stroum-runtime';
+import { exec as _execCb } from "child_process";
+import * as _fs from "fs";
+import * as _Papa from "papaparse";
+import * as _path from "path";
+import { promisify as _promisify } from "util";
+import { __router } from "./stroum-runtime";
 
 const _execAsync = _promisify(_execCb);
 
@@ -31,7 +31,7 @@ export async function __builtin_mul(a: number, b: number): Promise<number> {
 }
 
 export async function __builtin_div(a: number, b: number): Promise<number> {
-  if (b === 0) throw new Error('Division by zero');
+  if (b === 0) throw new Error("Division by zero");
   return a / b;
 }
 
@@ -40,7 +40,7 @@ export async function __builtin_mod(a: number, b: number): Promise<number> {
 }
 
 export async function __builtin_pow(a: number, b: number): Promise<number> {
-  return Math.pow(a, b);
+  return a ** b;
 }
 
 export async function __builtin_abs(n: number): Promise<number> {
@@ -123,23 +123,38 @@ export async function __builtin_trim(s: string): Promise<string> {
   return s.trim();
 }
 
-export async function __builtin_split(s: string, delim: string): Promise<string[]> {
+export async function __builtin_split(
+  s: string,
+  delim: string,
+): Promise<string[]> {
   return s.split(delim);
 }
 
-export async function __builtin_join(arr: any[], delim: string): Promise<string> {
+export async function __builtin_join(
+  arr: any[],
+  delim: string,
+): Promise<string> {
   return arr.join(delim);
 }
 
-export async function __builtin_starts_with(s: string, prefix: string): Promise<boolean> {
+export async function __builtin_starts_with(
+  s: string,
+  prefix: string,
+): Promise<boolean> {
   return s.startsWith(prefix);
 }
 
-export async function __builtin_ends_with(s: string, suffix: string): Promise<boolean> {
+export async function __builtin_ends_with(
+  s: string,
+  suffix: string,
+): Promise<boolean> {
   return s.endsWith(suffix);
 }
 
-export async function __builtin_contains(s: string, substr: string): Promise<boolean> {
+export async function __builtin_contains(
+  s: string,
+  substr: string,
+): Promise<boolean> {
   return s.includes(substr);
 }
 
@@ -147,22 +162,30 @@ export async function __builtin_contains(s: string, substr: string): Promise<boo
 // List Operations
 // ============================================================================
 
-export async function __builtin_map<T, U>(fn: (x: T) => Promise<U>, list: T[]): Promise<U[]> {
+export async function __builtin_map<T, U>(
+  fn: (x: T) => Promise<U>,
+  list: T[],
+): Promise<U[]> {
   return Promise.all(list.map(fn));
 }
 
-export async function __builtin_filter<T>(fn: (x: T) => Promise<boolean>, list: T[]): Promise<T[]> {
-  const results = await Promise.all(list.map(async (item) => ({
-    item,
-    keep: await fn(item)
-  })));
-  return results.filter(r => r.keep).map(r => r.item);
+export async function __builtin_filter<T>(
+  fn: (x: T) => Promise<boolean>,
+  list: T[],
+): Promise<T[]> {
+  const results = await Promise.all(
+    list.map(async (item) => ({
+      item,
+      keep: await fn(item),
+    })),
+  );
+  return results.filter((r) => r.keep).map((r) => r.item);
 }
 
 export async function __builtin_reduce<T, U>(
   fn: (acc: U, item: T) => Promise<U>,
   init: U,
-  list: T[]
+  list: T[],
 ): Promise<U> {
   let acc = init;
   for (const item of list) {
@@ -172,12 +195,12 @@ export async function __builtin_reduce<T, U>(
 }
 
 export async function __builtin_head<T>(list: T[]): Promise<T> {
-  if (list.length === 0) throw new Error('head: empty list');
+  if (list.length === 0) throw new Error("head: empty list");
   return list[0];
 }
 
 export async function __builtin_tail<T>(list: T[]): Promise<T[]> {
-  if (list.length === 0) throw new Error('tail: empty list');
+  if (list.length === 0) throw new Error("tail: empty list");
   return list.slice(1);
 }
 
@@ -217,7 +240,9 @@ export async function __builtin_println(value: any): Promise<any> {
 
 export async function __builtin_null_sink(_value: any): Promise<void> {}
 
-export function __builtin_log_sink(prefix: string): (value: any) => Promise<void> {
+export function __builtin_log_sink(
+  prefix: string,
+): (value: any) => Promise<void> {
   return async (value: any) => {
     console.log(`[${prefix}]`, value);
   };
@@ -262,7 +287,7 @@ export async function __builtin_error(message: string): Promise<never> {
 
 export async function __builtin_try_catch<T>(
   fn: () => Promise<T>,
-  fallback: (error: Error) => Promise<T>
+  fallback: (error: Error) => Promise<T>,
 ): Promise<T> {
   try {
     return await fn();
@@ -345,40 +370,57 @@ function __deepEqual(a: any, b: any): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((v, i) => __deepEqual(v, b[i]));
   }
-  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') {
-    const keysA = Object.keys(a), keysB = Object.keys(b);
-    return keysA.length === keysB.length && keysA.every(k => __deepEqual(a[k], b[k]));
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === "object" &&
+    typeof b === "object"
+  ) {
+    const keysA = Object.keys(a),
+      keysB = Object.keys(b);
+    return (
+      keysA.length === keysB.length &&
+      keysA.every((k) => __deepEqual(a[k], b[k]))
+    );
   }
   return false;
 }
 
 export function assert(condition: boolean, message?: string): void {
-  if (!condition) throw new Error(message ?? 'Assertion failed');
+  if (!condition) throw new Error(message ?? "Assertion failed");
 }
 
 export function assert_eq(left: any, right: any): void {
   if (!__deepEqual(left, right)) {
-    throw new Error(`assert_eq failed:\n  left:  ${JSON.stringify(left)}\n  right: ${JSON.stringify(right)}`);
+    throw new Error(
+      `assert_eq failed:\n  left:  ${JSON.stringify(left)}\n  right: ${JSON.stringify(right)}`,
+    );
   }
 }
 
 export function assert_neq(left: any, right: any): void {
   if (__deepEqual(left, right)) {
-    throw new Error(`assert_neq failed: both sides equal ${JSON.stringify(left)}`);
+    throw new Error(
+      `assert_neq failed: both sides equal ${JSON.stringify(left)}`,
+    );
   }
 }
 
 export function assert_contains(collection: any, item: any): void {
-  if (typeof collection === 'string' && typeof item === 'string') {
+  if (typeof collection === "string" && typeof item === "string") {
     if (!collection.includes(item)) {
-      throw new Error(`assert_contains failed: "${collection}" does not contain "${item}"`);
+      throw new Error(
+        `assert_contains failed: "${collection}" does not contain "${item}"`,
+      );
     }
   } else if (Array.isArray(collection)) {
-    if (!collection.some(v => __deepEqual(v, item))) {
-      throw new Error(`assert_contains failed: list does not contain ${JSON.stringify(item)}`);
+    if (!collection.some((v) => __deepEqual(v, item))) {
+      throw new Error(
+        `assert_contains failed: list does not contain ${JSON.stringify(item)}`,
+      );
     }
   } else {
-    throw new Error('assert_contains: first argument must be a string or list');
+    throw new Error("assert_contains: first argument must be a string or list");
   }
 }
 
@@ -388,7 +430,7 @@ export async function assert_raises(fn: () => any): Promise<void> {
   } catch {
     return;
   }
-  throw new Error('assert_raises failed: function did not throw');
+  throw new Error("assert_raises failed: function did not throw");
 }
 
 // ============================================================================
@@ -396,45 +438,65 @@ export async function assert_raises(fn: () => any): Promise<void> {
 // ============================================================================
 
 export async function __builtin_read_file(filePath: string): Promise<string> {
-  return _fs.promises.readFile(filePath, 'utf-8');
+  return _fs.promises.readFile(filePath, "utf-8");
 }
 
-export async function __builtin_write_file(filePath: string, content: string): Promise<string> {
-  await _fs.promises.writeFile(filePath, content, 'utf-8');
+export async function __builtin_write_file(
+  filePath: string,
+  content: string,
+): Promise<string> {
+  await _fs.promises.writeFile(filePath, content, "utf-8");
   return filePath;
 }
 
-export async function __builtin_append_file(filePath: string, content: string): Promise<string> {
-  await _fs.promises.appendFile(filePath, content, 'utf-8');
+export async function __builtin_append_file(
+  filePath: string,
+  content: string,
+): Promise<string> {
+  await _fs.promises.appendFile(filePath, content, "utf-8");
   return filePath;
 }
 
-export function __builtin_file_sink(filePath: string): (content: string) => Promise<void> {
+export function __builtin_file_sink(
+  filePath: string,
+): (content: string) => Promise<void> {
   return async (content: string) => {
-    await _fs.promises.appendFile(filePath, String(content), 'utf-8');
+    await _fs.promises.appendFile(filePath, String(content), "utf-8");
   };
 }
 
-export function __builtin_jsonl_sink(filePath: string): (value: any) => Promise<void> {
+export function __builtin_jsonl_sink(
+  filePath: string,
+): (value: any) => Promise<void> {
   return async (value: any) => {
-    await _fs.promises.appendFile(filePath, JSON.stringify(value) + '\n', 'utf-8');
+    await _fs.promises.appendFile(
+      filePath,
+      JSON.stringify(value) + "\n",
+      "utf-8",
+    );
   };
 }
 
-export function __builtin_http_sink(url: string): (value: any) => Promise<void> {
+export function __builtin_http_sink(
+  url: string,
+): (value: any) => Promise<void> {
   return async (value: any) => {
     const res = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(value),
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) {
-      throw new Error(`http_sink: POST ${url} failed with ${res.status} ${res.statusText}`);
+      throw new Error(
+        `http_sink: POST ${url} failed with ${res.status} ${res.statusText}`,
+      );
     }
   };
 }
 
-export async function __builtin_file_exists(filePath: string): Promise<boolean> {
+export async function __builtin_file_exists(
+  filePath: string,
+): Promise<boolean> {
   try {
     await _fs.promises.access(filePath);
     return true;
@@ -457,25 +519,37 @@ export async function __builtin_make_dir(dirPath: string): Promise<string> {
   return dirPath;
 }
 
-export async function __builtin_read_lines(filePath: string): Promise<string[]> {
-  const content = await _fs.promises.readFile(filePath, 'utf-8');
-  return content.split('\n');
+export async function __builtin_read_lines(
+  filePath: string,
+): Promise<string[]> {
+  const content = await _fs.promises.readFile(filePath, "utf-8");
+  return content.split("\n");
 }
 
-export async function __builtin_write_lines(filePath: string, lines: string[]): Promise<string> {
-  await _fs.promises.writeFile(filePath, lines.join('\n'), 'utf-8');
+export async function __builtin_write_lines(
+  filePath: string,
+  lines: string[],
+): Promise<string> {
+  await _fs.promises.writeFile(filePath, lines.join("\n"), "utf-8");
   return filePath;
 }
 
-export async function __builtin_path_join(base: string, part: string): Promise<string> {
+export async function __builtin_path_join(
+  base: string,
+  part: string,
+): Promise<string> {
   return _path.join(base, part);
 }
 
-export async function __builtin_path_basename(filePath: string): Promise<string> {
+export async function __builtin_path_basename(
+  filePath: string,
+): Promise<string> {
   return _path.basename(filePath);
 }
 
-export async function __builtin_path_dirname(filePath: string): Promise<string> {
+export async function __builtin_path_dirname(
+  filePath: string,
+): Promise<string> {
   return _path.dirname(filePath);
 }
 
@@ -486,7 +560,11 @@ export async function __builtin_path_ext(filePath: string): Promise<string> {
 // Watch a file for changes; calls callback(content) on every save.
 // Debounced to 100ms to avoid double-fires from editors.
 // Returns a Promise that never resolves — keeps the process alive.
-export async function __builtin_watch_file(filePath: string, callback: (content: string) => Promise<void>, signal?: AbortSignal): Promise<void> {
+export async function __builtin_watch_file(
+  filePath: string,
+  callback: (content: string) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     let debounce: ReturnType<typeof setTimeout> | null = null;
     let settled = false;
@@ -497,21 +575,21 @@ export async function __builtin_watch_file(filePath: string, callback: (content:
       resolve();
     };
     const watcher = _fs.watch(filePath, (eventType) => {
-      if (eventType !== 'change') return;
+      if (eventType !== "change") return;
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(async () => {
         try {
-          const content = await _fs.promises.readFile(filePath, 'utf-8');
+          const content = await _fs.promises.readFile(filePath, "utf-8");
           await callback(content);
         } catch (err) {
           reject(err);
         }
       }, 100);
     });
-    watcher.on('error', reject);
-    process.on('SIGINT', finish);
-    process.on('SIGTERM', finish);
-    signal?.addEventListener('abort', finish, { once: true });
+    watcher.on("error", reject);
+    process.on("SIGINT", finish);
+    process.on("SIGTERM", finish);
+    signal?.addEventListener("abort", finish, { once: true });
   });
 }
 
@@ -546,16 +624,23 @@ export async function __builtin_exec(command: string): Promise<string> {
 
 export async function __builtin_exec_lines(command: string): Promise<string[]> {
   const { stdout } = await _execAsync(command);
-  return stdout.trimEnd().split('\n').filter((l: string) => l.length > 0);
+  return stdout
+    .trimEnd()
+    .split("\n")
+    .filter((l: string) => l.length > 0);
 }
 
 export async function __builtin_env_get(name: string): Promise<string> {
   const value = process.env[name];
-  if (value === undefined) throw new Error(`Environment variable '${name}' is not set`);
+  if (value === undefined)
+    throw new Error(`Environment variable '${name}' is not set`);
   return value;
 }
 
-export async function __builtin_env_get_or(name: string, fallback: string): Promise<string> {
+export async function __builtin_env_get_or(
+  name: string,
+  fallback: string,
+): Promise<string> {
   return process.env[name] ?? fallback;
 }
 
@@ -584,7 +669,7 @@ export const exit_process = __builtin_exit_process;
 // ============================================================================
 
 export async function __builtin_sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function __builtin_now(): Promise<number> {
@@ -599,7 +684,10 @@ export async function __builtin_elapsed(startMs: number): Promise<number> {
   return Date.now() - startMs;
 }
 
-export async function __builtin_format_date(ms: number, locale: string): Promise<string> {
+export async function __builtin_format_date(
+  ms: number,
+  locale: string,
+): Promise<string> {
   return new Date(ms).toLocaleString(locale);
 }
 
@@ -620,22 +708,24 @@ export const format_date = __builtin_format_date;
 export async function __formats_infer_schema(path: string): Promise<any> {
   try {
     // Dynamic import to load schema-deriver from same directory
-    const { inferSchema } = await import('./schema-deriver.js');
-    
+    const { inferSchema } = await import("./schema-deriver.js");
+
     // Derive struct name from file path
-    const fileName = path.split('/').pop() || 'data';
-    const structName = fileName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = path.split("/").pop() || "data";
+    const structName = fileName
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-zA-Z0-9]/g, "_");
     const schema = inferSchema(path, structName);
-    
+
     // Emit to __meta stream for observability
-    await __router.emit('__meta', {
-      kind: 'schema',
+    await __router.emit("__meta", {
+      kind: "schema",
       name: schema.name,
       fields: schema.fields,
       source: path,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
-    
+
     return schema;
   } catch (err: any) {
     throw new Error(`Failed to infer schema from ${path}: ${err.message}`);
@@ -647,8 +737,8 @@ export async function __formats_infer_schema(path: string): Promise<any> {
  * Each record is a plain JavaScript object with string keys.
  */
 export async function __formats_read_csv(path: string): Promise<any[]> {
-  const content = _fs.readFileSync(path, 'utf-8');
-  
+  const content = _fs.readFileSync(path, "utf-8");
+
   return new Promise((resolve, reject) => {
     _Papa.parse(content, {
       header: true,
@@ -663,7 +753,7 @@ export async function __formats_read_csv(path: string): Promise<any[]> {
       },
       error: (err: any) => {
         reject(new Error(`CSV parse error: ${err.message}`));
-      }
+      },
     });
   });
 }
@@ -673,7 +763,7 @@ export async function __formats_read_csv(path: string): Promise<any[]> {
  */
 export async function __formats_read_json(path: string): Promise<any> {
   try {
-    const content = _fs.readFileSync(path, 'utf-8');
+    const content = _fs.readFileSync(path, "utf-8");
     return JSON.parse(content);
   } catch (err: any) {
     throw new Error(`Failed to read JSON from ${path}: ${err.message}`);

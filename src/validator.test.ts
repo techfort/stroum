@@ -1,6 +1,6 @@
-import { Lexer } from './lexer';
-import { Parser } from './parser';
-import { Validator } from './validator';
+import { Lexer } from "./lexer";
+import { Parser } from "./parser";
+import { Validator } from "./validator";
 
 function validate(source: string) {
   const lexer = new Lexer(source);
@@ -11,141 +11,170 @@ function validate(source: string) {
   return validator.validate(ast);
 }
 
-describe('Validator', () => {
-  describe('duplicate bindings', () => {
-    it('should error on duplicate function names', () => {
-      const issues = validate('f:foo => 1\nf:foo => 2');
-      const errors = issues.filter(i => i.type === 'error');
+describe("Validator", () => {
+  describe("duplicate bindings", () => {
+    it("should error on duplicate function names", () => {
+      const issues = validate("f:foo => 1\nf:foo => 2");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain('Duplicate binding');
+      expect(errors[0].message).toContain("Duplicate binding");
     });
 
-    it('should error on duplicate binding names', () => {
-      const issues = validate(':x 10\n:x 20');
-      const errors = issues.filter(i => i.type === 'error');
+    it("should error on duplicate binding names", () => {
+      const issues = validate(":x 10\n:x 20");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain('Duplicate binding');
+      expect(errors[0].message).toContain("Duplicate binding");
     });
 
-    it('should error on duplicate function parameters', () => {
-      const issues = validate('f:foo x x => add(x, x)');
-      const errors = issues.filter(i => i.type === 'error');
+    it("should error on duplicate function parameters", () => {
+      const issues = validate("f:foo x x => add(x, x)");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain('Duplicate parameter');
+      expect(errors[0].message).toContain("Duplicate parameter");
     });
 
-    it('should error on duplicate struct fields', () => {
+    it("should error on duplicate struct fields", () => {
       const source = `s:User {
   name: String
   name: String
 }`;
       const issues = validate(source);
-      const errors = issues.filter(i => i.type === 'error');
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain('Duplicate field');
+      expect(errors[0].message).toContain("Duplicate field");
     });
 
-    it('should allow same name in different scopes', () => {
-      const issues = validate('f:foo x => |:x| => x');
-      const errors = issues.filter(i => i.type === 'error');
+    it("should allow same name in different scopes", () => {
+      const issues = validate("f:foo x => |:x| => x");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
   });
 
-  describe('rec validation', () => {
-    it('should warn when rec is used without self-reference', () => {
-      const issues = validate('rec f:foo n => add(n, 1)');
-      const warnings = issues.filter(i => i.type === 'warning');
+  describe("rec validation", () => {
+    it("should warn when rec is used without self-reference", () => {
+      const issues = validate("rec f:foo n => add(n, 1)");
+      const warnings = issues.filter((i) => i.type === "warning");
       expect(warnings.length).toBeGreaterThan(0);
-      expect(warnings[0].message).toContain('does not reference itself');
+      expect(warnings[0].message).toContain("does not reference itself");
     });
 
-    it('should not warn when rec is used with self-reference', () => {
-      const issues = validate('rec f:factorial n => multiply(n, factorial(n))');
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('does not reference itself'));
+    it("should not warn when rec is used with self-reference", () => {
+      const issues = validate("rec f:factorial n => multiply(n, factorial(n))");
+      const warnings = issues.filter(
+        (i) =>
+          i.type === "warning" &&
+          i.message.includes("does not reference itself"),
+      );
       expect(warnings.length).toBe(0);
     });
 
-    it('should detect self-reference in pipe chains', () => {
-      const issues = validate('rec f:process data => data |> transform |> process');
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('does not reference itself'));
+    it("should detect self-reference in pipe chains", () => {
+      const issues = validate(
+        "rec f:process data => data |> transform |> process",
+      );
+      const warnings = issues.filter(
+        (i) =>
+          i.type === "warning" &&
+          i.message.includes("does not reference itself"),
+      );
       expect(warnings.length).toBe(0);
     });
   });
 
-  describe('emission contract validation', () => {
-    it('should warn when multiple outcomes without contract', () => {
+  describe("emission contract validation", () => {
+    it("should warn when multiple outcomes without contract", () => {
       const source = `f:fetch url =>
   http_get(url) @"ok"
   | .error => @"fail"`;
       const issues = validate(source);
-      const warnings = issues.filter(i => i.type === 'warning');
+      const warnings = issues.filter((i) => i.type === "warning");
       expect(warnings.length).toBeGreaterThan(0);
-      expect(warnings[0].message).toContain('outcome paths');
-      expect(warnings[0].message).toContain('no emission contract');
+      expect(warnings[0].message).toContain("outcome paths");
+      expect(warnings[0].message).toContain("no emission contract");
     });
 
-    it('should not warn when emission contract is declared', () => {
+    it("should not warn when emission contract is declared", () => {
       const source = `f:fetch url ~> @"ok", @"fail" =>
   http_get(url) @"ok"
   | .error => @"fail"`;
       const issues = validate(source);
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('outcome paths'));
+      const warnings = issues.filter(
+        (i) => i.type === "warning" && i.message.includes("outcome paths"),
+      );
       expect(warnings.length).toBe(0);
     });
 
-    it('should not warn for single outcome', () => {
+    it("should not warn for single outcome", () => {
       const issues = validate('f:double n => multiply(n, 2) @"result"');
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('outcome paths'));
+      const warnings = issues.filter(
+        (i) => i.type === "warning" && i.message.includes("outcome paths"),
+      );
       expect(warnings.length).toBe(0);
     });
   });
 
-  describe('stream declaration validation', () => {
-    it('should error on invalid stream names in contract', () => {
+  describe("stream declaration validation", () => {
+    it("should error on invalid stream names in contract", () => {
       const issues = validate('f:foo ~> @"123invalid", @"ok" => result @"ok"');
-      const errors = issues.filter(i => i.type === 'error');
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain('string literal');
+      expect(errors[0].message).toContain("string literal");
     });
 
-    it('should accept valid stream names', () => {
+    it("should accept valid stream names", () => {
       const issues = validate('f:foo ~> @"ok", @"error" => result @"ok"');
-      const errors = issues.filter(i => i.type === 'error' && i.message.includes('string literal'));
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("string literal"),
+      );
       expect(errors.length).toBe(0);
     });
 
-    it('should warn for open-ended src declarations without run until', () => {
+    it("should warn for open-ended src declarations without run until", () => {
       const issues = validate('src: @"changes" watch_file("watched.txt")');
-      const warnings = issues.filter(i => i.type === 'warning');
+      const warnings = issues.filter((i) => i.type === "warning");
       expect(warnings.length).toBeGreaterThan(0);
-      expect(warnings[0].message).toContain('open-ended src: sources');
-      expect(warnings[0].message).toContain('run until');
+      expect(warnings[0].message).toContain("open-ended src: sources");
+      expect(warnings[0].message).toContain("run until");
     });
 
-    it('should not warn for open-ended src declarations with run until', () => {
-      const issues = validate('src: @"changes" watch_file("watched.txt")\nrun until signal');
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('open-ended src: sources'));
+    it("should not warn for open-ended src declarations with run until", () => {
+      const issues = validate(
+        'src: @"changes" watch_file("watched.txt")\nrun until signal',
+      );
+      const warnings = issues.filter(
+        (i) =>
+          i.type === "warning" && i.message.includes("open-ended src: sources"),
+      );
       expect(warnings.length).toBe(0);
     });
 
-    it('should not warn for finite src declarations without run until', () => {
+    it("should not warn for finite src declarations without run until", () => {
       const issues = validate('src: @"orders" file("orders.csv")');
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('open-ended src: sources'));
+      const warnings = issues.filter(
+        (i) =>
+          i.type === "warning" && i.message.includes("open-ended src: sources"),
+      );
       expect(warnings.length).toBe(0);
     });
 
-    it('should validate to declarations without introducing liveness warnings', () => {
-      const issues = validate('f:persist_order order => order\nto: @"orders.clean" persist_order');
-      const errors = issues.filter(i => i.type === 'error');
-      const warnings = issues.filter(i => i.type === 'warning' && i.message.includes('open-ended src: sources'));
+    it("should validate to declarations without introducing liveness warnings", () => {
+      const issues = validate(
+        'f:persist_order order => order\nto: @"orders.clean" persist_order',
+      );
+      const errors = issues.filter((i) => i.type === "error");
+      const warnings = issues.filter(
+        (i) =>
+          i.type === "warning" && i.message.includes("open-ended src: sources"),
+      );
       expect(errors.length).toBe(0);
       expect(warnings.length).toBe(0);
     });
   });
 
-  describe('complex validation', () => {
-    it('should validate complete program with no errors', () => {
+  describe("complex validation", () => {
+    it("should validate complete program with no errors", () => {
       const source = `-- Define helper functions used in this test
 f:json_parse raw => raw
 f:normalise data => data
@@ -169,61 +198,61 @@ f:transform data ~> @"clean", @"rejected" =>
 fetch(primary) PP fetch(secondary) |> merge @"data"
 
 on @"errors" |> |:e| => log(e)`;
-      
+
       const issues = validate(source);
-      const errors = issues.filter(i => i.type === 'error');
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
-    it('should catch multiple issues in one program', () => {
+    it("should catch multiple issues in one program", () => {
       const source = `f:foo => 1
 f:foo => 2
 rec f:bar x => add(x, 1)
 f:baz y =>
   result @"ok"
   | .error => @"fail"`;
-      
+
       const issues = validate(source);
-      const errors = issues.filter(i => i.type === 'error');
-      const warnings = issues.filter(i => i.type === 'warning');
-      
+      const errors = issues.filter((i) => i.type === "error");
+      const warnings = issues.filter((i) => i.type === "warning");
+
       expect(errors.length).toBeGreaterThan(0); // Duplicate function
       expect(warnings.length).toBeGreaterThan(0); // rec without self-ref, multiple outcomes
     });
   });
 
-  describe('scope handling', () => {
-    it('should track function parameter scope', () => {
-      const issues = validate('f:apply fn x => fn(x)');
-      const errors = issues.filter(i => i.type === 'error');
+  describe("scope handling", () => {
+    it("should track function parameter scope", () => {
+      const issues = validate("f:apply fn x => fn(x)");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
-    it('should track lambda parameter scope', () => {
-      const issues = validate(':nums [1, 2, 3]\nmap(nums, |:n| => add(n, 1))');
-      const errors = issues.filter(i => i.type === 'error');
+    it("should track lambda parameter scope", () => {
+      const issues = validate(":nums [1, 2, 3]\nmap(nums, |:n| => add(n, 1))");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
-    it('should handle nested lambdas', () => {
-      const issues = validate('f:curry fn => |:x| => |:y| => fn(x, y)');
-      const errors = issues.filter(i => i.type === 'error');
+    it("should handle nested lambdas", () => {
+      const issues = validate("f:curry fn => |:x| => |:y| => fn(x, y)");
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
   });
 
-  describe('string interpolation', () => {
-    it('should pass when interpolated identifiers are defined', () => {
+  describe("string interpolation", () => {
+    it("should pass when interpolated identifiers are defined", () => {
       const issues = validate('f:greet name => "Hello #{name}"');
-      const errors = issues.filter(i => i.type === 'error');
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
-    it('should error on undefined identifier inside interpolation', () => {
+    it("should error on undefined identifier inside interpolation", () => {
       const issues = validate('"Hello #{ghost}"');
-      const errors = issues.filter(i => i.type === 'error');
+      const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain('ghost');
+      expect(errors[0].message).toContain("ghost");
     });
   });
 });

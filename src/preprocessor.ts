@@ -3,9 +3,9 @@
  * Handles compile-time directives like #derive for schema injection
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { inferSchema, schemaToStroumSource } from './schema-deriver';
+import * as fs from "fs";
+import * as path from "path";
+import { inferSchema, schemaToStroumSource } from "./schema-deriver";
 
 export interface PreprocessResult {
   source: string;
@@ -13,7 +13,7 @@ export interface PreprocessResult {
 }
 
 export interface PreprocessDirective {
-  type: 'derive';
+  type: "derive";
   line: number;
   original: string;
   replacement: string;
@@ -29,8 +29,11 @@ export interface PreprocessDirective {
  * Currently supports:
  *   #derive schema "path/to/file.csv" as StructName
  */
-export function preprocess(source: string, sourcePath?: string): PreprocessResult {
-  const lines = source.split('\n');
+export function preprocess(
+  source: string,
+  sourcePath?: string,
+): PreprocessResult {
+  const lines = source.split("\n");
   const directives: PreprocessDirective[] = [];
   const processedLines: string[] = [];
 
@@ -42,7 +45,7 @@ export function preprocess(source: string, sourcePath?: string): PreprocessResul
 
     if (match) {
       const [original, filePath, structName] = match;
-      
+
       try {
         // Resolve file path relative to source file if provided
         let absolutePath = filePath;
@@ -57,15 +60,15 @@ export function preprocess(source: string, sourcePath?: string): PreprocessResul
 
         // Record the directive
         directives.push({
-          type: 'derive',
+          type: "derive",
           line: i + 1,
           original,
           replacement: structDef,
           metadata: {
             path: filePath,
             structName,
-            schema
-          }
+            schema,
+          },
         });
 
         // Replace the directive with the struct definition
@@ -73,7 +76,9 @@ export function preprocess(source: string, sourcePath?: string): PreprocessResul
         processedLines.push(structDef);
       } catch (err: any) {
         // On error, preserve the directive and add an error comment
-        processedLines.push(`-- ERROR: Failed to process #derive: ${err.message}`);
+        processedLines.push(
+          `-- ERROR: Failed to process #derive: ${err.message}`,
+        );
         processedLines.push(line);
       }
     } else {
@@ -83,8 +88,8 @@ export function preprocess(source: string, sourcePath?: string): PreprocessResul
   }
 
   return {
-    source: processedLines.join('\n'),
-    directives
+    source: processedLines.join("\n"),
+    directives,
   };
 }
 
