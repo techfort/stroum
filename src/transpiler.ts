@@ -417,6 +417,8 @@ export class Transpiler {
         return this.transpileRecordLiteral(expr);
       case "CallExpression":
         return this.transpileCallExpression(expr);
+      case "FieldAccessExpression":
+        return this.transpileFieldAccessExpression(expr);
       case "PipeExpression":
         return this.transpilePipeExpression(expr);
       case "ParallelExpression":
@@ -446,6 +448,12 @@ export class Transpiler {
   private transpileCallExpression(call: AST.CallExpression): string {
     const args = call.args.map((a) => this.transpileExpression(a));
     return `await ${call.callee}(${args.join(", ")})`;
+  }
+
+  private transpileFieldAccessExpression(
+    access: AST.FieldAccessExpression,
+  ): string {
+    return `(${this.transpileExpression(access.receiver)}).${access.field}`;
   }
 
   private transpilePipeExpression(pipe: AST.PipeExpression): string {

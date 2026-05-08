@@ -799,21 +799,21 @@ export class Parser {
 
     // Literals
     if (this.check(TokenType.NUMBER)) {
-      return this.parseNumberLiteral();
+      return this.parseFieldAccessChain(this.parseNumberLiteral());
     }
     if (this.check(TokenType.STRING)) {
-      return this.parseStringLiteral();
+      return this.parseFieldAccessChain(this.parseStringLiteral());
     }
     if (this.check(TokenType.BOOLEAN)) {
-      return this.parseBooleanLiteral();
+      return this.parseFieldAccessChain(this.parseBooleanLiteral());
     }
     if (this.check(TokenType.LBRACKET)) {
-      return this.parseListLiteral();
+      return this.parseFieldAccessChain(this.parseListLiteral());
     }
 
     // Type name for record literal: User { ... }
     if (this.check(TokenType.TYPE_NAME)) {
-      return this.parseRecordLiteral();
+      return this.parseFieldAccessChain(this.parseRecordLiteral());
     }
 
     // Identifier or call
@@ -833,23 +833,43 @@ export class Parser {
 
         this.consume(TokenType.RPAREN, "Expected )");
 
-        return {
+        return this.parseFieldAccessChain({
           type: "CallExpression",
           location,
           callee: name,
           args,
-        };
+        });
       }
 
       // Just an identifier
-      return {
+      return this.parseFieldAccessChain({
         type: "Identifier",
         location,
         name,
-      };
+      });
     }
 
     this.error("Expected expression");
+  }
+
+  private parseFieldAccessChain(expr: AST.Expression): AST.Expression {
+    let current = expr;
+
+    while (this.match(TokenType.DOT)) {
+      const field = this.consume(
+        TokenType.IDENTIFIER,
+        "Expected field name after .",
+      ).value;
+
+      current = {
+        type: "FieldAccessExpression",
+        location: current.location,
+        receiver: current,
+        field,
+      };
+    }
+
+    return current;
   }
 
   private parseTaggedExpression(): AST.TaggedExpression {
@@ -913,14 +933,18 @@ export class Parser {
     // Expect then
     this.consume(TokenType.THEN, "Expected then");
 
-    // Parse then branch (can include pipes and stream emits)
+    // Parse then branch — may be indented onto the next line
+    const thenIndented = this.match(TokenType.INDENT);
     const thenBranch = this.parsePipeChain(false);
+    if (thenIndented) this.consume(TokenType.DEDENT, "Expected dedent after then branch");
 
     // Expect else
     this.consume(TokenType.ELSE, "Expected else");
 
-    // Parse else branch (can include pipes and stream emits)
+    // Parse else branch — may be indented onto the next line
+    const elseIndented = this.match(TokenType.INDENT);
     const elseBranch = this.parsePipeChain(false);
+    if (elseIndented) this.consume(TokenType.DEDENT, "Expected dedent after else branch");
 
     return {
       type: "IfExpression",

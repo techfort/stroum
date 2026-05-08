@@ -12,6 +12,8 @@ function fmtExpr(expr: AST.Expression, depth = 0): string {
       return fmtParallel(expr, depth);
     case "CallExpression":
       return fmtCall(expr, depth);
+    case "FieldAccessExpression":
+      return `${fmtExpr(expr.receiver, depth)}.${expr.field}`;
     case "Lambda":
       return fmtLambda(expr, depth);
     case "IfExpression":

@@ -154,6 +154,7 @@ export type Expression =
   | ParallelExpression
   | PipeExpression
   | CallExpression
+  | FieldAccessExpression
   | Lambda
   | IfExpression
   | TaggedExpression
@@ -184,6 +185,12 @@ export interface CallExpression extends ASTNode {
   type: "CallExpression";
   callee: string;
   args: Expression[];
+}
+
+export interface FieldAccessExpression extends ASTNode {
+  type: "FieldAccessExpression";
+  receiver: Expression;
+  field: string;
 }
 
 export interface Lambda extends ASTNode {

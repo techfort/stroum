@@ -55,6 +55,11 @@ describe("Transpiler", () => {
       const output = transpile(':user User {name: "Alice", age: 30}');
       expect(output).toContain('const user = { name: "Alice", age: 30 };');
     });
+
+    it("should transpile field access with dot syntax", () => {
+      const output = transpile("f:is_adult user => gt(user.age, 18)");
+      expect(output).toContain("await gt((user).age, 18)");
+    });
   });
 
   describe("functions", () => {

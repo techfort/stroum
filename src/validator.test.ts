@@ -174,6 +174,12 @@ describe("Validator", () => {
   });
 
   describe("complex validation", () => {
+    it("should validate field access receiver names in expressions", () => {
+      const issues = validate("f:is_adult user => gt(user.age, 18)");
+      const errors = issues.filter((i) => i.type === "error");
+      expect(errors.length).toBe(0);
+    });
+
     it("should allow a function body binding to be referenced by later statements", () => {
       const source = `f:check_positive x =>
   if gt(x, 0) then

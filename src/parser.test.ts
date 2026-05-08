@@ -59,6 +59,19 @@ describe("Parser", () => {
       const body = func.body as AST.IndentedBody;
       expect(body.statements).toHaveLength(2);
     });
+
+    it("should parse postfix field access with dot syntax", () => {
+      const ast = parse("f:is_adult user => gt(user.age, 18)");
+      const func = ast.definitions[0] as AST.FunctionDeclaration;
+      const body = func.body as AST.CallExpression;
+      const access = body.args[0] as AST.FieldAccessExpression;
+
+      expect(body.type).toBe("CallExpression");
+      expect(body.callee).toBe("gt");
+      expect(access.type).toBe("FieldAccessExpression");
+      expect(access.field).toBe("age");
+      expect((access.receiver as AST.Identifier).name).toBe("user");
+    });
   });
 
   describe("source and runtime declarations", () => {

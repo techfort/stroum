@@ -7,6 +7,7 @@
     { "include": "#strings" },
     { "include": "#keywords" },
     { "include": "#sigils" },
+    { "include": "#field-access" },
     { "include": "#operators" },
     { "include": "#numbers" },
     { "include": "#booleans" },
@@ -120,6 +121,14 @@
         {
           "name": "keyword.operator.outcome.stroum",
           "match": "\\."
+        }
+      ]
+    },
+    "field-access": {
+      "patterns": [
+        {
+          "name": "punctuation.accessor.stroum",
+          "match": "(?<=[A-Za-z0-9_\\)\\]])\\.(?=[a-z_][a-z0-9_]*)"
         }
       ]
     },

@@ -454,6 +454,9 @@ export class Validator {
         }
         break;
       }
+      case "FieldAccessExpression":
+        this.validateExpression(expr.receiver);
+        break;
       case "PipeExpression":
         // stage[0] is the initial value; stages[1..n] must thread the piped value.
         // A CallExpression with args but no _ is an error in a piped stage.
@@ -644,6 +647,9 @@ export class Validator {
         break;
       case "RecordLiteral":
         expr.fields.forEach((f) => { this.walkExpression(f.value, visitor); });
+        break;
+      case "FieldAccessExpression":
+        this.walkExpression(expr.receiver, visitor);
         break;
       case "TaggedExpression":
         this.walkExpression(expr.value, visitor);
