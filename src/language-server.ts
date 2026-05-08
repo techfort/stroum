@@ -5,18 +5,23 @@ import {
   type CompletionItem,
   type CompletionParams,
   createConnection,
+  type Definition,
+  type DefinitionParams,
   type Diagnostic,
   DiagnosticSeverity,
   DidChangeConfigurationNotification,
   type InitializeParams,
   type InitializeResult,
+  Location,
   ProposedFeatures,
+  Range,
   TextDocumentSyncKind,
   TextDocuments,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import type * as AST from "./ast";
 import { analyzeDataflow } from "./dataflow-analyzer";
+import { format } from "./formatter";
 import { Lexer } from "./lexer";
 import { getCompletions } from "./lsp-completion";
 import { Parser } from "./parser";
@@ -44,6 +49,8 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
         resolveProvider: false,
         triggerCharacters: [":", "|", " "],
       },
+      definitionProvider: true,
+      documentFormattingProvider: true,
     },
   };
 });
@@ -196,6 +203,67 @@ connection.onCompletion((params: CompletionParams): CompletionItem[] => {
   const hasStdlib = !doc.getText().includes("--no-stdlib");
 
   return getCompletions(module, linePrefix, hasStdlib);
+});
+
+// ─── Go-to-definition ────────────────────────────────────────────────────────
+
+connection.onDefinition((params: DefinitionParams): Definition | null => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return null;
+
+  const module = astCache.get(params.textDocument.uri);
+  if (!module) return null;
+
+  const lines = doc.getText().split("\n");
+  const line = lines[params.position.line] ?? "";
+  // Extract the word at the cursor position
+  const before = line.slice(0, params.position.character);
+  const after = line.slice(params.position.character);
+  const wordMatch = /(\w+)$/.exec(before);
+  const word = wordMatch
+    ? wordMatch[1] + (after.match(/^\w+/)?.[0] ?? "")
+    : null;
+  if (!word) return null;
+
+  // Search all definitions in the module for a matching name
+  for (const def of module.definitions) {
+    if (def.name === word) {
+      const defLine = Math.max(0, (def.location.line ?? 1) - 1);
+      const defCol = Math.max(0, (def.location.column ?? 1) - 1);
+      return Location.create(
+        params.textDocument.uri,
+        Range.create(defLine, defCol, defLine, defCol + word.length),
+      );
+    }
+  }
+
+  return null;
+});
+
+// ─── Document formatting ──────────────────────────────────────────────────────
+
+connection.onDocumentFormatting((params) => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return [];
+
+  try {
+    const source = doc.getText();
+    const tokens = new Lexer(source).tokenize();
+    const module = new Parser(tokens).parse();
+    const formatted = format(module);
+
+    if (formatted === source) return [];
+
+    const lineCount = source.split("\n").length;
+    return [
+      {
+        range: Range.create(0, 0, lineCount, 0),
+        newText: formatted,
+      },
+    ];
+  } catch {
+    return [];
+  }
 });
 
 // ─── Custom requests ──────────────────────────────────────────────────────────

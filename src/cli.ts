@@ -4,8 +4,11 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { analyzeDataflow } from "./dataflow-analyzer";
+import { format } from "./formatter";
 import { startGraphServer } from "./graph-server";
+import { Lexer } from "./lexer";
 import { ModuleResolver } from "./module-resolver";
+import { Parser } from "./parser";
 import { replCommand } from "./repl";
 import { inferSchema, schemaToStroumSource } from "./schema-deriver";
 import { Transpiler } from "./transpiler";
@@ -40,6 +43,7 @@ ${colorize("USAGE:", "bright")}
 ${colorize("COMMANDS:", "bright")}
   ${colorize("compile", "green")} <file.stm>     Transpile Stroum to TypeScript
   ${colorize("run", "green")} <file.stm>         Compile and execute a Stroum program
+  ${colorize("format", "green")} <file.stm>      Format a Stroum source file
   ${colorize("repl", "green")}                   Start interactive REPL
   ${colorize("graph", "green")} <file.stm>       Open dataflow graph in browser
   ${colorize("derive", "green")} schema <file>   Infer struct definition from CSV/JSON file
@@ -170,8 +174,13 @@ function compileCommand(args: string[]) {
       const location = d.filePath
         ? `${path.relative(process.cwd(), d.filePath)}:`
         : "";
-      const tag = d.severity === "error" ? colorize("[error]", "red") : colorize("[warning]", "yellow");
-      console.error(`${tag} ${location}line ${d.line}, col ${d.column}: ${d.message}`);
+      const tag =
+        d.severity === "error"
+          ? colorize("[error]", "red")
+          : colorize("[warning]", "yellow");
+      console.error(
+        `${tag} ${location}line ${d.line}, col ${d.column}: ${d.message}`,
+      );
     }
 
     // Report validation warnings and errors
@@ -201,7 +210,9 @@ function compileCommand(args: string[]) {
     const parseErrors = parseDiagnostics.filter((d) => d.severity === "error");
     if (parseErrors.length > 0 || errors.length > 0) {
       const total = parseErrors.length + errors.length;
-      console.error(colorize(`Compilation failed with ${total} error(s)`, "red"));
+      console.error(
+        colorize(`Compilation failed with ${total} error(s)`, "red"),
+      );
       process.exit(1);
     }
 
@@ -319,9 +330,16 @@ function runCommand(args: string[]) {
     }
 
     for (const d of parseDiagnostics) {
-      const loc = d.filePath ? `${path.relative(process.cwd(), d.filePath)}:` : "";
-      const tag = d.severity === "error" ? colorize("[error]", "red") : colorize("[warning]", "yellow");
-      console.error(`${tag} ${loc}line ${d.line}, col ${d.column}: ${d.message}`);
+      const loc = d.filePath
+        ? `${path.relative(process.cwd(), d.filePath)}:`
+        : "";
+      const tag =
+        d.severity === "error"
+          ? colorize("[error]", "red")
+          : colorize("[warning]", "yellow");
+      console.error(
+        `${tag} ${loc}line ${d.line}, col ${d.column}: ${d.message}`,
+      );
     }
 
     const errors = allIssues.filter((i: any) => i.type === "error");
@@ -345,7 +363,9 @@ function runCommand(args: string[]) {
     const parseErrors = parseDiagnostics.filter((d) => d.severity === "error");
     if (parseErrors.length > 0 || errors.length > 0) {
       const total = parseErrors.length + errors.length;
-      console.error(colorize(`Compilation failed with ${total} error(s)`, "red"));
+      console.error(
+        colorize(`Compilation failed with ${total} error(s)`, "red"),
+      );
       cleanup();
       process.exit(1);
     }
@@ -535,6 +555,50 @@ stroum run src/hello.stm
   console.log(`  ${colorize("cd", "cyan")} ${projectName}`);
   console.log(`  ${colorize("stroum run", "cyan")} src/hello.stm`);
   console.log();
+}
+
+function formatCommand(args: string[]) {
+  const inputFile = args.find((a) => !a.startsWith("-"));
+  const inPlace = args.includes("--write") || args.includes("-w");
+  const check = args.includes("--check");
+
+  if (!inputFile) {
+    console.error(colorize("Error:", "red") + " input file required");
+    console.error("Usage: stroum format <file.stm> [--write] [--check]");
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(inputFile)) {
+    console.error(colorize("Error:", "red") + ` file not found: ${inputFile}`);
+    process.exit(1);
+  }
+
+  try {
+    const source = fs.readFileSync(inputFile, "utf-8");
+    const tokens = new Lexer(source).tokenize();
+    const module = new Parser(tokens).parse();
+    const formatted = format(module);
+
+    if (check) {
+      if (source === formatted) {
+        console.log(
+          colorize("✓", "green") + ` ${inputFile} is already formatted`,
+        );
+      } else {
+        console.error(colorize("✗", "red") + ` ${inputFile} needs formatting`);
+        process.exit(1);
+      }
+    } else if (inPlace) {
+      fs.writeFileSync(inputFile, formatted);
+      console.log(colorize("✓", "green") + ` Formatted ${inputFile}`);
+    } else {
+      process.stdout.write(formatted);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(colorize("Error:", "red"), msg);
+    process.exit(1);
+  }
 }
 
 function deriveCommand(args: string[]) {
@@ -898,6 +962,10 @@ function main() {
 
     case "derive":
       deriveCommand(commandArgs);
+      break;
+
+    case "format":
+      formatCommand(commandArgs);
       break;
 
     case "repl":
