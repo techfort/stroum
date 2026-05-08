@@ -3,12 +3,15 @@ import * as path from "path";
 import type * as AST from "./ast";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
+import type { SourceLocation } from "./types";
 
 export class Transpiler {
   private indent = 0;
   private output: string[] = [];
   private stdlibPath: string;
   private currentFn: { name: string; params: string[] } | null = null;
+  private genLineCount = 1;
+  private srcMappings: Array<{ genLine: number; srcLine: number; srcCol: number }> = [];
 
   constructor(stdlibPath?: string) {
     this.stdlibPath = stdlibPath || path.join(__dirname, "../stdlib");
@@ -17,6 +20,8 @@ export class Transpiler {
   transpile(module: AST.Module, currentFilePath?: string): string {
     this.indent = 0;
     this.output = [];
+    this.genLineCount = 1;
+    this.srcMappings = [];
 
     // Emit runtime import
     this.emit(
@@ -91,7 +96,7 @@ export class Transpiler {
       // Execute primary expressions in order
       for (const primaryExpr of module.primaryExpressions) {
         const expr = this.transpileExpression(primaryExpr);
-        this.emit(`await ${expr};`);
+        this.emit(`await ${expr};`, primaryExpr.location);
       }
 
       if (module.runtimeDeclaration) {
@@ -303,7 +308,7 @@ export class Transpiler {
   }
 
   private transpileStructDeclaration(struct: AST.StructDeclaration): void {
-    this.emit(`interface ${struct.name} {`);
+    this.emit(`interface ${struct.name} {`, struct.location);
     this.indent++;
     for (const field of struct.fields) {
       this.emit(`${field.name}: ${this.mapTypeName(field.typeName)};`);
@@ -326,7 +331,7 @@ export class Transpiler {
     const asyncMark = "async ";
 
     // Export all functions so they can be imported by other modules
-    this.emit(`export ${asyncMark}function ${func.name}(${params}) {`);
+    this.emit(`export ${asyncMark}function ${func.name}(${params}) {`, func.location);
     this.indent++;
 
     this.currentFn = { name: func.name, params: func.params };
@@ -345,7 +350,7 @@ export class Transpiler {
 
   private transpileBindingDeclaration(binding: AST.BindingDeclaration): void {
     const value = this.transpileExpression(binding.value);
-    this.emit(`const ${binding.name} = ${value};`);
+    this.emit(`const ${binding.name} = ${value};`, binding.location);
   }
 
   private transpileIndentedBody(body: AST.IndentedBody): void {
@@ -825,9 +830,39 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
     return typeMap[typeName] || typeName;
   }
 
-  private emit(line: string): void {
+  private emit(line: string, loc?: SourceLocation): void {
     const indentation = "  ".repeat(this.indent);
     this.output.push(indentation + line);
+    if (loc) {
+      this.srcMappings.push({ genLine: this.genLineCount, srcLine: loc.line, srcCol: loc.column });
+    }
+    this.genLineCount++;
+  }
+
+  buildSourceMap(sourceFile: string, generatedFile: string): string {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { SourceMapGenerator } = require("source-map") as typeof import("source-map");
+    const gen = new SourceMapGenerator({ file: path.basename(generatedFile) });
+    const sourceName = path.relative(path.dirname(generatedFile), sourceFile);
+    for (const m of this.srcMappings) {
+      gen.addMapping({
+        generated: { line: m.genLine, column: 0 },
+        source: sourceName,
+        original: { line: m.srcLine, column: m.srcCol - 1 },
+      });
+    }
+    return gen.toString();
+  }
+
+  transpileWithMap(
+    module: AST.Module,
+    sourcePath: string,
+    generatedPath: string,
+  ): { code: string; map: string } {
+    const code = this.transpile(module, sourcePath);
+    const map = this.buildSourceMap(sourcePath, generatedPath);
+    const mapFile = `${path.basename(generatedPath)}.map`;
+    return { code: `${code}\n//# sourceMappingURL=${mapFile}`, map };
   }
 
   // Generate the runtime file alongside the output
