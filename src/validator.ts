@@ -362,13 +362,17 @@ export class Validator {
 
   private validateBody(body: AST.Expression | AST.IndentedBody): void {
     if (body.type === "IndentedBody") {
+      const saved = this.currentScope;
+      this.currentScope = new Set(saved);
       for (const stmt of body.statements) {
         if (stmt.type === "BindingDeclaration") {
           this.validateBindingDeclaration(stmt);
+          this.currentScope.add(stmt.name);
         } else {
           this.validateExpression(stmt);
         }
       }
+      this.currentScope = saved;
     } else {
       this.validateExpression(body);
     }

@@ -174,6 +174,22 @@ describe("Validator", () => {
   });
 
   describe("complex validation", () => {
+    it("should allow a function body binding to be referenced by later statements", () => {
+      const source = `f:check_positive x =>
+  if gt(x, 0) then
+    x @ "positive"
+  else
+    x @ "non-positive"
+
+f:main =>
+  :nums [1, -2, 3, 0]
+  map(check_positive, nums)`;
+
+      const issues = validate(source);
+      const errors = issues.filter((i) => i.type === "error");
+      expect(errors.length).toBe(0);
+    });
+
     it("should validate complete program with no errors", () => {
       const source = `-- Define helper functions used in this test
 f:json_parse raw => raw
