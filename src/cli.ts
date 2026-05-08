@@ -56,6 +56,7 @@ ${colorize("GRAPH OPTIONS:", "bright")}
   --no-open               Print URL but do not auto-open browser
 
 ${colorize("RUN OPTIONS:", "bright")}
+  --watch, -w             Re-run whenever the source file changes
   --trace                 Print a stream trace summary after execution
 
 ${colorize("DERIVE OPTIONS:", "bright")}
@@ -226,22 +227,22 @@ function compileCommand(args: string[]) {
 
     // Transpile all modules
     for (const resolvedModule of modules) {
-      const tsCode = transpiler.transpile(
-        resolvedModule.module,
-        resolvedModule.filePath,
-      );
-
-      // Use custom output file for main module, default location for imports
       let moduleOutputFile: string;
       if (resolvedModule.filePath === absoluteInputFile) {
-        // Main module - use the specified output file
         moduleOutputFile = outputFile;
       } else {
-        // Imported module - write next to source
         moduleOutputFile = resolvedModule.filePath.replace(/\.stm$/, ".ts");
       }
 
-      fs.writeFileSync(moduleOutputFile, tsCode);
+      const resolvedOutput = path.resolve(moduleOutputFile);
+      const { code, map } = transpiler.transpileWithMap(
+        resolvedModule.module,
+        resolvedModule.filePath,
+        resolvedOutput,
+      );
+
+      fs.writeFileSync(moduleOutputFile, code);
+      fs.writeFileSync(`${resolvedOutput}.map`, map);
     }
 
     // Emit runtime file in the same directory as the main output
@@ -270,7 +271,35 @@ function compileCommand(args: string[]) {
   }
 }
 
+function watchMode(inputFile: string, runArgs: string[]): void {
+  const cliScript = process.argv[1];
+  let child: ReturnType<typeof spawn> | null = null;
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+
+  const runOnce = () => {
+    if (child) child.kill();
+    console.log(colorize(`\n[watch] restarting: ${inputFile}`, "cyan"));
+    child = spawn("node", [cliScript, "run", ...runArgs], { stdio: "inherit" });
+    child.on("exit", () => { child = null; });
+  };
+
+  runOnce();
+
+  fs.watch(inputFile, () => {
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(runOnce, 300);
+  });
+
+  process.on("SIGINT", () => {
+    if (child) child.kill();
+    process.exit(0);
+  });
+
+  console.log(colorize(`[watch] watching ${inputFile} — press Ctrl+C to stop`, "blue"));
+}
+
 function runCommand(args: string[]) {
+  const watchFlag = args.includes("--watch") || args.includes("-w");
   const traceMode = args.includes("--trace");
   const ipcIndex = args.indexOf("--ipc");
   const ipcSocket = ipcIndex !== -1 ? args[ipcIndex + 1] : null;
@@ -280,13 +309,19 @@ function runCommand(args: string[]) {
 
   if (!inputFile) {
     console.error(colorize("Error:", "red") + " input file required");
-    console.error("Usage: stroum run <input.stm>");
+    console.error("Usage: stroum run <input.stm> [--watch]");
     process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
     console.error(colorize("Error:", "red") + ` file not found: ${inputFile}`);
     process.exit(1);
+  }
+
+  if (watchFlag) {
+    const runArgs = args.filter((a) => a !== "--watch" && a !== "-w");
+    watchMode(inputFile, runArgs);
+    return;
   }
 
   const os = require("os");
@@ -372,12 +407,13 @@ function runCommand(args: string[]) {
 
     const transpiler = new Transpiler(stdlibPath);
     for (const mod of modules) {
-      const tsCode = transpiler.transpile(mod.module, mod.filePath);
       const outFile =
         mod.filePath === absoluteInputFile
           ? outputTs
-          : path.join(tempDir, path.basename(mod.filePath, ".stm") + ".ts");
-      fs.writeFileSync(outFile, tsCode);
+          : path.join(tempDir, `${path.basename(mod.filePath, ".stm")}.ts`);
+      const { code, map } = transpiler.transpileWithMap(mod.module, mod.filePath, outFile);
+      fs.writeFileSync(outFile, code);
+      fs.writeFileSync(`${outFile}.map`, map);
     }
     Transpiler.emitRuntime(tempDir);
 
@@ -425,6 +461,7 @@ function runCommand(args: string[]) {
     "--esModuleInterop",
     "true",
     "--skipLibCheck",
+    "--sourceMap",
   ];
 
   const tscResult = require("child_process").spawnSync(tscPath, tscArgs, {
@@ -462,7 +499,7 @@ function runCommand(args: string[]) {
   if (traceMode) nodeEnv.STROUM_TRACE = "1";
   if (ipcSocket) nodeEnv.STROUM_IPC_SOCKET = ipcSocket;
 
-  const nodeResult = spawn("node", [outputJs], {
+  const nodeResult = spawn("node", ["--enable-source-maps", outputJs], {
     stdio: "inherit",
     env: nodeEnv,
   });
@@ -720,12 +757,13 @@ function runTestFile(inputFile: string): Promise<number> {
 
       const transpiler = new Transpiler(stdlibPath);
       for (const mod of modules) {
-        const tsCode = transpiler.transpile(mod.module, mod.filePath);
         const outFile =
           mod.filePath === absoluteInputFile
             ? outputTs
-            : path.join(tempDir, path.basename(mod.filePath, ".stm") + ".ts");
-        fs.writeFileSync(outFile, tsCode);
+            : path.join(tempDir, `${path.basename(mod.filePath, ".stm")}.ts`);
+        const { code, map } = transpiler.transpileWithMap(mod.module, mod.filePath, outFile);
+        fs.writeFileSync(outFile, code);
+        fs.writeFileSync(`${outFile}.map`, map);
       }
       Transpiler.emitRuntime(tempDir);
 
@@ -761,6 +799,7 @@ function runTestFile(inputFile: string): Promise<number> {
       "--esModuleInterop",
       "true",
       "--skipLibCheck",
+      "--sourceMap",
     ];
     const tscResult = require("child_process").spawnSync(tscPath, tscArgs, {
       encoding: "utf-8",
@@ -777,7 +816,7 @@ function runTestFile(inputFile: string): Promise<number> {
       return;
     }
 
-    const child = spawn("node", [outputJs], { stdio: "inherit" });
+    const child = spawn("node", ["--enable-source-maps", outputJs], { stdio: "inherit" });
     child.on("exit", (code) => {
       cleanup();
       resolve(code ?? 1);

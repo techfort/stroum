@@ -10,9 +10,12 @@ import {
   type Diagnostic,
   DiagnosticSeverity,
   DidChangeConfigurationNotification,
+  type Hover,
+  type HoverParams,
   type InitializeParams,
   type InitializeResult,
   Location,
+  MarkupKind,
   ProposedFeatures,
   Range,
   TextDocumentSyncKind,
@@ -23,7 +26,7 @@ import type * as AST from "./ast";
 import { analyzeDataflow } from "./dataflow-analyzer";
 import { format } from "./formatter";
 import { Lexer } from "./lexer";
-import { getCompletions } from "./lsp-completion";
+import { getCompletions, getHover } from "./lsp-completion";
 import { Parser } from "./parser";
 import { hasDirectives, preprocess } from "./preprocessor";
 import { type ValidationIssue, Validator } from "./validator";
@@ -51,6 +54,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       definitionProvider: true,
       documentFormattingProvider: true,
+      hoverProvider: true,
     },
   };
 });
@@ -264,6 +268,43 @@ connection.onDocumentFormatting((params) => {
   } catch {
     return [];
   }
+});
+
+// ─── Hover ────────────────────────────────────────────────────────────────────
+
+connection.onHover((params: HoverParams): Hover | null => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return null;
+
+  let module = astCache.get(params.textDocument.uri);
+  if (!module) {
+    try {
+      const tokens = new Lexer(doc.getText()).tokenize();
+      module = new Parser(tokens).parse();
+      astCache.set(params.textDocument.uri, module);
+    } catch {
+      return null;
+    }
+  }
+
+  const lines = doc.getText().split("\n");
+  const line = lines[params.position.line] ?? "";
+  const ch = params.position.character;
+  const wordMatch = line.slice(0, ch + 1).match(/\w+$/) ?? null;
+  const rightPart = line.slice(ch).match(/^\w*/) ?? null;
+  const word = (wordMatch?.[0] ?? "") + (rightPart?.[0]?.slice(1) ?? "");
+
+  if (!word) return null;
+
+  const hover = getHover(word, module);
+  if (!hover) return null;
+
+  return {
+    contents: {
+      kind: MarkupKind.Markdown,
+      value: `\`\`\`stroum\n${hover.signature}\n\`\`\`\n\n${hover.doc}`,
+    },
+  };
 });
 
 // ─── Custom requests ──────────────────────────────────────────────────────────
