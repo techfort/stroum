@@ -20,6 +20,8 @@ Stroum is a functional, pipe-first, stream-oriented language that transpiles to 
 12. [Structs](#12-structs)
 13. [Imports](#13-imports)
 14. [Standard Library](#14-standard-library)
+15. [Testing](#15-testing)
+16. [Developer Tools](#16-developer-tools)
 
 ---
 
@@ -61,9 +63,18 @@ Functions are declared with the `f:` sigil.
 f:name param1 param2 => body
 ```
 
-### String escape sequences
+### Numeric literals
 
-String literals support the standard escape sequences:
+Integer and float literals may be negative — the minus sign is part of the literal, not a unary operator.
+
+```stroum
+:x -42
+:pi -3.14
+
+f:negate n => mul(n, -1)
+```
+
+### String literals and escape sequences
 
 | Escape | Meaning |
 |---|---|
@@ -79,6 +90,13 @@ write_file("/tmp/out.txt", "line one\nline two\n")
 println("column\tone\ttwo")
 ```
 
+String interpolation uses `#{}`:
+
+```stroum
+:name "Alice"
+println("Hello, #{name}!")
+```
+
 ---
 
 ### Single expression body
@@ -91,13 +109,19 @@ f:square x => mul(x, x)
 
 ### Indented body (multiple statements)
 
-Indent the body to sequence operations. The last expression is the return value.
+Indent the body to sequence bindings and expressions. The last expression is the return value. Pipes must be written **inline** on a single line — `|>` cannot start a continuation line.
 
 ```stroum
 f:process x =>
-  add(x, 1)
-  |> mul(2)
-  |> to_string
+  :step add(x, 1)
+  :scaled mul(step, 2)
+  to_string(scaled)
+```
+
+Each line is a separate statement. Use intermediate bindings to break long computations across lines, or write the full pipeline inline:
+
+```stroum
+f:process x => add(x, 1) |> mul(2) |> to_string
 ```
 
 ### Recursive functions
@@ -151,6 +175,8 @@ Bindings are available to all subsequent definitions and the primary expression.
 ## 4. The Pipe Operator
 
 `|>` is the central operator in Stroum. It threads values through a sequence of transformations.
+
+> **Syntax rule:** Pipes are always written inline on a single line. `|>` cannot appear at the start of a continuation line.
 
 ### Form 1 — Bare name (idiomatic)
 
@@ -395,9 +421,9 @@ if condition then expr else expr
 Conditionals are expressions — they produce a value.
 
 ```stroum
-f:sign x => if gt(x, 0) then 1 else sub(0, 1)
+f:sign x => if gt(x, 0) then 1 else -1
 
-f:abs x => if gt(x, 0) then x else mul(x, sub(0, 1))
+f:abs x => if gt(x, 0) then x else mul(x, -1)
 ```
 
 Chain with `else if`:
@@ -711,4 +737,47 @@ i:timer
 -- Test declaration
 test "label" =>
   assert_eq(fn(arg), expected)
+
+-- Negative number literals
+:x -42
+:pi -3.14
+f:negate n => mul(n, -1)
 ```
+
+---
+
+## 16. Developer Tools
+
+### Format
+
+The `stroum format` command formats a source file using the canonical AST-based formatter.
+
+```bash
+stroum format input.stm            # print formatted source to stdout
+stroum format input.stm --write    # rewrite file in place
+stroum format input.stm --check    # exit 1 if file needs formatting (CI use)
+```
+
+Formatting is idempotent — running it twice produces the same result as running it once.
+
+### Watch mode
+
+```bash
+stroum run examples/demo.stm --watch
+```
+
+Re-runs the program whenever the source file changes. Uses a 300 ms debounce; kills the previous child process before restarting. Press `Ctrl+C` to stop watching.
+
+### Source maps
+
+`stroum compile` writes a V3 source map (`.ts.map`) alongside the generated `.ts` file. The map records which generated TypeScript line corresponds to which `.stm` line.
+
+`stroum run` enables source maps end-to-end: it passes `--sourceMap` to the TypeScript compiler and `--enable-source-maps` to Node, so runtime stack traces point to `.stm` line numbers.
+
+### REPL
+
+```bash
+stroum repl
+```
+
+An interactive session that evaluates Stroum expressions. Tab-completes stdlib function names and names you have defined in the current session. Use `:help` for available REPL commands.
