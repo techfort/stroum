@@ -55,19 +55,33 @@ export function needsContinuation(line: string): boolean {
   return t.endsWith("=>") || t.endsWith("|>") || t.endsWith(",");
 }
 
+function hasExplicitOutput(source: string): boolean {
+  const s = source.trimEnd();
+  const outputSinks = ["println", "print", "null_sink", "log_sink", "debug"];
+  if (outputSinks.some((fn) => s.endsWith(`|> ${fn}`))) return true;
+  if (outputSinks.some((fn) => new RegExp(`\\b${fn}\\s*\\(`).test(s))) return true;
+  // stream emit: @ "name" or @binding
+  if (/ @["a-zA-Z]/.test(s)) return true;
+  return false;
+}
+
 export async function evalExpression(
   source: string,
   session: ReplSession,
   tempDir: string,
   stdlibPath: string,
 ): Promise<void> {
-  const fullSource = [...session.imports, ...session.declarations, source].join(
+  // Auto-print the result unless the expression already has explicit output
+  const evalSource = hasExplicitOutput(source) ? source : `${source} |> println`;
+
+  const fullSource = [...session.imports, ...session.declarations, evalSource].join(
     "\n",
   );
 
   const stmFile = path.join(tempDir, "repl-eval.stm");
   const tsFile = path.join(tempDir, "repl-eval.ts");
-  const bundleFile = path.join(tempDir, "repl-bundle.js");
+  // .mjs so Node treats the ESM bundle correctly (needed for top-level await)
+  const bundleFile = path.join(tempDir, "repl-bundle.mjs");
 
   fs.writeFileSync(stmFile, fullSource);
 
@@ -98,14 +112,14 @@ export async function evalExpression(
       fs.writeFileSync(outFile, tsCode);
     }
 
-    // Bundle with esbuild (much faster than tsc for REPL iterations)
+    // Bundle with esbuild using ESM format — required for top-level await in bindings
     const esbuild = require("esbuild");
     await esbuild.build({
       entryPoints: [tsFile],
       bundle: true,
       outfile: bundleFile,
       platform: "node",
-      format: "cjs",
+      format: "esm",
       target: "node18",
       logLevel: "silent",
     });
