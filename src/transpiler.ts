@@ -63,6 +63,7 @@ export class Transpiler {
 
     // Transpile main program
     if (
+      module.wireDeclarations.length > 0 ||
       module.sourceDeclarations.length > 0 ||
       module.sinkDeclarations.length > 0 ||
       module.primaryExpressions.length > 0 ||
@@ -74,6 +75,11 @@ export class Transpiler {
       this.emit("(async () => {");
       this.indent++;
       this.emit("const __sourceTasks: Promise<any>[] = [];");
+
+      // Register wire relays before other handlers
+      for (const wireDecl of module.wireDeclarations) {
+        this.transpileWireDeclaration(wireDecl);
+      }
 
       // Register on-handlers and route declarations first
       for (const contingency of module.contingencies) {
@@ -266,6 +272,10 @@ export class Transpiler {
       if (!importPath.startsWith(".")) {
         importPath = "./" + importPath;
       }
+
+      // Always emit a side-effect import so the module's IIFE (which registers
+      // router handlers) executes even when no named symbols are used directly.
+      this.emit(`import '${importPath}';`);
 
       if (importDecl.alias) {
         // Qualified import: import * as alias from './module'
@@ -697,6 +707,14 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
     const sourceExpr = this.transpileExpression(sourceDecl.source);
     this.emit(
       `await __route(${sourceExpr}, ${streamArg}, { fn: null, args: {} });`,
+    );
+  }
+
+  private transpileWireDeclaration(wire: AST.WireDeclaration): void {
+    const from = this.streamRefToTs(wire.from);
+    const to = this.streamRefToTs(wire.to);
+    this.emit(
+      `__router.on(${from}, async (__wireValue) => { await __route(__wireValue, ${to}, { fn: null, args: {} }); });`,
     );
   }
 

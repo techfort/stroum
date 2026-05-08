@@ -14,6 +14,9 @@ export interface ASTNode {
 export interface Module extends ASTNode {
   type: "Module";
   imports: ImportDeclaration[];
+  inputDeclarations: InputDeclaration[];
+  outputDeclarations: OutputDeclaration[];
+  wireDeclarations: WireDeclaration[];
   sourceDeclarations: SourceDeclaration[];
   sinkDeclarations: SinkDeclaration[];
   definitions: Declaration[];
@@ -32,6 +35,22 @@ export interface ImportDeclaration extends ASTNode {
   modulePath: string; // Module identifier or file path (e.g., "core" or "./utils.stm")
   imports: string[] | null; // Specific functions to import, or null for all
   alias: string | null; // Optional alias for qualified access (e.g., "as c")
+}
+
+export interface InputDeclaration extends ASTNode {
+  type: "InputDeclaration";
+  stream: StreamRef;
+}
+
+export interface OutputDeclaration extends ASTNode {
+  type: "OutputDeclaration";
+  stream: StreamRef;
+}
+
+export interface WireDeclaration extends ASTNode {
+  type: "WireDeclaration";
+  from: StreamRef;
+  to: StreamRef;
 }
 
 // ============================================================================
