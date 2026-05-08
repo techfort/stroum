@@ -109,8 +109,8 @@ describe("format: call expressions", () => {
 
 describe("format: if expressions", () => {
   it("formats a short if expression inline", () => {
-    const out = fmt("f:abs n => if lt(n, 0) then sub(0, n) else n");
-    expect(out).toContain("if lt(n, 0) then sub(0, n) else n");
+    const out = fmt("f:abs n => if lt(n, 0) then mul(n, -1) else n");
+    expect(out).toContain("if lt(n, 0) then mul(n, -1) else n");
   });
 });
 

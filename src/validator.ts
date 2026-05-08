@@ -596,15 +596,6 @@ export class Validator {
 
     this.validateExpression(handler.handler);
 
-    // Check if handler uses any identifiers not in module scope
-    const usedIdentifiers = this.collectIdentifiers(handler.handler);
-    for (const id of usedIdentifiers) {
-      if (!this.moduleBindings.has(id)) {
-        // Could be a built-in or parameter - we allow it but warn if suspicious
-        // (This is a simplified check; real implementation might need more context)
-      }
-    }
-
     this.currentScope = previousScope;
   }
 
@@ -624,50 +615,45 @@ export class Validator {
     return this.checkForSelfReferenceExpr(body, functionName);
   }
 
-  private checkForSelfReferenceExpr(
-    expr: AST.Expression,
-    functionName: string,
-  ): boolean {
+  private walkExpression(expr: AST.Expression, visitor: (e: AST.Expression) => void): void {
+    visitor(expr);
     switch (expr.type) {
-      case "Identifier":
-        return expr.name === functionName;
+      case "InterpolatedStringLiteral":
+        expr.segments.forEach((seg) => { if (seg.kind === "expr") this.walkExpression(seg.expression, visitor); });
+        break;
       case "CallExpression":
-        // callee is a string
-        if (expr.callee === functionName) {
-          return true;
-        }
-        return expr.args.some((arg) =>
-          this.checkForSelfReferenceExpr(arg, functionName),
-        );
+        expr.args.forEach((arg) => { this.walkExpression(arg, visitor); });
+        break;
       case "PipeExpression":
-        return (
-          expr.stages.some((stage) =>
-            this.checkForSelfReferenceExpr(stage, functionName),
-          ) ||
-          expr.outcomeMatches.some((match) =>
-            this.checkForSelfReferenceExpr(match.handler, functionName),
-          )
-        );
+        expr.stages.forEach((stage) => { this.walkExpression(stage, visitor); });
+        expr.outcomeMatches.forEach((m) => { this.walkExpression(m.handler, visitor); });
+        break;
       case "ParallelExpression":
-        return (
-          expr.branches.some((branch) =>
-            this.checkForSelfReferenceExpr(branch, functionName),
-          ) ||
-          this.checkForSelfReferenceExpr(expr.gatherPipe.target, functionName)
-        );
+        expr.branches.forEach((branch) => { this.walkExpression(branch, visitor); });
+        this.walkExpression(expr.gatherPipe.target, visitor);
+        break;
       case "Lambda":
-        return this.checkForSelfReferenceExpr(expr.body, functionName);
+        this.walkExpression(expr.body, visitor);
+        break;
       case "ListLiteral":
-        return expr.elements.some((elem) =>
-          this.checkForSelfReferenceExpr(elem, functionName),
-        );
+        expr.elements.forEach((elem) => { this.walkExpression(elem, visitor); });
+        break;
       case "RecordLiteral":
-        return expr.fields.some((field) =>
-          this.checkForSelfReferenceExpr(field.value, functionName),
-        );
-      default:
-        return false;
+        expr.fields.forEach((f) => { this.walkExpression(f.value, visitor); });
+        break;
+      case "TaggedExpression":
+        this.walkExpression(expr.value, visitor);
+        break;
     }
+  }
+
+  private checkForSelfReferenceExpr(expr: AST.Expression, functionName: string): boolean {
+    let found = false;
+    this.walkExpression(expr, (e) => {
+      if (e.type === "Identifier" && e.name === functionName) found = true;
+      if (e.type === "CallExpression" && e.callee === functionName) found = true;
+    });
+    return found;
   }
 
   private countOutcomePaths(body: AST.Expression | AST.IndentedBody): number {
@@ -701,56 +687,6 @@ export class Validator {
       default:
         return 0;
     }
-  }
-
-  private collectIdentifiers(expr: AST.Expression): Set<string> {
-    const identifiers = new Set<string>();
-
-    const collect = (e: AST.Expression): void => {
-      switch (e.type) {
-        case "Identifier":
-          identifiers.add(e.name);
-          break;
-        case "NumberLiteral":
-        case "StringLiteral":
-        case "BooleanLiteral":
-          // Literals don't contain identifiers
-          break;
-        case "InterpolatedStringLiteral":
-          e.segments.forEach((seg) => {
-            if (seg.kind === "expr") collect(seg.expression);
-          });
-          break;
-        case "CallExpression":
-          // callee is a string
-          e.args.forEach(collect);
-          break;
-        case "PipeExpression":
-          e.stages.forEach(collect);
-          e.outcomeMatches.forEach((m: AST.OutcomeMatch) => { collect(m.handler); });
-          break;
-        case "ParallelExpression":
-          e.branches.forEach(collect);
-          collect(e.gatherPipe.target);
-          break;
-        case "Lambda":
-          // Don't collect lambda parameters as "used identifiers"
-          collect(e.body);
-          break;
-        case "ListLiteral":
-          e.elements.forEach(collect);
-          break;
-        case "RecordLiteral":
-          e.fields.forEach((f: AST.RecordField) => { collect(f.value); });
-          break;
-        case "TaggedExpression":
-          collect(e.value);
-          break;
-      }
-    };
-
-    collect(expr);
-    return identifiers;
   }
 
   private isStringLiteral(value: string): boolean {

@@ -131,6 +131,11 @@ export class Lexer {
         this.addToken(TokenType.OUTPUT_ARROW, "->");
         return;
       }
+      // Negative number literal: -42 or -3.14
+      if (this.isDigit(this.peek())) {
+        this.scanNumber(true);
+        return;
+      }
       this.error(
         startLine,
         startColumn,
@@ -307,7 +312,7 @@ export class Lexer {
     this.addToken(TokenType.STRING, value);
   }
 
-  private scanNumber(): void {
+  private scanNumber(negative = false): void {
     const start = this.position;
 
     while (this.isDigit(this.peek())) {
@@ -322,7 +327,8 @@ export class Lexer {
       }
     }
 
-    const value = this.source.substring(start, this.position);
+    const digits = this.source.substring(start, this.position);
+    const value = negative ? `-${digits}` : digits;
     this.addToken(TokenType.NUMBER, value);
   }
 

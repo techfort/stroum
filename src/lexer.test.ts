@@ -186,6 +186,22 @@ describe("Lexer", () => {
       expect(tokens.map((t) => t.value)).toEqual(["3.14", "0.5", "99.99", ""]);
     });
 
+    it("should tokenize negative integer literals", () => {
+      const tokens = tokenize("-1 -42");
+      expect(tokens.map((t) => t.type)).toEqual([
+        TokenType.NUMBER,
+        TokenType.NUMBER,
+        TokenType.EOF,
+      ]);
+      expect(tokens.map((t) => t.value)).toEqual(["-1", "-42", ""]);
+    });
+
+    it("should tokenize negative float literals", () => {
+      const tokens = tokenize("-3.14");
+      expect(tokens[0].type).toBe(TokenType.NUMBER);
+      expect(tokens[0].value).toBe("-3.14");
+    });
+
     it("should tokenize strings", () => {
       const tokens = tokenize('"hello" "world"');
       expect(tokens.map((t) => t.type)).toEqual([
