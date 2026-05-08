@@ -11,6 +11,11 @@ f:check_age u =>
     else
         .minor u
 
+f:dispatch_user u =>
+    check_age(u)
+    | .adult => |:u| => u @ "adult" 
+    | .minor => |:u| => println("Minor user: #{u.name}")
+
 f:check_positive x =>
     if gt(x, 0) then
         x @ "positive"
@@ -22,8 +27,9 @@ f:main =>
     map(check_positive, nums)
 
     :users [User { id: 1, name: "Alice", email: "alice@example.com", age: 25 }, User { id: 2, name: "Bob", email: "bob@example.com", age: 17 }]
-    map(check_age, users)
+    map(dispatch_user, users)
 
 main()
 
 on @"positive" |> |:x| => println("Positive number: #{x}")
+on @"adult" |> |:u| => println("Adult user: #{u.name}")

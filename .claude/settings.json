@@ -4,7 +4,13 @@
       "WebSearch",
       "Bash(npx esbuild *)",
       "Read(//home/joe/.vscode-server/**)",
-      "Bash(python3 -m json.tool)"
+      "Bash(python3 -m json.tool)",
+      "Bash(ls /home/joe/10h/stroum/examples/composable/ && ls /tmp/test-composable/)",
+      "Read(//tmp/test-composable/**)",
+      "Bash(npx biome *)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" npx jest --no-coverage)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
