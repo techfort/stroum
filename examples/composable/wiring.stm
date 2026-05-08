@@ -1,0 +1,16 @@
+-- wiring.stm
+-- Wires triage -> enrich using an explicit wire: declaration.
+-- triage.valid feeds enrich.input; enriched output is printed.
+
+i:"./triage.stm"
+i:"./enrich.stm"
+
+wire: @"triage.valid" -> @"enrich.input"
+
+to: @"triage.invalid" println
+to: @"enrich.output"  println
+
+src: @"triage.events" "hello world"
+src: @"triage.events" "error: something went wrong"
+
+run until timeout(100)

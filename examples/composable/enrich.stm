@@ -1,0 +1,11 @@
+-- enrich.stm
+-- Enriches valid events by attaching a timestamp prefix.
+-- Namespace: "enrich"
+
+input:  @"enrich.input"
+output: @"enrich.output"
+
+f:stamp event =>
+  concat("[enriched] ", to_string(event))
+
+route @"enrich.input" |> stamp @"enrich.output"
