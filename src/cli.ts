@@ -12,7 +12,8 @@ import { Parser } from "./parser";
 import { replCommand } from "./repl";
 import { inferSchema, schemaToStroumSource } from "./schema-deriver";
 import { Transpiler } from "./transpiler";
-import { Validator } from "./validator";
+import { Validator, type ValidationIssue } from "./validator";
+import type { CompileDiagnostic } from "./diagnostics";
 
 const VERSION = "1.0.0";
 
@@ -30,6 +31,30 @@ const colors = {
 function colorize(text: string, color: keyof typeof colors): string {
   if (process.env.NO_COLOR) return text;
   return `${colors[color]}${text}${colors.reset}`;
+}
+
+type EnrichedIssue = ValidationIssue & { file: string };
+
+function reportDiagnostics(
+  parseDiagnostics: CompileDiagnostic[],
+  allIssues: EnrichedIssue[],
+): { errors: EnrichedIssue[]; warnings: EnrichedIssue[]; parseErrors: CompileDiagnostic[] } {
+  for (const d of parseDiagnostics) {
+    const loc = d.filePath ? `${path.relative(process.cwd(), d.filePath)}:` : "";
+    const tag = d.severity === "error" ? colorize("[error]", "red") : colorize("[warning]", "yellow");
+    console.error(`${tag} ${loc}line ${d.line}, col ${d.column}: ${d.message}`);
+  }
+  const errors = allIssues.filter((i) => i.type === "error");
+  const warnings = allIssues.filter((i) => i.type === "warning");
+  for (const w of warnings) {
+    const loc = w.file ? `${path.relative(process.cwd(), w.file)}:` : "";
+    console.error(`${colorize("[warning]", "yellow")} ${loc}line ${w.location.line}, col ${w.location.column}: ${w.message}`);
+  }
+  for (const e of errors) {
+    const loc = e.file ? `${path.relative(process.cwd(), e.file)}:` : "";
+    console.error(`${colorize("[error]", "red")} ${loc}line ${e.location.line}, col ${e.location.column}: ${e.message}`);
+  }
+  return { errors, warnings, parseErrors: parseDiagnostics.filter((d) => d.severity === "error") };
 }
 
 function showHelp() {
@@ -58,10 +83,6 @@ ${colorize("GRAPH OPTIONS:", "bright")}
 ${colorize("RUN OPTIONS:", "bright")}
   --watch, -w             Re-run whenever the source file changes
   --trace                 Print a stream trace summary after execution
-
-${colorize("DERIVE OPTIONS:", "bright")}
-  --name <StructName>     Name for the generated struct (default: inferred from filename)
-  --output <file>         Write output to file instead of stdout
 
 ${colorize("DERIVE OPTIONS:", "bright")}
   --name <StructName>     Name for the generated struct (default: inferred from filename)
@@ -170,50 +191,9 @@ function compileCommand(args: string[]) {
       );
     }
 
-    // Report lex/parse errors first
-    for (const d of parseDiagnostics) {
-      const location = d.filePath
-        ? `${path.relative(process.cwd(), d.filePath)}:`
-        : "";
-      const tag =
-        d.severity === "error"
-          ? colorize("[error]", "red")
-          : colorize("[warning]", "yellow");
-      console.error(
-        `${tag} ${location}line ${d.line}, col ${d.column}: ${d.message}`,
-      );
-    }
-
-    // Report validation warnings and errors
-    const errors = allIssues.filter((i) => i.type === "error");
-    const warnings = allIssues.filter((i) => i.type === "warning");
-
-    for (const warning of warnings) {
-      const location = warning.file
-        ? `${path.relative(process.cwd(), warning.file)}:`
-        : "";
-      console.error(
-        colorize("[warning]", "yellow") +
-          ` ${location}line ${warning.location.line}, col ${warning.location.column}: ${warning.message}`,
-      );
-    }
-
-    for (const error of errors) {
-      const location = error.file
-        ? `${path.relative(process.cwd(), error.file)}:`
-        : "";
-      console.error(
-        colorize("[error]", "red") +
-          ` ${location}line ${error.location.line}, col ${error.location.column}: ${error.message}`,
-      );
-    }
-
-    const parseErrors = parseDiagnostics.filter((d) => d.severity === "error");
+    const { errors, parseErrors, warnings } = reportDiagnostics(parseDiagnostics, allIssues);
     if (parseErrors.length > 0 || errors.length > 0) {
-      const total = parseErrors.length + errors.length;
-      console.error(
-        colorize(`Compilation failed with ${total} error(s)`, "red"),
-      );
+      console.error(colorize(`Compilation failed with ${parseErrors.length + errors.length} error(s)`, "red"));
       process.exit(1);
     }
 
@@ -358,49 +338,15 @@ function runCommand(args: string[]) {
     const parseDiagnostics = modules.flatMap((m) => m.diagnostics);
 
     const validator = new Validator(stdlibPath);
-    const allIssues: any[] = [];
+    const allIssues: EnrichedIssue[] = [];
     for (const mod of modules) {
       const issues = validator.validate(mod.module, mod.filePath);
-      allIssues.push(...issues.map((i: any) => ({ ...i, file: mod.filePath })));
+      allIssues.push(...issues.map((i) => ({ ...i, file: mod.filePath })));
     }
 
-    for (const d of parseDiagnostics) {
-      const loc = d.filePath
-        ? `${path.relative(process.cwd(), d.filePath)}:`
-        : "";
-      const tag =
-        d.severity === "error"
-          ? colorize("[error]", "red")
-          : colorize("[warning]", "yellow");
-      console.error(
-        `${tag} ${loc}line ${d.line}, col ${d.column}: ${d.message}`,
-      );
-    }
-
-    const errors = allIssues.filter((i: any) => i.type === "error");
-    const warnings = allIssues.filter((i: any) => i.type === "warning");
-
-    for (const w of warnings) {
-      const loc = w.file ? `${path.relative(process.cwd(), w.file)}:` : "";
-      console.error(
-        colorize("[warning]", "yellow") +
-          ` ${loc}line ${w.location.line}, col ${w.location.column}: ${w.message}`,
-      );
-    }
-    for (const e of errors) {
-      const loc = e.file ? `${path.relative(process.cwd(), e.file)}:` : "";
-      console.error(
-        colorize("[error]", "red") +
-          ` ${loc}line ${e.location.line}, col ${e.location.column}: ${e.message}`,
-      );
-    }
-
-    const parseErrors = parseDiagnostics.filter((d) => d.severity === "error");
+    const { errors, parseErrors } = reportDiagnostics(parseDiagnostics, allIssues);
     if (parseErrors.length > 0 || errors.length > 0) {
-      const total = parseErrors.length + errors.length;
-      console.error(
-        colorize(`Compilation failed with ${total} error(s)`, "red"),
-      );
+      console.error(colorize(`Compilation failed with ${parseErrors.length + errors.length} error(s)`, "red"));
       cleanup();
       process.exit(1);
     }

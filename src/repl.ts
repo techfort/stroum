@@ -31,12 +31,18 @@ interface ReplSession {
 export function isDeclaration(line: string): boolean {
   // f:name — function; s:Name — struct; rec f:name — recursive function
   // :name expr — binding (short); b: :name expr — binding (explicit sigil)
+  // on @/route @/to:/src:/wire: — module-level stream constructs
   return (
     /^f:\w/.test(line) ||
     /^s:\w/.test(line) ||
     /^rec\s+f:\w/.test(line) ||
     /^b:\s+:\w/.test(line) ||
-    /^:\w+\s+/.test(line)
+    /^:\w+\s+/.test(line) ||
+    /^on\s+@/.test(line) ||
+    /^route\s+@/.test(line) ||
+    /^to:\s+@/.test(line) ||
+    /^src:\s+@/.test(line) ||
+    /^wire:\s+@/.test(line)
   );
 }
 
@@ -47,12 +53,34 @@ export function extractName(line: string): string {
     line.match(/^rec\s+f:(\w+)/) ||
     line.match(/^b:\s+:(\w+)/) ||
     line.match(/^:(\w+)/);
-  return m ? m[1] : "it";
+  if (m) return m[1];
+  // Module-level stream constructs — synthesize a descriptive name
+  const stream = line.match(/^(?:on|route|to:|src:|wire:)\s+@["']?(\w+)/);
+  if (stream) return `@${stream[1]}`;
+  return "it";
 }
 
 export function needsContinuation(line: string): boolean {
   const t = line.trimEnd();
   return t.endsWith("=>") || t.endsWith("|>") || t.endsWith(",");
+}
+
+function hasExplicitOutput(source: string): boolean {
+  const s = source.trimStart().trimEnd();
+  // Module-level constructs (contingencies, sources, sinks, runtime) — no value to print
+  if (/^on\s+@/.test(s)) return true;
+  if (/^route\s+@/.test(s)) return true;
+  if (/^to:\s+@/.test(s)) return true;
+  if (/^src:\s+@/.test(s)) return true;
+  if (/^run\b/.test(s)) return true;
+  if (/^wire:\s+@/.test(s)) return true;
+  // Explicit print sinks
+  const outputSinks = ["println", "print", "null_sink", "log_sink", "debug"];
+  if (outputSinks.some((fn) => s.endsWith(`|> ${fn}`))) return true;
+  if (outputSinks.some((fn) => new RegExp(`\\b${fn}\\s*\\(`).test(s))) return true;
+  // Stream emit: @ "name" or @binding (no space required between @ and name)
+  if (/@["a-zA-Z]/.test(s)) return true;
+  return false;
 }
 
 export async function evalExpression(
@@ -61,13 +89,31 @@ export async function evalExpression(
   tempDir: string,
   stdlibPath: string,
 ): Promise<void> {
-  const fullSource = [...session.imports, ...session.declarations, source].join(
-    "\n",
-  );
+  // Auto-print the result unless the expression already has explicit output
+  const evalSource = hasExplicitOutput(source) ? source : `${source} |> println`;
+
+  // Parser requires: definitions → primary expressions → contingencies (on/route)
+  // Transpiler correctly re-orders them so handlers are registered before expressions execute.
+  const isContingency = (d: string) =>
+    /^on\s+@/.test(d) ||
+    /^route\s+@/.test(d) ||
+    /^to:\s+@/.test(d) ||
+    /^src:\s+@/.test(d) ||
+    /^wire:\s+@/.test(d);
+  const definitions = session.declarations.filter((d) => !isContingency(d));
+  const contingencies = session.declarations.filter(isContingency);
+
+  const fullSource = [
+    ...session.imports,
+    ...definitions,
+    evalSource,
+    ...contingencies,
+  ].join("\n");
 
   const stmFile = path.join(tempDir, "repl-eval.stm");
   const tsFile = path.join(tempDir, "repl-eval.ts");
-  const bundleFile = path.join(tempDir, "repl-bundle.js");
+  // .mjs so Node treats the ESM bundle correctly (needed for top-level await)
+  const bundleFile = path.join(tempDir, "repl-bundle.mjs");
 
   fs.writeFileSync(stmFile, fullSource);
 
@@ -98,14 +144,14 @@ export async function evalExpression(
       fs.writeFileSync(outFile, tsCode);
     }
 
-    // Bundle with esbuild (much faster than tsc for REPL iterations)
+    // Bundle with esbuild using ESM format — required for top-level await in bindings
     const esbuild = require("esbuild");
     await esbuild.build({
       entryPoints: [tsFile],
       bundle: true,
       outfile: bundleFile,
       platform: "node",
-      format: "cjs",
+      format: "esm",
       target: "node18",
       logLevel: "silent",
     });
@@ -193,7 +239,9 @@ export async function replCommand(): Promise<void> {
   };
 
   const processInput = async (input: string): Promise<void> => {
-    const trimmed = input.trim();
+    // Strip common REPL prompt prefixes so pasted session lines work
+    const stripped = input.replace(/^(>>>|\.\.\.|\.\.\s+|>>|>)\s?/, "");
+    const trimmed = stripped.trim();
     if (!trimmed) return;
 
     // REPL meta-commands
@@ -253,7 +301,14 @@ export async function replCommand(): Promise<void> {
     // Function / binding / struct declaration
     if (isDeclaration(trimmed)) {
       const name = extractName(trimmed);
-      session.declarations.push(trimmed);
+      const existing = session.declarations.findIndex(
+        (d) => extractName(d) === name,
+      );
+      if (existing >= 0) {
+        session.declarations[existing] = trimmed;
+      } else {
+        session.declarations.push(trimmed);
+      }
       console.log(c(`defined ${name}`, "dim"));
       return;
     }
@@ -270,7 +325,10 @@ export async function replCommand(): Promise<void> {
       if (multiLineBuffer.length > 0 || needsContinuation(line)) {
         multiLineBuffer.push(line);
         if (!needsContinuation(line)) {
-          const full = multiLineBuffer.join("\n");
+          // Indent continuation lines so the parser sees them as function body content
+          const [first, ...rest] = multiLineBuffer;
+          const indented = rest.map((l) => (l.startsWith(" ") || l.startsWith("\t") ? l : `  ${l}`));
+          const full = [first, ...indented].join("\n");
           multiLineBuffer = [];
           await processInput(full);
         }

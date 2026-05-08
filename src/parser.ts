@@ -850,7 +850,6 @@ export class Parser {
     }
 
     this.error("Expected expression");
-    this.error("Unexpected token in expression");
   }
 
   private parseTaggedExpression(): AST.TaggedExpression {

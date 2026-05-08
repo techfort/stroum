@@ -100,6 +100,10 @@ function inferFieldTypes(
   return result;
 }
 
+function takeSample(rows: any[], limit = 100): any[] {
+  return rows.slice(0, Math.min(limit, rows.length));
+}
+
 /**
  * Infer schema from CSV file
  */
@@ -128,11 +132,7 @@ export function inferFromCsv(
     throw new Error("CSV file has no columns");
   }
 
-  // Sample first 100 rows for type inference
-  const sampleSize = Math.min(100, rows.length);
-  const sample = rows.slice(0, sampleSize);
-
-  const fieldTypes = inferFieldTypes(sample, fieldNames);
+  const fieldTypes = inferFieldTypes(takeSample(rows), fieldNames);
 
   const fields: FieldDescriptor[] = fieldNames.map((name) => ({
     name,
@@ -189,11 +189,7 @@ export function inferFromJson(
     throw new Error("JSON objects have no fields");
   }
 
-  // Sample first 100 rows for type inference
-  const sampleSize = Math.min(100, rows.length);
-  const sample = rows.slice(0, sampleSize);
-
-  const fieldTypes = inferFieldTypes(sample, fieldNames);
+  const fieldTypes = inferFieldTypes(takeSample(rows), fieldNames);
 
   const fields: FieldDescriptor[] = fieldNames.map((name) => ({
     name,
