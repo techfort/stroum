@@ -56,6 +56,7 @@ ${colorize("GRAPH OPTIONS:", "bright")}
   --no-open               Print URL but do not auto-open browser
 
 ${colorize("RUN OPTIONS:", "bright")}
+  --watch, -w             Re-run whenever the source file changes
   --trace                 Print a stream trace summary after execution
 
 ${colorize("DERIVE OPTIONS:", "bright")}
@@ -270,7 +271,35 @@ function compileCommand(args: string[]) {
   }
 }
 
+function watchMode(inputFile: string, runArgs: string[]): void {
+  const cliScript = process.argv[1];
+  let child: ReturnType<typeof spawn> | null = null;
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+
+  const runOnce = () => {
+    if (child) child.kill();
+    console.log(colorize(`\n[watch] restarting: ${inputFile}`, "cyan"));
+    child = spawn("node", [cliScript, "run", ...runArgs], { stdio: "inherit" });
+    child.on("exit", () => { child = null; });
+  };
+
+  runOnce();
+
+  fs.watch(inputFile, () => {
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(runOnce, 300);
+  });
+
+  process.on("SIGINT", () => {
+    if (child) child.kill();
+    process.exit(0);
+  });
+
+  console.log(colorize(`[watch] watching ${inputFile} — press Ctrl+C to stop`, "blue"));
+}
+
 function runCommand(args: string[]) {
+  const watchFlag = args.includes("--watch") || args.includes("-w");
   const traceMode = args.includes("--trace");
   const ipcIndex = args.indexOf("--ipc");
   const ipcSocket = ipcIndex !== -1 ? args[ipcIndex + 1] : null;
@@ -280,13 +309,19 @@ function runCommand(args: string[]) {
 
   if (!inputFile) {
     console.error(colorize("Error:", "red") + " input file required");
-    console.error("Usage: stroum run <input.stm>");
+    console.error("Usage: stroum run <input.stm> [--watch]");
     process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
     console.error(colorize("Error:", "red") + ` file not found: ${inputFile}`);
     process.exit(1);
+  }
+
+  if (watchFlag) {
+    const runArgs = args.filter((a) => a !== "--watch" && a !== "-w");
+    watchMode(inputFile, runArgs);
+    return;
   }
 
   const os = require("os");

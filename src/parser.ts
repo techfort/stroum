@@ -130,7 +130,7 @@ export class Parser {
           contingencies.push(this.parseOutcomeMatch());
         } else {
           this.error(
-            'Unexpected token at module level. Expected "on" handler or outcome match.',
+            `Unexpected ${this.formatToken(this.peek())} at module level — expected a declaration (f:, s:, :, i:, on, route, src:, to:, run, test) or an expression`,
           );
         }
       } catch (e) {
@@ -1257,10 +1257,32 @@ export class Parser {
     return this.tokens[this.current - 1];
   }
 
+  private formatToken(token: Token): string {
+    if (token.type === TokenType.EOF) return "end of file";
+    if (token.value) return `'${token.value}'`;
+    const readable: Partial<Record<TokenType, string>> = {
+      [TokenType.ARROW]: "'=>'",
+      [TokenType.PIPE]: "'|>'",
+      [TokenType.BAR]: "'|'",
+      [TokenType.COLON]: "':'",
+      [TokenType.LBRACE]: "'{'",
+      [TokenType.RBRACE]: "'}'",
+      [TokenType.LPAREN]: "'('",
+      [TokenType.RPAREN]: "')'",
+      [TokenType.LBRACKET]: "'['",
+      [TokenType.RBRACKET]: "']'",
+      [TokenType.COMMA]: "','",
+      [TokenType.DOT]: "'.'",
+      [TokenType.INDENT]: "indented block",
+      [TokenType.DEDENT]: "end of block",
+    };
+    return readable[token.type] ?? token.type.toLowerCase().replace(/_/g, " ");
+  }
+
   private consume(type: TokenType, message: string): Token {
     if (this.check(type)) return this.advance();
     const token = this.peek();
-    throw new ParseError(`${message} (got ${token.type})`, token.line, token.column);
+    throw new ParseError(`${message}, got ${this.formatToken(token)}`, token.line, token.column);
   }
 
   private error(message: string): never {
