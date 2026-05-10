@@ -35,6 +35,31 @@ function colorize(text: string, color: keyof typeof colors): string {
 
 type EnrichedIssue = ValidationIssue & { file: string };
 
+export interface SchemaDeriverRuntimeFiles {
+  jsSource: string | null;
+  tsSource: string | null;
+}
+
+export function resolveSchemaDeriverRuntimeFiles(
+  cliDir: string,
+): SchemaDeriverRuntimeFiles {
+  const schemaDeriverJsCandidates = [
+    path.join(cliDir, "schema-deriver.js"),
+    path.join(cliDir, "..", "dist", "schema-deriver.js"),
+  ];
+  const jsSource = schemaDeriverJsCandidates.find((candidate) =>
+    fs.existsSync(candidate),
+  ) ?? null;
+  const tsSource = jsSource
+    ? null
+    : (() => {
+        const candidate = path.join(cliDir, "schema-deriver.ts");
+        return fs.existsSync(candidate) ? candidate : null;
+      })();
+
+  return { jsSource, tsSource };
+}
+
 function reportDiagnostics(
   parseDiagnostics: CompileDiagnostic[],
   allIssues: EnrichedIssue[],
@@ -371,10 +396,17 @@ function runCommand(args: string[]) {
       fs.symlinkSync(projectNodeModules, tempNodeModules, "dir");
     }
 
-    // Copy schema-deriver for runtime schema inference
-    const schemaDeriver = path.join(__dirname, "schema-deriver.js");
-    if (fs.existsSync(schemaDeriver)) {
-      fs.copyFileSync(schemaDeriver, path.join(tempDir, "schema-deriver.js"));
+    // Copy schema-deriver for runtime schema inference.
+    // When running the CLI via ts-node, __dirname points at src/, so prefer a
+    // built JS artifact from dist/ and fall back to compiling the TS source.
+    const { jsSource: schemaDeriverJs, tsSource: schemaDeriverTs } =
+      resolveSchemaDeriverRuntimeFiles(__dirname);
+    const tempSchemaDeriverTs = path.join(tempDir, "schema-deriver.ts");
+
+    if (schemaDeriverJs) {
+      fs.copyFileSync(schemaDeriverJs, path.join(tempDir, "schema-deriver.js"));
+    } else if (schemaDeriverTs) {
+      fs.copyFileSync(schemaDeriverTs, tempSchemaDeriverTs);
     }
 
     console.log(colorize("✓", "green") + " Transpilation successful");
@@ -409,6 +441,10 @@ function runCommand(args: string[]) {
     "--skipLibCheck",
     "--sourceMap",
   ];
+  const tempSchemaDeriverTs = path.join(tempDir, "schema-deriver.ts");
+  if (fs.existsSync(tempSchemaDeriverTs)) {
+    tscArgs.splice(3, 0, tempSchemaDeriverTs);
+  }
 
   const tscResult = require("child_process").spawnSync(tscPath, tscArgs, {
     cwd: __dirname,
@@ -982,4 +1018,6 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}

@@ -16,6 +16,7 @@ The extension provides syntax highlighting for:
 - **Keywords**: `rec`, `on`, `ret`
 - **Sigils**: `f:`, `b:`, `s:`, `i:`, `src:`, `to:`
 - **Operators**: `|>`, `|?>`, `=>`, `->`, `~>`, `@`, `@>`, `PP`, `XX`
+- **Field access**: postfix dot access like `user.age`
 - **Stream names**: `@"stream_name"`
 - **Lambda expressions**: `|:param|`
 - **Comments**: `-- comment`
@@ -82,6 +83,8 @@ f:process_data data =>
     |> transform()
   | .ok    => save() @ "success"
   | .error => log() @ "errors"
+
+f:is_adult user => gt(user.age, 18)
 
 on @"success" |> |:result| => print(result)
 on @"errors" |> |:err| => report_error(err)

@@ -362,13 +362,17 @@ export class Validator {
 
   private validateBody(body: AST.Expression | AST.IndentedBody): void {
     if (body.type === "IndentedBody") {
+      const saved = this.currentScope;
+      this.currentScope = new Set(saved);
       for (const stmt of body.statements) {
         if (stmt.type === "BindingDeclaration") {
           this.validateBindingDeclaration(stmt);
+          this.currentScope.add(stmt.name);
         } else {
           this.validateExpression(stmt);
         }
       }
+      this.currentScope = saved;
     } else {
       this.validateExpression(body);
     }
@@ -450,6 +454,9 @@ export class Validator {
         }
         break;
       }
+      case "FieldAccessExpression":
+        this.validateExpression(expr.receiver);
+        break;
       case "PipeExpression":
         // stage[0] is the initial value; stages[1..n] must thread the piped value.
         // A CallExpression with args but no _ is an error in a piped stage.
@@ -640,6 +647,9 @@ export class Validator {
         break;
       case "RecordLiteral":
         expr.fields.forEach((f) => { this.walkExpression(f.value, visitor); });
+        break;
+      case "FieldAccessExpression":
+        this.walkExpression(expr.receiver, visitor);
         break;
       case "TaggedExpression":
         this.walkExpression(expr.value, visitor);

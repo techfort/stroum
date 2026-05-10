@@ -499,6 +499,12 @@ Instantiate with a record literal:
 :user User { name: "Alice", age: 30 }
 ```
 
+Access fields with postfix dot syntax:
+
+```stroum
+f:is_adult user => gt(user.age, 18)
+```
+
 ---
 
 ## 13. Imports

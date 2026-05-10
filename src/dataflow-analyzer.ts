@@ -81,6 +81,9 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
       }
       return id;
     }
+    if (expr.type === "FieldAccessExpression") {
+      return resolveId(expr.receiver);
+    }
     return null;
   }
 
@@ -163,6 +166,10 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
 
       case "CallExpression":
         for (const a of expr.args) scanNodes(a);
+        break;
+
+      case "FieldAccessExpression":
+        scanNodes(expr.receiver);
         break;
 
       case "Lambda":
@@ -371,6 +378,10 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
         return calleeId;
       }
 
+      case "FieldAccessExpression":
+        walkExprChildren(expr.receiver, sourceId);
+        return resolveId(expr) ?? sourceId;
+
       case "Lambda":
         return walkExpr(expr.body, sourceId);
 
@@ -435,6 +446,9 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
         break;
       case "RecordLiteral":
         for (const f of expr.fields) walkExprChildren(f.value, sourceId);
+        break;
+      case "FieldAccessExpression":
+        walkExprChildren(expr.receiver, sourceId);
         break;
     }
   }
