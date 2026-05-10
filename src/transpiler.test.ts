@@ -125,6 +125,16 @@ describe("Transpiler", () => {
       expect(output).toContain('__value.outcome === "fail"');
       expect(output).toContain('await __route(__inner, "errors"');
     });
+
+    it("should transpile outcome match with lambda handler that emits to stream", () => {
+      const output = transpile('process(x)\n| .ok => |:u| => u @ "result"');
+      expect(output).toContain('__value.outcome === "ok"');
+      expect(output).toContain("const __inner = __value.value");
+      // Lambda must be called with __inner; its return value is emitted — not the lambda itself
+      expect(output).toContain("(__inner)");
+      expect(output).toContain('"result"');
+      expect(output).not.toContain('async (u) => u, "result"');
+    });
   });
 
   describe("pipe expressions", () => {

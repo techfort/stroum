@@ -33,3 +33,4 @@ main()
 
 on @"positive" |> |:x| => println("Positive number: #{x}")
 on @"adult" |> |:u| => println("Adult user: #{u.name}")
+route @"non-positive" |> |:x| => mul(x, -1) @ "positive"

@@ -591,7 +591,7 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
       // Bare name: pass piped value as sole argument
       return `await ${stage.name}(${pipedValue})`;
     } else {
-      return `(${this.transpileExpression(stage)})(${pipedValue})`;
+      return `await (${this.transpileExpression(stage)})(${pipedValue})`;
     }
   }
 
@@ -644,7 +644,11 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
         return `await ${handler.callee}(${args.length > 0 ? args.join(", ") : ""})`;
       }
     } else if (handler.type === "PipeExpression") {
-      // Inline pipe/emit expression (e.g. save(data) @ "stream") — transpile and await directly
+      // If the pipe starts with a lambda, thread the inner value through it (lambda acts as handler fn).
+      // Otherwise treat as a standalone expression (inner value not used).
+      if (handler.stages.length > 0 && handler.stages[0].type === "Lambda") {
+        return `await (${this.transpilePipeChainWithInitialValue(handler, innerVar)})`;
+      }
       return `await (${this.transpileExpression(handler)})`;
     } else {
       // Lambda or other expression — call with inner value
