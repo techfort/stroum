@@ -13,6 +13,11 @@ export interface SchemaDescriptor {
   source?: string;
 }
 
+export interface HeaderlessSchemaDescriptor extends SchemaDescriptor {
+  expectedFieldCount: number;
+  separator: string;
+}
+
 /**
  * Infer the Stroum type for a value
  */
@@ -237,4 +242,98 @@ export function inferSchema(
         `Unsupported file format: ${ext}. Supported: .csv, .json`,
       );
   }
+}
+
+/**
+ * Infer schema from a headerless delimited file.
+ *
+ * Uses majority-vote to determine the expected field count, then infers
+ * per-column types from rows that match that count.  Rows with a different
+ * field count are considered malformed and are excluded from type inference.
+ *
+ * @param filePath   - path to the file
+ * @param structName - desired Stroum struct name
+ * @param separator  - field delimiter (e.g. ",")
+ * @param fieldNames - optional override for field names (e.g. from LLM);
+ *                     if omitted, positional names field_0…field_N are used
+ */
+export function inferHeaderlessSchema(
+  filePath: string,
+  structName: string,
+  separator: string,
+  fieldNames?: string[],
+): HeaderlessSchemaDescriptor {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const lines = content
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (lines.length === 0) {
+    throw new Error(`File is empty: ${filePath}`);
+  }
+
+  // Split every line into fields
+  const rows = lines.map((l) => l.split(separator).map((f) => f.trim()));
+
+  // Majority-vote on field count
+  const countFreq = new Map<number, number>();
+  for (const row of rows) {
+    countFreq.set(row.length, (countFreq.get(row.length) ?? 0) + 1);
+  }
+  let expectedFieldCount = 0;
+  let maxFreq = 0;
+  for (const [count, freq] of countFreq) {
+    // Prefer higher count on ties (more data is better than less)
+    if (freq > maxFreq || (freq === maxFreq && count > expectedFieldCount)) {
+      maxFreq = freq;
+      expectedFieldCount = count;
+    }
+  }
+
+  // Only use conforming rows for type inference
+  const validRows = rows.filter((r) => r.length === expectedFieldCount);
+
+  // Build positional field names if not provided
+  const names =
+    fieldNames && fieldNames.length === expectedFieldCount
+      ? fieldNames
+      : Array.from({ length: expectedFieldCount }, (_, i) => `field_${i}`);
+
+  // Convert array rows to objects keyed by field name for inferFieldTypes
+  const rowObjects = validRows.map((r) => {
+    const obj: Record<string, string> = {};
+    names.forEach((n, i) => {
+      obj[n] = r[i];
+    });
+    return obj;
+  });
+
+  const fieldTypes = inferFieldTypes(takeSample(rowObjects), names);
+
+  const fields: FieldDescriptor[] = names.map((name) => ({
+    name,
+    type: fieldTypes.get(name) ?? "String",
+  }));
+
+  return {
+    name: structName,
+    fields,
+    source: filePath,
+    expectedFieldCount,
+    separator,
+  };
+}
+
+/**
+ * Return up to `limit` raw trimmed lines from a headerless file.
+ * Used by the AI layer to sample content for field-name inference.
+ */
+export function sampleLines(filePath: string, limit = 5): string[] {
+  const content = fs.readFileSync(filePath, "utf-8");
+  return content
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .slice(0, limit);
 }

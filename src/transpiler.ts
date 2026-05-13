@@ -3,6 +3,7 @@ import * as path from "path";
 import type * as AST from "./ast";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
+import type { IngestDirectiveData } from "./preprocessor";
 import type { SourceLocation } from "./types";
 
 export class Transpiler {
@@ -17,7 +18,11 @@ export class Transpiler {
     this.stdlibPath = stdlibPath || path.join(__dirname, "../stdlib");
   }
 
-  transpile(module: AST.Module, currentFilePath?: string): string {
+  transpile(
+    module: AST.Module,
+    currentFilePath?: string,
+    ingestDirectives: IngestDirectiveData[] = [],
+  ): string {
     this.indent = 0;
     this.output = [];
     this.genLineCount = 1;
@@ -33,6 +38,11 @@ export class Transpiler {
       this.emit(
         `import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises } from './stdlib-runtime';`,
       );
+    }
+
+    // Add fs import when ingest directives need file reading at runtime
+    if (ingestDirectives.length > 0) {
+      this.emit(`import * as __fs from 'node:fs';`);
     }
 
     // Emit imports for imported modules
@@ -68,7 +78,8 @@ export class Transpiler {
       module.sinkDeclarations.length > 0 ||
       module.primaryExpressions.length > 0 ||
       module.contingencies.length > 0 ||
-      module.runtimeDeclaration
+      module.runtimeDeclaration ||
+      ingestDirectives.length > 0
     ) {
       this.emit("");
       this.emit("// Main program");
@@ -97,6 +108,11 @@ export class Transpiler {
       // Start declared sources after handlers are registered.
       for (const sourceDecl of module.sourceDeclarations) {
         this.transpileSourceDeclaration(sourceDecl);
+      }
+
+      // Emit ingest source tasks
+      for (const ingest of ingestDirectives) {
+        this.emitIngestSourceTask(ingest);
       }
 
       // Execute primary expressions in order
@@ -884,12 +900,105 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
     return gen.toString();
   }
 
+  private emitIngestSourceTask(ingest: IngestDirectiveData): void {
+    const filePath = JSON.stringify(ingest.absoluteFilePath);
+    const sep = JSON.stringify(ingest.separator);
+    const count = ingest.expectedFieldCount;
+    const successStream = JSON.stringify(ingest.successStream);
+    const failStream = JSON.stringify(ingest.failStream);
+
+    this.emit(`await (async () => {`);
+    this.indent++;
+    this.emit(`const __content = __fs.readFileSync(${filePath}, "utf-8");`);
+    this.emit(
+      `const __lines = __content.split("\\n").map((l: string) => l.trim()).filter((l: string) => l.length > 0);`,
+    );
+    this.emit(`let __lineNum = 0;`);
+    this.emit(`for (const __line of __lines) {`);
+    this.indent++;
+    this.emit(`__lineNum++;`);
+    this.emit(`const __parts = __line.split(${sep}).map((f: string) => f.trim());`);
+    this.emit(`if (__parts.length !== ${count}) {`);
+    this.indent++;
+    this.emit(
+      `await __router.emit(${failStream}, { row: __line, line_number: __lineNum, error: "field count mismatch: expected ${count}, got " + __parts.length, raw: __parts });`,
+    );
+    this.emit(`continue;`);
+    this.indent--;
+    this.emit(`}`);
+
+    // Per-field type coercions for non-String fields
+    const coercedVars: string[] = [];
+    for (let i = 0; i < ingest.fields.length; i++) {
+      const field = ingest.fields[i];
+      if (field.type === "Int") {
+        this.emit(`const __f${i} = parseInt(__parts[${i}], 10);`);
+        this.emit(`if (isNaN(__f${i})) {`);
+        this.indent++;
+        this.emit(
+          `await __router.emit(${failStream}, { row: __line, line_number: __lineNum, error: "type mismatch at ${field.name}: expected Int", raw: __parts });`,
+        );
+        this.emit(`continue;`);
+        this.indent--;
+        this.emit(`}`);
+        coercedVars.push(`${field.name}: __f${i}`);
+      } else if (field.type === "Float") {
+        this.emit(`const __f${i} = parseFloat(__parts[${i}]);`);
+        this.emit(`if (isNaN(__f${i})) {`);
+        this.indent++;
+        this.emit(
+          `await __router.emit(${failStream}, { row: __line, line_number: __lineNum, error: "type mismatch at ${field.name}: expected Float", raw: __parts });`,
+        );
+        this.emit(`continue;`);
+        this.indent--;
+        this.emit(`}`);
+        coercedVars.push(`${field.name}: __f${i}`);
+      } else if (field.type === "Bool") {
+        this.emit(`const __f${i} = __parts[${i}].toLowerCase();`);
+        this.emit(`if (__f${i} !== "true" && __f${i} !== "false") {`);
+        this.indent++;
+        this.emit(
+          `await __router.emit(${failStream}, { row: __line, line_number: __lineNum, error: "type mismatch at ${field.name}: expected Bool", raw: __parts });`,
+        );
+        this.emit(`continue;`);
+        this.indent--;
+        this.emit(`}`);
+        coercedVars.push(`${field.name}: __f${i} === "true"`);
+      } else {
+        coercedVars.push(`${field.name}: __parts[${i}]`);
+      }
+    }
+
+    if (ingest.validateRules && ingest.validateFailStream) {
+      const validateFail = JSON.stringify(ingest.validateFailStream);
+      // Destructure field values so the rule expression can reference them by name
+      const fieldNames = ingest.fields.map((f) => f.name).join(", ");
+      this.emit(`const { ${fieldNames} } = { ${coercedVars.join(", ")} };`);
+      this.emit(`if (!(${ingest.validateRules})) {`);
+      this.indent++;
+      this.emit(
+        `await __router.emit(${validateFail}, { row: __line, line_number: __lineNum, error: "validation failed", raw: __parts });`,
+      );
+      this.emit(`continue;`);
+      this.indent--;
+      this.emit(`}`);
+      this.emit(`await __router.emit(${successStream}, { ${fieldNames} });`);
+    } else {
+      this.emit(`await __router.emit(${successStream}, { ${coercedVars.join(", ")} });`);
+    }
+    this.indent--;
+    this.emit(`}`);
+    this.indent--;
+    this.emit(`})();`);
+  }
+
   transpileWithMap(
     module: AST.Module,
     sourcePath: string,
     generatedPath: string,
+    ingestDirectives: IngestDirectiveData[] = [],
   ): { code: string; map: string } {
-    const code = this.transpile(module, sourcePath);
+    const code = this.transpile(module, sourcePath, ingestDirectives);
     const map = this.buildSourceMap(sourcePath, generatedPath);
     const mapFile = `${path.basename(generatedPath)}.map`;
     return { code: `${code}\n//# sourceMappingURL=${mapFile}`, map };
