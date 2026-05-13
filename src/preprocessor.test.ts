@@ -123,4 +123,56 @@ f:main => println("hi")`;
       expect(result.directives).toHaveLength(0);
     });
   });
+
+  describe("#derive parser", () => {
+    const structSource = `s:Student {\n  name: String\n  average: Float\n}`;
+
+    it("expands basic parser with String and Float fields", () => {
+      const source = `${structSource}\n#derive parser Student ","`;
+      const result = preprocess(source);
+      expect(result.source).toContain("f:parse_student __line =>");
+      expect(result.source).toContain(':__fields split(__line, ",")');
+      expect(result.source).toContain("name: head(__fields)");
+      expect(result.source).toContain("average: to_float(head(drop(1, __fields)))");
+    });
+
+    it("expands with Int field cast", () => {
+      const source = `s:Item {\n  label: String\n  count: Int\n}\n#derive parser Item ","`;
+      const result = preprocess(source);
+      expect(result.source).toContain("count: to_int(head(drop(1, __fields)))");
+    });
+
+    it("expands with trim option", () => {
+      const source = `${structSource}\n#derive parser Student "," trim`;
+      const result = preprocess(source);
+      expect(result.source).toContain(':__fields map(trim, split(__line, ","))');
+    });
+
+    it("expands with nullable option", () => {
+      const source = `${structSource}\n#derive parser Student "," nullable`;
+      const result = preprocess(source);
+      expect(result.source).toContain(":__f0 head(__fields)");
+      expect(result.source).toContain(':__f1 head(drop(1, __fields))');
+      expect(result.source).toContain('if eq(__f0, "") then null else __f0');
+      expect(result.source).toContain('if eq(__f1, "") then null else to_float(__f1)');
+    });
+
+    it("expands with trim and nullable combined", () => {
+      const source = `${structSource}\n#derive parser Student "," trim nullable`;
+      const result = preprocess(source);
+      expect(result.source).toContain(':__fields map(trim, split(__line, ","))');
+      expect(result.source).toContain('if eq(__f0, "") then null else __f0');
+    });
+
+    it("errors when struct is not found", () => {
+      const source = `#derive parser Unknown ","`;
+      const result = preprocess(source);
+      expect(result.source).toContain("-- ERROR:");
+      expect(result.source).toContain("'Unknown' not found");
+    });
+
+    it("hasDirectives detects #derive parser", () => {
+      expect(hasDirectives(`${structSource}\n#derive parser Student ","`)).toBe(true);
+    });
+  });
 });

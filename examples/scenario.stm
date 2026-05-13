@@ -1,0 +1,37 @@
+i:io
+
+s:Rawstudent {
+  name: String
+  s1: Float
+  s2: Float
+  s3: Float
+  s4: Float
+}
+
+#derive parser Rawstudent ","
+
+s:Student {
+  name: String
+  average: Float
+}
+
+f:read_students =>
+  read_file("test-fixtures/students.txt")
+
+f:parse_file content =>
+  split(content, "\n")
+
+f:to_student raw =>
+  :avg div(add(add(add(raw.s1, raw.s2), raw.s3), raw.s4), 4)
+  Student { name: raw.name, average: avg }
+
+f:format_student s =>
+  "#{s.name}: #{s.average}"
+
+read_students()
+|> parse_file
+|> filter(|:s| => neq(s, ""), _)
+|> map(parse_rawstudent, _)
+|> map(to_student, _)
+|> map(format_student, _)
+|> println

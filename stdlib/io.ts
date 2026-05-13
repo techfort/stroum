@@ -1,66 +1,5 @@
-import {
-  abs,
-  add,
-  and,
-  concat,
-  contains,
-  debug,
-  div,
-  drop,
-  ends_with,
-  eq,
-  error,
-  filter,
-  gt,
-  gte,
-  head,
-  infer_schema,
-  is_empty,
-  join,
-  length,
-  lower,
-  lt,
-  lte,
-  map,
-  max,
-  min,
-  mod,
-  mul,
-  neq,
-  not,
-  or,
-  pow,
-  print,
-  println,
-  read_csv,
-  read_json,
-  reduce,
-  reverse,
-  sort,
-  split,
-  starts_with,
-  sub,
-  tail,
-  take,
-  to_float,
-  to_int,
-  to_string,
-  trace,
-  trim,
-  try_catch,
-  upper,
-} from "./stdlib-runtime";
-import {
-  __matchOutcome,
-  __partialPipe,
-  __route,
-  __router,
-  __runForever,
-  __runtimeControl,
-  __runUntilSignal,
-  __runUntilStream,
-  __runUntilTimeout,
-} from "./stroum-runtime";
+import { __router, __route, __matchOutcome, __partialPipe, __runtimeControl, __runUntilSignal, __runUntilStream, __runUntilTimeout, __runForever } from './stroum-runtime';
+import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises } from './stdlib-runtime';
 
 export async function read_file(path) {
   return await __builtin_read_file(path);
@@ -130,3 +69,13 @@ export async function watch_file(path, callback) {
 export async function file_sink(path) {
   return await __builtin_file_sink(path);
 }
+
+export async function jsonl_sink(path) {
+  return await __builtin_jsonl_sink(path);
+}
+
+export async function http_sink(url) {
+  return await __builtin_http_sink(url);
+}
+
+//# sourceMappingURL=io.ts.map
