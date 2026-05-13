@@ -1,66 +1,51 @@
--- Stroum Demo: Showcasing Key Features
--- A comprehensive example of pipes, functions, conditionals, and streams
+-- Stroum Comprehensive Demo
+-- Showcases: recursive functions, pipes, conditionals, and stream routing
 
--- Temperature converter with validation
-f:celsius_to_fahrenheit c =>
-  add(mul(c, div(9, 5)), 32)
+-- === Mathematical Functions ===
 
--- Classify temperature readings
-f:classify_temp f =>
-  if gt(f, 100) then f @ "hot"
-  else if gt(f, 60) then f @ "comfortable"
-  else f @ "cold"
-
--- Format temperature string
-f:format_temp f =>
-  "#{f}°F"
-
--- Wrapper functions to emit temperatures to streams
-f:test_temp1 => classify_temp(celsius_to_fahrenheit(38))
-f:test_temp2 => classify_temp(celsius_to_fahrenheit(20))
-f:test_temp3 => classify_temp(celsius_to_fahrenheit(sub(0, 5)))
-f:test_temp4 => classify_temp(celsius_to_fahrenheit(15))
-
--- Process all temperatures
-f:process_temps =>
-  test_temp1()
-  test_temp2()
-  test_temp3()
-  test_temp4()
-
--- Calculate factorial (recursive style with if/then/else)
-f:factorial n =>
+rec f:factorial n =>
   if eq(n, 0) then 1
   else if eq(n, 1) then 1
   else mul(n, factorial(sub(n, 1)))
 
--- Check if number is even
-f:is_even n =>
-  eq(mod(n, 2), 0)
+f:is_even n => eq(mod(n, 2), 0)
 
--- Main execution pipeline
-f:main =>
-  println("=== Temperature Analysis (watch stream handlers below) ===")
-  process_temps()
+f:sign x => if gt(x, 0) then 1 else sub(0, 1)
 
-f:run_number_demo n =>
-  println("factorial: #{factorial(n)}")
+-- === Temperature Pipeline (Stream Routing) ===
 
-f:run_string_demo name =>
-  "Hello #{name}"
-  |> println
+f:celsius_to_fahrenheit c => add(mul(c, div(9, 5)), 32)
 
--- Execute the demos
-f:execute_all =>
-  main()
-  run_number_demo(5)
-  run_string_demo("World")
+f:classify_temp c =>
+  if gt(celsius_to_fahrenheit(c), 100) then c @ "hot"
+  else if gt(celsius_to_fahrenheit(c), 60) then c @ "comfortable"
+  else c @ "cold"
 
-execute_all()
+f:format_temp c => "#{c}C (#{celsius_to_fahrenheit(c)}F)"
 
--- Stream handlers for temperature classification
-on @"hot" |> |:temp| => println("🔥 HOT: #{format_temp(temp)} - Stay hydrated!")
+-- === Pipes and String Interpolation ===
 
-on @"comfortable" |> |:temp| => println("☀️  COMFORTABLE: #{format_temp(temp)} - Perfect weather!")
+f:greet name => "Hello, #{name}!"
 
-on @"cold" |> |:temp| => println("❄️  COLD: #{format_temp(temp)} - Bundle up!")
+-- === Main ===
+
+f:run =>
+  println("=== Math ===")
+  println("factorial(6) = #{factorial(6)}")
+  println("is 42 even?  #{if is_even(42) then \"yes\" else \"no\"}")
+  println("sign(-7)     = #{sign(sub(0, 7))}")
+  println("")
+  println("=== Pipes ===")
+  "world" |> greet |> println
+  println("")
+  println("=== Temperature Classification ===")
+  classify_temp(38)
+  classify_temp(20)
+  classify_temp(sub(0, 5))
+  classify_temp(15)
+
+run()
+
+on @"hot"         |> |:c| => println("  HOT:         #{format_temp(c)}")
+on @"comfortable" |> |:c| => println("  COMFORTABLE: #{format_temp(c)}")
+on @"cold"        |> |:c| => println("  COLD:        #{format_temp(c)}")

@@ -1,22 +1,21 @@
--- Stream Feedback Loop with if/then/else
--- Demonstrates conditional routing with re-processing
+-- Stream Feedback Loop
+-- Demonstrates conditional routing with re-processing:
+-- negative values are negated and fed back into the same check function.
 
--- Negate a number
 f:negate x => mul(x, sub(0, 1))
 
--- Test function: route positive to "ok", negative gets negated and retested
-f:test x =>
+f:check x =>
   if gt(x, 0) then x @ "ok" else x @ "negative"
 
--- Execute: run four values through test
-test(5)
-test(sub(0, 3))
-test(10)
-test(sub(0, 7))
+check(5)
+check(sub(0, 3))
+check(10)
+check(sub(0, 7))
 
--- Stream handler for negative values: flip sign and retest!
--- This creates the feedback loop you wanted
-on @"negative" |> |:x| => test(negate(x))
+-- Negative values flip sign and re-enter check — the feedback loop
+on @"negative" |> |:x| => check(negate(x))
 
--- Final destination for positive values
-on @"ok" |> |:x| => println("✓ Final OK: #{x}")
+on @"ok" |> |:x| => println("Final OK: #{x}")
+
+-- Uncomment to trace every stream event:
+-- on @"__trace" |> |:ev| => debug(ev, "TRACE")
