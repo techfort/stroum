@@ -3,6 +3,7 @@
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import { prefetchIngestAINames } from "./ai-compiler-assistant";
 import { analyzeDataflow } from "./dataflow-analyzer";
 import { format } from "./formatter";
 import { startGraphServer } from "./graph-server";
@@ -152,7 +153,7 @@ function showVersion() {
   console.log(`Node ${process.version}`);
 }
 
-function compileCommand(args: string[]) {
+async function compileCommand(args: string[]) {
   const inputFile = args[0];
 
   if (!inputFile) {
@@ -188,6 +189,7 @@ function compileCommand(args: string[]) {
       : undefined;
 
     // Phase 1-2: Resolve all modules and parse them
+    await prefetchIngestAINames(absoluteInputFile);
     const resolver = new ModuleResolver(stdlibPath);
     resolver.loadModule(absoluteInputFile); // Load main file and all dependencies
     const modules = resolver.getModulesInOrder(); // Get all modules in dependency order
@@ -244,6 +246,7 @@ function compileCommand(args: string[]) {
         resolvedModule.module,
         resolvedModule.filePath,
         resolvedOutput,
+        resolvedModule.ingestDirectives,
       );
 
       fs.writeFileSync(moduleOutputFile, code);
@@ -303,7 +306,7 @@ function watchMode(inputFile: string, runArgs: string[]): void {
   console.log(colorize(`[watch] watching ${inputFile} — press Ctrl+C to stop`, "blue"));
 }
 
-function runCommand(args: string[]) {
+async function runCommand(args: string[]) {
   const watchFlag = args.includes("--watch") || args.includes("-w");
   const traceMode = args.includes("--trace");
   const ipcIndex = args.indexOf("--ipc");
@@ -355,6 +358,7 @@ function runCommand(args: string[]) {
   const outputTs = path.join(tempDir, `${basename}.ts`);
 
   try {
+    await prefetchIngestAINames(absoluteInputFile);
     const resolver = new ModuleResolver(stdlibPath);
     resolver.loadModule(absoluteInputFile);
     const modules = resolver.getModulesInOrder();
@@ -382,7 +386,7 @@ function runCommand(args: string[]) {
         mod.filePath === absoluteInputFile
           ? outputTs
           : path.join(tempDir, `${path.basename(mod.filePath, ".stm")}.ts`);
-      const { code, map } = transpiler.transpileWithMap(mod.module, mod.filePath, outFile);
+      const { code, map } = transpiler.transpileWithMap(mod.module, mod.filePath, outFile, mod.ingestDirectives);
       fs.writeFileSync(outFile, code);
       fs.writeFileSync(`${outFile}.map`, map);
     }
@@ -700,10 +704,12 @@ function findTestFiles(target: string): string[] {
   return results;
 }
 
-function runTestFile(inputFile: string): Promise<number> {
+async function runTestFile(inputFile: string): Promise<number> {
+  const os = require("node:os");
+  const absoluteInputFile = path.resolve(inputFile);
+  await prefetchIngestAINames(absoluteInputFile);
+
   return new Promise((resolve) => {
-    const os = require("os");
-    const absoluteInputFile = path.resolve(inputFile);
     const basename = path.basename(inputFile, ".stm");
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "stroum-test-"));
     const cleanup = () => {
@@ -743,7 +749,7 @@ function runTestFile(inputFile: string): Promise<number> {
           mod.filePath === absoluteInputFile
             ? outputTs
             : path.join(tempDir, `${path.basename(mod.filePath, ".stm")}.ts`);
-        const { code, map } = transpiler.transpileWithMap(mod.module, mod.filePath, outFile);
+        const { code, map } = transpiler.transpileWithMap(mod.module, mod.filePath, outFile, mod.ingestDirectives);
         fs.writeFileSync(outFile, code);
         fs.writeFileSync(`${outFile}.map`, map);
       }
@@ -880,6 +886,7 @@ async function graphCommand(args: string[]) {
     const absoluteInputFile = path.resolve(inputFile);
     const stdlibPath = path.join(__dirname, "..", "stdlib");
 
+    await prefetchIngestAINames(absoluteInputFile);
     const resolver = new ModuleResolver(stdlibPath);
     resolver.loadModule(absoluteInputFile);
     const modules = resolver.getModulesInOrder();

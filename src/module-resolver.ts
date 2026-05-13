@@ -4,13 +4,14 @@ import type * as AST from "./ast";
 import type { CompileDiagnostic } from "./diagnostics";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
-import { hasDirectives, preprocess } from "./preprocessor";
+import { hasDirectives, type IngestDirectiveData, preprocess } from "./preprocessor";
 
 export interface ResolvedModule {
   filePath: string;
   module: AST.Module;
   dependencies: string[]; // Paths to imported modules
   diagnostics: CompileDiagnostic[]; // Lex/parse diagnostics for this file
+  ingestDirectives: IngestDirectiveData[]; // Ingest source tasks to be emitted by the transpiler
 }
 
 export class ModuleResolver {
@@ -92,9 +93,13 @@ export class ModuleResolver {
       let source = fs.readFileSync(filePath, "utf-8");
 
       // Preprocess source to expand compile-time directives
+      let ingestDirectives: IngestDirectiveData[] = [];
       if (hasDirectives(source)) {
         const result = preprocess(source, filePath);
         source = result.source;
+        ingestDirectives = result.directives
+          .filter((d) => d.type === "ingest")
+          .map((d) => (d as { type: "ingest"; line: number; original: string; data: IngestDirectiveData }).data);
       }
 
       const lexer = new Lexer(source);
@@ -119,6 +124,7 @@ export class ModuleResolver {
         module,
         dependencies,
         diagnostics,
+        ingestDirectives,
       };
 
       // Cache it
