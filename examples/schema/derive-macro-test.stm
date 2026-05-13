@@ -1,6 +1,6 @@
 -- Test #derive macro for compile-time schema injection
 
-#derive schema "../test-fixtures/sample.csv" as Row
+#derive schema "../../test-fixtures/sample.csv" as Row
 
 -- Now we can use the Row struct that was auto-generated
 

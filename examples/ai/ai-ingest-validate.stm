@@ -1,6 +1,6 @@
 i:io
 
-#ingest "../test-fixtures/personnel.txt" as Personnel separator "," si success @"personnel" fail @"fails"
+#ingest "../../test-fixtures/personnel.txt" as Personnel separator "," si success @"personnel" fail @"fails"
 #validate Personnel si rules "field_1 > 30" fail @"fails"
 
 on @"personnel" |> |:p| => println("OK: #{p.field_0} age=#{p.field_1}")

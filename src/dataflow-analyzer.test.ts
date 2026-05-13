@@ -174,6 +174,7 @@ describe("analyzeDataflow", () => {
       __dirname,
       "..",
       "examples",
+      "streams",
       "dataflow-graph.stm",
     );
 
