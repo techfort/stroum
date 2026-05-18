@@ -298,7 +298,7 @@ function generateParser(
   doNullable: boolean,
 ): string {
   const out: string[] = [];
-  out.push(`f:parse_${structName.toLowerCase()} __line =>`);
+  out.push(`f:parse_${structName.toLowerCase()} __line:String -> ${structName} =>`);
 
   const splitExpr = doTrim
     ? `map(trim, split(__line, "${separator}"))`
