@@ -179,9 +179,12 @@ See [PRIMER.md](PRIMER.md) for the full language reference.
 | `\|?>` | Partial gathering pipe |
 | `PP` | Parallel composition |
 | `XX` | Stream termination |
-| `@"name"` | Emit value onto named stream |
+| `@"name"` | Emit value onto named stream (tee — returns value) |
 | `@>"name"` | Redirect value onto stream |
 | `~>` | Emission contract declaration |
+| `stream:` | Declare a typed named stream |
+| `src:` | Open a data source and route output to a stream |
+| `snk:` | Subscribe a sink handler to a stream |
 | `=>` | Function / lambda body separator |
 
 ### Quick example
@@ -216,9 +219,10 @@ Optional modules require an explicit import:
 
 | Module | Import | Purpose |
 |---|---|---|
-| `io` | `i:io` | File system operations |
+| `io` | `i:io` | File system operations, streaming file sources |
 | `process` | `i:process` | Shell commands, environment |
 | `timer` | `i:timer` | Sleep, timestamps, elapsed time |
+| `formats` | `i:formats` | CSV/JSON parsing and schema inference |
 
 ---
 
@@ -230,7 +234,7 @@ Optional modules require an explicit import:
 npm test
 ```
 
-374 tests across 14 test suites (lexer, parser, validator, transpiler, formatter, LSP completions, REPL, dataflow analyzer, schema deriver, preprocessor, formats, graph server, error recovery, integration).
+412 tests across 16 test suites (lexer, parser, validator, transpiler, formatter, LSP completions, REPL, dataflow analyzer, schema deriver, preprocessor, formats, graph server, error recovery, ingest, CLI, integration).
 
 ### Development commands
 

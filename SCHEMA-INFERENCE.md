@@ -4,11 +4,12 @@ Stroum provides automatic schema inference from structured data files (CSV and J
 
 ## Overview
 
-Three complementary approaches are available:
+Four complementary approaches are available:
 
 1. **CLI Tool** - Generate struct definitions manually
-2. **Preprocessor Macro** - Compile-time schema injection
-3. **Runtime Functions** - Dynamic schema discovery and data loading
+2. **Preprocessor Macro** - Compile-time schema injection (`#derive schema`)
+3. **Parser Macro** - Compile-time parser generation from struct (`#derive parser`)
+4. **Runtime Functions** - Dynamic schema discovery and data loading
 
 All three approaches share the same type inference engine for consistent results.
 
@@ -136,7 +137,83 @@ If schema inference fails, the preprocessor inserts an error comment and preserv
 
 This allows you to see the error during parsing while keeping the directive visible for debugging.
 
-## 3. Runtime Functions
+## 3. Parser Macro
+
+The `#derive parser` directive generates a typed parsing function from a struct definition and a field separator.
+
+### Syntax
+
+```
+#derive parser StructName "separator" [as funcName]
+```
+
+- **`StructName`** — name of a `s:` struct already declared in scope
+- **`"separator"`** — delimiter string used to split each input line into fields
+- **`as funcName`** *(optional)* — name for the generated function; defaults to `parse_<structname>` (lower-cased)
+
+### How It Works
+
+1. The preprocessor runs before lexer/parser, after `#derive schema` expansion
+2. Finds the struct definition matching `StructName` in the source
+3. Generates a typed `f:` function that splits a string on the separator and assigns each field in declaration order
+4. Inserts the generated function immediately after the directive
+
+### Example
+
+```stroum
+s:Student {
+  name:  String
+  grade: Int
+  score: Float
+}
+
+#derive parser Student "," as parse_student
+```
+
+**Generated output (what the parser sees):**
+
+```stroum
+f:parse_student __line:String -> Student =>
+  :__parts split(__line, ",")
+  Student {
+    name: head(__parts),
+    grade: to_int(nth(__parts, 1)),
+    score: to_float(nth(__parts, 2))
+  }
+```
+
+### Using the Generated Parser
+
+The generated function is a normal Stroum function — use it anywhere:
+
+```stroum
+src: @"lines" read_records("students.csv")
+route @"lines" |> parse_student |> process_student
+```
+
+Or inline in a pipeline:
+
+```stroum
+read_file("students.csv")
+|> split(_, "\n")
+|> map(_, parse_student)
+```
+
+### Without `as` Clause
+
+Omitting `as funcName` generates the function with a default name derived from the struct name:
+
+```stroum
+#derive parser Student ","
+-- generates: f:parse_student ...
+
+#derive parser RawEntry "|"
+-- generates: f:parse_rawentry ...
+```
+
+---
+
+## 4. Runtime Functions
 
 Load and infer schemas dynamically at runtime:
 
