@@ -20,37 +20,40 @@ describe("Parser", () => {
 
   describe("function declarations", () => {
     it("should parse simple function", () => {
-      const ast = parse("f:double n => multiply(n, 2)");
+      const ast = parse("f:double n:Any -> Any => multiply(n, 2)");
       expect(ast.definitions).toHaveLength(1);
 
       const func = ast.definitions[0] as AST.FunctionDeclaration;
       expect(func.type).toBe("FunctionDeclaration");
       expect(func.name).toBe("double");
       expect(func.params).toEqual(["n"]);
+      expect(func.paramTypes).toEqual(["Any"]);
+      expect(func.returnType).toBe("Any");
       expect(func.isRecursive).toBe(false);
       expect(func.emissionContract).toBeNull();
     });
 
     it("should parse function with multiple parameters", () => {
-      const ast = parse("f:add a b => add(a, b)");
+      const ast = parse("f:add a:Any b:Any -> Any => add(a, b)");
       const func = ast.definitions[0] as AST.FunctionDeclaration;
       expect(func.params).toEqual(["a", "b"]);
+      expect(func.paramTypes).toEqual(["Any", "Any"]);
     });
 
     it("should parse recursive function", () => {
-      const ast = parse("rec f:fib n => multiply(n, 2)");
+      const ast = parse("rec f:fib n:Int -> Int => multiply(n, 2)");
       const func = ast.definitions[0] as AST.FunctionDeclaration;
       expect(func.isRecursive).toBe(true);
     });
 
     it("should parse function with emission contract", () => {
-      const ast = parse('f:fetch url ~> @"ok", @"fail" => http_get(url)');
+      const ast = parse('f:fetch url:String -> Any ~> @"ok", @"fail" => http_get(url)');
       const func = ast.definitions[0] as AST.FunctionDeclaration;
       expect(func.emissionContract).toEqual(["ok", "fail"]);
     });
 
     it("should parse function with indented body", () => {
-      const source = `f:process data =>
+      const source = `f:process data:Any -> Any =>
   :result transform(data)
   result`;
       const ast = parse(source);
@@ -61,7 +64,7 @@ describe("Parser", () => {
     });
 
     it("should parse postfix field access with dot syntax", () => {
-      const ast = parse("f:is_adult user => gt(user.age, 18)");
+      const ast = parse("f:is_adult user:Any -> Bool => gt(user.age, 18)");
       const func = ast.definitions[0] as AST.FunctionDeclaration;
       const body = func.body as AST.CallExpression;
       const access = body.args[0] as AST.FieldAccessExpression;
@@ -87,7 +90,7 @@ describe("Parser", () => {
       const source = `i:io
 :watched_file "examples/watched.txt"
 src: @"change" watch_file(watched_file)
-f:identity x => x`;
+f:identity x:Any -> Any => x`;
       const ast = parse(source);
 
       expect(ast.imports).toHaveLength(1);
@@ -117,7 +120,7 @@ f:identity x => x`;
     });
 
     it("should parse to declaration in the declaration region", () => {
-      const ast = parse('to: @"orders.clean" persist_order');
+      const ast = parse('snk: @"orders.clean" persist_order');
       expect(ast.sinkDeclarations).toHaveLength(1);
       const sink = ast.sinkDeclarations[0];
       expect(sink.type).toBe("SinkDeclaration");
@@ -138,7 +141,7 @@ f:identity x => x`;
     });
 
     it("should parse multiple test declarations alongside function definitions", () => {
-      const source = `f:double x => mul(x, 2)
+      const source = `f:double x:Int -> Int => mul(x, 2)
 
 test "double two" =>
   assert_eq(double(2), 4)
@@ -156,8 +159,8 @@ test "double zero" =>
       const source = `i:io
 :watched_file "examples/watched.txt"
 src: @"change" watch_file(watched_file)
-to: @"change" handle_change
-f:identity x => x`;
+snk: @"change" handle_change
+f:identity x:Any -> Any => x`;
       const ast = parse(source);
 
       expect(ast.sourceDeclarations).toHaveLength(1);
@@ -373,18 +376,20 @@ run until @"shutdown"`;
     });
 
     it("should parse lambda", () => {
-      const ast = parse(":fn |:x| => multiply(x, 2)");
+      const ast = parse(":fn |:x:Any| => multiply(x, 2)");
       const binding = ast.definitions[0] as AST.BindingDeclaration;
       const lambda = binding.value as AST.Lambda;
       expect(lambda.type).toBe("Lambda");
       expect(lambda.params).toEqual(["x"]);
+      expect(lambda.paramTypes).toEqual(["Any"]);
     });
 
     it("should parse lambda with multiple params", () => {
-      const ast = parse(":fn |:a, :b| => add(a, b)");
+      const ast = parse(":fn |:a:Any, :b:Any| => add(a, b)");
       const binding = ast.definitions[0] as AST.BindingDeclaration;
       const lambda = binding.value as AST.Lambda;
       expect(lambda.params).toEqual(["a", "b"]);
+      expect(lambda.paramTypes).toEqual(["Any", "Any"]);
     });
 
     it("should parse lambda with no params", () => {
@@ -406,7 +411,7 @@ run until @"shutdown"`;
 
     it("should parse pipe chain", () => {
       const ast = parse(
-        ":result nums |> filter(|:v| => gt(v, 0)) |> map(|:v| => double(v))",
+        ":result nums |> filter(|:v:Any| => gt(v, 0)) |> map(|:v:Any| => double(v))",
       );
       const binding = ast.definitions[0] as AST.BindingDeclaration;
       const pipe = binding.value as AST.PipeExpression;
@@ -475,7 +480,7 @@ run until @"shutdown"`;
     });
 
     it("should parse tagged expression producer with identifier tag", () => {
-      const ast = parse("f:wrap x => .ok x");
+      const ast = parse("f:wrap x:Any -> Any => .ok x");
       const fn = ast.definitions[0] as AST.FunctionDeclaration;
       const body = fn.body as AST.TaggedExpression;
       expect(body.type).toBe("TaggedExpression");
@@ -483,7 +488,7 @@ run until @"shutdown"`;
     });
 
     it("should parse tagged expression producer with string literal tag", () => {
-      const ast = parse('f:wrap x => ."just right" x');
+      const ast = parse('f:wrap x:Any -> Any => ."just right" x');
       const fn = ast.definitions[0] as AST.FunctionDeclaration;
       const body = fn.body as AST.TaggedExpression;
       expect(body.type).toBe("TaggedExpression");
@@ -532,7 +537,7 @@ run until @"shutdown"`;
 
   describe("on handlers", () => {
     it("should parse on handler", () => {
-      const ast = parse('on @"errors" |> |:e| => store(e)');
+      const ast = parse('on @"errors" |> |:e:Any| => store(e)');
       expect(ast.contingencies).toHaveLength(1);
 
       const handler = ast.contingencies[0] as AST.OnHandler;
@@ -542,13 +547,13 @@ run until @"shutdown"`;
     });
 
     it("should parse on handler with wildcard", () => {
-      const ast = parse('on @"api.*" |> |:e| => log(e)');
+      const ast = parse('on @"api.*" |> |:e:Any| => log(e)');
       const handler = ast.contingencies[0] as AST.OnHandler;
       expect(handler.streamPattern).toBe("api.*");
     });
 
     it("should parse on handler with emit", () => {
-      const ast = parse('on @"errors" |> |:e| => store(e) @"audit"');
+      const ast = parse('on @"errors" |> |:e:Any| => store(e) @"audit"');
       const handler = ast.contingencies[0] as AST.OnHandler;
       expect(handler.streamEmit).not.toBeNull();
       expect(handler.streamEmit?.streams[0]).toEqual({
@@ -587,7 +592,7 @@ run until @"shutdown"`;
 
     it("should parse route and on handler together", () => {
       const ast = parse(
-        'op1()\n\nroute @"ok" |> op2\non @"fail" |> |:x| => rescue(x)',
+        'op1()\n\nroute @"ok" |> op2\non @"fail" |> |:x:Any| => rescue(x)',
       );
       expect(ast.contingencies).toHaveLength(2);
       expect(ast.contingencies[0].type).toBe("RouteDeclaration");
@@ -597,7 +602,7 @@ run until @"shutdown"`;
 
   describe("complete programs", () => {
     it("should parse test case 1: pure function", () => {
-      const source = `f:double n => multiply(n, 2)
+      const source = `f:double n:Int -> Int => multiply(n, 2)
 double(21) @"ok"`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(1);
@@ -606,14 +611,14 @@ double(21) @"ok"`;
 
     it("should parse test case 2: pipe chain", () => {
       const source = `:nums [1, 2, 3, 4, 5]
-nums |> filter(|:v| => gt(v, 2)) |> map(|:v| => multiply(v, 10)) @"ok"`;
+nums |> filter(|:v:Any| => gt(v, 2)) |> map(|:v:Any| => multiply(v, 10)) @"ok"`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(1);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
     });
 
     it("should parse test case 3: named outcomes", () => {
-      const source = `f:find_user id ~> @"found", @"not_found" =>
+      const source = `f:find_user id:Any -> Any ~> @"found", @"not_found" =>
   lookup(id) @"found"
   | .empty => @"not_found"
 
@@ -635,23 +640,23 @@ find_user(42)
     });
 
     it("should parse test case 5: on handler with wildcard", () => {
-      const source = `on @"errors" |> |:e| => store(e) @"audit"
-on @"api.*"  |> |:e| => log(e)`;
+      const source = `on @"errors" |> |:e:Any| => store(e) @"audit"
+on @"api.*"  |> |:e:Any| => log(e)`;
       const ast = parse(source);
       expect(ast.contingencies).toHaveLength(2);
     });
 
     it("should parse mixed definitions and primary expression", () => {
-      const source = `f:double n => multiply(n, 2)
+      const source = `f:double n:Int -> Int => multiply(n, 2)
 :nums [1, 2, 3]
-nums |> map(|:x| => double(x)) @"results"`;
+nums |> map(|:x:Any| => double(x)) @"results"`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(2);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
     });
 
     it("should parse multiple primary expressions", () => {
-      const source = `f:op x => x @ "ok"
+      const source = `f:op x:Any -> Any => x @ "ok"
 op(1)
 op(2)
 op(3)`;

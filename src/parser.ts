@@ -47,6 +47,9 @@ export class Parser {
         t.type === TokenType.SIGIL_FUNCTION ||
         t.type === TokenType.SIGIL_BINDING ||
         t.type === TokenType.SIGIL_STRUCT ||
+        t.type === TokenType.SIGIL_SOURCE ||
+        t.type === TokenType.SIGIL_SINK ||
+        t.type === TokenType.SIGIL_STREAM ||
         t.type === TokenType.REC ||
         t.type === TokenType.ON ||
         t.type === TokenType.ROUTE ||
@@ -62,6 +65,7 @@ export class Parser {
   parse(): AST.Module {
     const location = this.currentLocation();
     const imports: AST.ImportDeclaration[] = [];
+    const streamDeclarations: AST.StreamDeclaration[] = [];
     const inputDeclarations: AST.InputDeclaration[] = [];
     const outputDeclarations: AST.OutputDeclaration[] = [];
     const wireDeclarations: AST.WireDeclaration[] = [];
@@ -83,10 +87,11 @@ export class Parser {
       }
     }
 
-    // Parse declarations (sources, sinks, input/output/wire, structs, functions, bindings, tests)
+    // Parse declarations (streams, sources, sinks, input/output/wire, structs, functions, bindings, tests)
     while (
       !this.isAtEnd() &&
-      (this.isSourceDeclaration() ||
+      (this.isStreamDeclaration() ||
+        this.isSourceDeclaration() ||
         this.isSinkDeclaration() ||
         this.isInputDeclaration() ||
         this.isOutputDeclaration() ||
@@ -95,7 +100,9 @@ export class Parser {
         this.isTestDeclaration())
     ) {
       try {
-        if (this.isInputDeclaration()) {
+        if (this.isStreamDeclaration()) {
+          streamDeclarations.push(this.parseStreamDeclaration());
+        } else if (this.isInputDeclaration()) {
           inputDeclarations.push(this.parseInputDeclaration());
         } else if (this.isOutputDeclaration()) {
           outputDeclarations.push(this.parseOutputDeclaration());
@@ -142,7 +149,7 @@ export class Parser {
           contingencies.push(this.parseOutcomeMatch());
         } else {
           this.error(
-            `Unexpected ${this.formatToken(this.peek())} at module level — expected a declaration (f:, s:, :, i:, on, route, src:, to:, run, test) or an expression`,
+            `Unexpected ${this.formatToken(this.peek())} at module level — expected a declaration (f:, s:, :, i:, stream:, src:, snk:, on, route, run, test) or an expression`,
           );
         }
       } catch (e) {
@@ -168,6 +175,7 @@ export class Parser {
       type: "Module",
       location,
       imports,
+      streamDeclarations,
       inputDeclarations,
       outputDeclarations,
       wireDeclarations,
@@ -252,12 +260,16 @@ export class Parser {
     );
   }
 
+  private isStreamDeclaration(): boolean {
+    return this.check(TokenType.SIGIL_STREAM);
+  }
+
   private isSourceDeclaration(): boolean {
-    return this.checkIdentifier("src") && this.checkNext(TokenType.COLON);
+    return this.check(TokenType.SIGIL_SOURCE);
   }
 
   private isSinkDeclaration(): boolean {
-    return this.checkIdentifier("to") && this.checkNext(TokenType.COLON);
+    return this.check(TokenType.SIGIL_SINK);
   }
 
   private isInputDeclaration(): boolean {
@@ -284,38 +296,30 @@ export class Parser {
     );
   }
 
+  private parseStreamDeclaration(): AST.StreamDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.SIGIL_STREAM, "Expected stream:");
+    const name = this.consume(TokenType.IDENTIFIER, "Expected stream name after stream:").value;
+    const valueType = this.check(TokenType.TYPE_NAME)
+      ? this.advance().value
+      : "Any";
+    return { type: "StreamDeclaration", location, name, valueType };
+  }
+
   private parseSourceDeclaration(): AST.SourceDeclaration {
     const location = this.currentLocation();
-    this.consume(TokenType.IDENTIFIER, "Expected src");
-    this.consume(TokenType.COLON, "Expected : after src");
-
-    const stream = this.parseStreamRef(
-      "Expected destination stream after src:",
-    );
+    this.consume(TokenType.SIGIL_SOURCE, "Expected src:");
+    const stream = this.parseStreamRef("Expected destination stream after src:");
     const source = this.parseExpression(false);
-
-    return {
-      type: "SourceDeclaration",
-      location,
-      stream,
-      source,
-    };
+    return { type: "SourceDeclaration", location, stream, source };
   }
 
   private parseSinkDeclaration(): AST.SinkDeclaration {
     const location = this.currentLocation();
-    this.consume(TokenType.IDENTIFIER, "Expected to");
-    this.consume(TokenType.COLON, "Expected : after to");
-
-    const stream = this.parseStreamRef("Expected destination stream after to:");
+    this.consume(TokenType.SIGIL_SINK, "Expected snk:");
+    const stream = this.parseStreamRef("Expected stream after snk:");
     const sink = this.parseExpression(false);
-
-    return {
-      type: "SinkDeclaration",
-      location,
-      stream,
-      sink,
-    };
+    return { type: "SinkDeclaration", location, stream, sink };
   }
 
   private parseInputDeclaration(): AST.InputDeclaration {
@@ -465,18 +469,45 @@ export class Parser {
       "Expected function name",
     ).value;
 
-    // Parse parameters (space-separated identifiers before =>)
+    // Parse parameters (space-separated identifiers before -> or =>)
     const params: string[] = [];
+    const paramTypes: string[] = [];
     while (
       !this.check(TokenType.ARROW) &&
+      !this.check(TokenType.OUTPUT_ARROW) &&
       !this.check(TokenType.EMIT_CONTRACT) &&
       !this.isAtEnd()
     ) {
-      if (this.check(TokenType.IDENTIFIER)) {
-        params.push(this.advance().value);
+      // A sigil token (b:, f:, s:, i:) in parameter position means the param is
+      // named after the sigil letter and the type follows immediately (colon already consumed).
+      const sigilChar = this.sigilAsParamChar();
+      if (sigilChar !== null) {
+        const paramName = sigilChar;
+        this.advance(); // consume the sigil token (e.g. "s:")
+        const paramType = this.consume(TokenType.TYPE_NAME, `Expected type name for parameter '${paramName}'`).value;
+        params.push(paramName);
+        paramTypes.push(paramType);
+      } else if (this.check(TokenType.IDENTIFIER)) {
+        const paramName = this.advance().value;
+        this.consume(TokenType.COLON, `Expected ':Type' after parameter '${paramName}'`);
+        const paramType = this.consume(TokenType.TYPE_NAME, `Expected type name after ':' for parameter '${paramName}'`).value;
+        params.push(paramName);
+        paramTypes.push(paramType);
       } else {
         break;
       }
+    }
+
+    // Parse return type (-> ReturnType)
+    let returnType: string;
+    if (this.match(TokenType.OUTPUT_ARROW)) {
+      returnType = this.consume(TokenType.TYPE_NAME, "Expected return type after '->'").value;
+    } else if (params.length === 0) {
+      // Zero-arg function: require -> ReturnType
+      this.consume(TokenType.OUTPUT_ARROW, "Expected '-> ReturnType' for zero-argument function");
+      returnType = this.consume(TokenType.TYPE_NAME, "Expected return type after '->'").value;
+    } else {
+      this.error("Expected '-> ReturnType' after parameters");
     }
 
     // Parse emission contract (~> @"stream", ...)
@@ -515,6 +546,8 @@ export class Parser {
       isRecursive,
       name,
       params,
+      paramTypes,
+      returnType,
       emissionContract,
       body,
     };
@@ -829,6 +862,35 @@ export class Parser {
     if (this.check(TokenType.IDENTIFIER)) {
       const name = this.advance().value;
 
+      // Check for qualified call: alias.func(args)
+      if (
+        this.check(TokenType.DOT) &&
+        this.checkAhead(TokenType.IDENTIFIER, 1) &&
+        this.checkAhead(TokenType.LPAREN, 2)
+      ) {
+        this.advance(); // consume DOT
+        const field = this.advance().value; // consume field name
+        this.advance(); // consume LPAREN
+        const qualifiedCallee = `${name}.${field}`;
+        const args: AST.Expression[] = [];
+
+        if (!this.check(TokenType.RPAREN)) {
+          args.push(this.parseExpression());
+          while (this.match(TokenType.COMMA)) {
+            args.push(this.parseExpression());
+          }
+        }
+
+        this.consume(TokenType.RPAREN, "Expected )");
+
+        return this.parseFieldAccessChain({
+          type: "CallExpression",
+          location,
+          callee: qualifiedCallee,
+          args,
+        });
+      }
+
       // Check for function call
       if (this.match(TokenType.LPAREN)) {
         const args: AST.Expression[] = [];
@@ -865,17 +927,27 @@ export class Parser {
     let current = expr;
 
     while (this.match(TokenType.DOT)) {
-      const field = this.consume(
-        TokenType.IDENTIFIER,
-        "Expected field name after .",
-      ).value;
-
-      current = {
-        type: "FieldAccessExpression",
-        location: current.location,
-        receiver: current,
-        field,
-      };
+      if (this.check(TokenType.STRING)) {
+        const field = this.advance().value;
+        current = {
+          type: "FieldAccessExpression",
+          location: current.location,
+          receiver: current,
+          field,
+          dynamic: true,
+        };
+      } else {
+        const field = this.consume(
+          TokenType.IDENTIFIER,
+          "Expected field name after .",
+        ).value;
+        current = {
+          type: "FieldAccessExpression",
+          location: current.location,
+          receiver: current,
+          field,
+        };
+      }
     }
 
     return current;
@@ -901,19 +973,40 @@ export class Parser {
     this.consume(TokenType.BAR, "Expected |");
 
     const params: string[] = [];
+    const paramTypes: string[] = [];
 
-    // Parse lambda parameters (:param)
+    // Parse lambda parameters (:param:Type)
     if (this.check(TokenType.COLON)) {
-      this.advance();
-      params.push(
-        this.consume(TokenType.IDENTIFIER, "Expected parameter name").value,
-      );
+      this.advance(); // consume the leading `:` sigil
+
+      // First param: could be IDENTIFIER or a sigil token (b:, f:, s:, i:)
+      const sigilChar1 = this.sigilAsParamChar();
+      let p1: string;
+      if (sigilChar1 !== null) {
+        p1 = sigilChar1;
+        this.advance(); // consume sigil (colon already included)
+      } else {
+        p1 = this.consume(TokenType.IDENTIFIER, "Expected parameter name").value;
+        this.consume(TokenType.COLON, `Expected ':Type' after lambda parameter '${p1}'`);
+      }
+      const t1 = this.consume(TokenType.TYPE_NAME, `Expected type name for lambda parameter '${p1}'`).value;
+      params.push(p1);
+      paramTypes.push(t1);
 
       while (this.match(TokenType.COMMA)) {
         this.consume(TokenType.COLON, "Expected :");
-        params.push(
-          this.consume(TokenType.IDENTIFIER, "Expected parameter name").value,
-        );
+        const sigilCharN = this.sigilAsParamChar();
+        let pn: string;
+        if (sigilCharN !== null) {
+          pn = sigilCharN;
+          this.advance();
+        } else {
+          pn = this.consume(TokenType.IDENTIFIER, "Expected parameter name").value;
+          this.consume(TokenType.COLON, `Expected ':Type' after lambda parameter '${pn}'`);
+        }
+        const tn = this.consume(TokenType.TYPE_NAME, `Expected type name for lambda parameter '${pn}'`).value;
+        params.push(pn);
+        paramTypes.push(tn);
       }
     }
 
@@ -928,6 +1021,7 @@ export class Parser {
       type: "Lambda",
       location,
       params,
+      paramTypes,
       body,
     };
   }
@@ -1280,6 +1374,26 @@ export class Parser {
       return true;
     }
     return false;
+  }
+
+  // Returns the single-letter param name if the current token is a sigil used as a
+  // type-annotated parameter (e.g. SIGIL_STRUCT "s:" followed by TYPE_NAME).
+  // Returns null if the current token is not a sigil in param position.
+  private sigilAsParamChar(): string | null {
+    const t = this.tokens[this.current]?.type;
+    if (
+      t === TokenType.SIGIL_BINDING ||
+      t === TokenType.SIGIL_FUNCTION ||
+      t === TokenType.SIGIL_STRUCT ||
+      t === TokenType.SIGIL_IMPORT
+    ) {
+      // Only treat as param if next token is a TYPE_NAME (not a lowercase identifier or string)
+      const next = this.tokens[this.current + 1];
+      if (next?.type === TokenType.TYPE_NAME) {
+        return this.tokens[this.current].value.slice(0, -1); // "b:" → "b"
+      }
+    }
+    return null;
   }
 
   private check(type: TokenType): boolean {

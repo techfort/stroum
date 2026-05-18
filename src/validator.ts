@@ -28,6 +28,7 @@ export class Validator {
   private warnings: ValidationWarning[] = [];
   private moduleBindings: Set<string> = new Set();
   private currentScope: Set<string> = new Set();
+  private declaredStreams: Set<string> = new Set();
   private currentFunctionName: string | null = null;
   private stdlibLoader: StdlibLoader;
   private moduleResolver: ModuleResolver;
@@ -44,6 +45,7 @@ export class Validator {
     this.warnings = [];
     this.moduleBindings.clear();
     this.currentScope.clear();
+    this.declaredStreams.clear();
     this.imports = [];
     this.currentFilePath = filePath || "";
 
@@ -65,6 +67,11 @@ export class Validator {
     // Second pass: validate each definition
     for (const def of module.definitions) {
       this.validateDefinition(def);
+    }
+
+    // Validate stream declarations
+    for (const streamDecl of module.streamDeclarations) {
+      this.validateStreamDeclaration(streamDecl);
     }
 
     // Validate source declarations
@@ -105,6 +112,14 @@ export class Validator {
     }
 
     return [...this.errors, ...this.warnings];
+  }
+
+  private validateStreamDeclaration(decl: AST.StreamDeclaration): void {
+    if (this.declaredStreams.has(decl.name)) {
+      this.addError(`Duplicate stream declaration: '${decl.name}'`, decl.location);
+    } else {
+      this.declaredStreams.add(decl.name);
+    }
   }
 
   private validateSourceDeclaration(sourceDecl: AST.SourceDeclaration): void {
@@ -291,6 +306,14 @@ export class Validator {
     this.currentScope.clear();
     this.currentFunctionName = func.name;
 
+    // Enforce mandatory types
+    if (func.paramTypes.length !== func.params.length) {
+      this.addError(
+        `Function '${func.name}': paramTypes length does not match params length (parser error)`,
+        func.location,
+      );
+    }
+
     // Add function parameters to scope
     for (const param of func.params) {
       if (this.currentScope.has(param)) {
@@ -390,7 +413,9 @@ export class Validator {
           name.startsWith("__builtin_")
         )
           break;
+        const isImportAlias = this.imports.some((imp) => imp.alias === name);
         if (
+          !isImportAlias &&
           !this.isFunctionAvailable(name) &&
           name !== this.currentFunctionName
         ) {

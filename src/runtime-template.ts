@@ -107,6 +107,17 @@ export class StreamRouter {
   private metaLog: any[] = [];
   private traceEnabled: boolean = process.env.STROUM_TRACE === "1";
   private _ipc: net.Socket | null = null;
+  private streamMeta: Map<string, { type: string; count: number; lastValue: any; firstEmitAt: number }> = new Map();
+
+  declareStream(name: string, type: string): void {
+    if (!this.streamMeta.has(name)) {
+      this.streamMeta.set(name, { type, count: 0, lastValue: undefined, firstEmitAt: 0 });
+    }
+  }
+
+  getStreamInfo(name: string): { type: string; count: number; lastValue: any; firstEmitAt: number } | null {
+    return this.streamMeta.get(name) ?? null;
+  }
 
   connectIPC(socketPath: string): void {
     try {
@@ -176,6 +187,14 @@ export class StreamRouter {
       for (const handler of handlers) {
         await handler(value);
       }
+    }
+
+    // Update stream metadata if this stream was declared
+    const streamInfo = this.streamMeta.get(streamName);
+    if (streamInfo) {
+      streamInfo.count++;
+      streamInfo.lastValue = value;
+      if (streamInfo.firstEmitAt === 0) streamInfo.firstEmitAt = Date.now();
     }
 
     // Always emit to __trace stream for debugging

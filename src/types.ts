@@ -13,6 +13,9 @@ export enum TokenType {
   SIGIL_FUNCTION = "SIGIL_FUNCTION", // f:
   SIGIL_STRUCT = "SIGIL_STRUCT", // s:
   SIGIL_IMPORT = "SIGIL_IMPORT", // i:
+  SIGIL_SOURCE = "SIGIL_SOURCE", // src:
+  SIGIL_SINK = "SIGIL_SINK", // snk:
+  SIGIL_STREAM = "SIGIL_STREAM", // stream:
   COLON = "COLON", // :
 
   // Operators - pipe and composition

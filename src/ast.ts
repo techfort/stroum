@@ -14,6 +14,7 @@ export interface ASTNode {
 export interface Module extends ASTNode {
   type: "Module";
   imports: ImportDeclaration[];
+  streamDeclarations: StreamDeclaration[];
   inputDeclarations: InputDeclaration[];
   outputDeclarations: OutputDeclaration[];
   wireDeclarations: WireDeclaration[];
@@ -35,6 +36,12 @@ export interface ImportDeclaration extends ASTNode {
   modulePath: string; // Module identifier or file path (e.g., "core" or "./utils.stm")
   imports: string[] | null; // Specific functions to import, or null for all
   alias: string | null; // Optional alias for qualified access (e.g., "as c")
+}
+
+export interface StreamDeclaration extends ASTNode {
+  type: "StreamDeclaration";
+  name: string;
+  valueType: string;
 }
 
 export interface InputDeclaration extends ASTNode {
@@ -130,6 +137,8 @@ export interface FunctionDeclaration extends ASTNode {
   isRecursive: boolean;
   name: string;
   params: string[]; // parameter names
+  paramTypes: string[]; // parallel to params; "Fn" for function-valued params
+  returnType: string; // required; "Void" for procedures
   emissionContract: string[] | null; // stream names from ~>
   body: Expression | IndentedBody;
 }
@@ -191,11 +200,13 @@ export interface FieldAccessExpression extends ASTNode {
   type: "FieldAccessExpression";
   receiver: Expression;
   field: string;
+  dynamic?: true; // present when accessed via a."string" syntax
 }
 
 export interface Lambda extends ASTNode {
   type: "Lambda";
   params: string[];
+  paramTypes: string[]; // mandatory, parallel to params
   body: Expression;
 }
 

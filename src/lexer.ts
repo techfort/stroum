@@ -181,11 +181,31 @@ export class Lexer {
       return;
     }
 
-    if (char === "s" && nextChar === ":") {
-      this.advance();
-      this.advance();
-      this.addToken(TokenType.SIGIL_STRUCT, "s:");
-      return;
+    // s-prefixed sigils: longest match first (src:, snk:, stream:) before bare s:
+    if (char === "s") {
+      const p = this.position;
+      const s = this.source;
+      if (s[p + 1] === "r" && s[p + 2] === "c" && s[p + 3] === ":") {
+        this.advance(); this.advance(); this.advance(); this.advance();
+        this.addToken(TokenType.SIGIL_SOURCE, "src:");
+        return;
+      }
+      if (s[p + 1] === "n" && s[p + 2] === "k" && s[p + 3] === ":") {
+        this.advance(); this.advance(); this.advance(); this.advance();
+        this.addToken(TokenType.SIGIL_SINK, "snk:");
+        return;
+      }
+      if (s[p + 1] === "t" && s[p + 2] === "r" && s[p + 3] === "e" && s[p + 4] === "a" && s[p + 5] === "m" && s[p + 6] === ":") {
+        for (let i = 0; i < 7; i++) this.advance();
+        this.addToken(TokenType.SIGIL_STREAM, "stream:");
+        return;
+      }
+      if (nextChar === ":") {
+        this.advance();
+        this.advance();
+        this.addToken(TokenType.SIGIL_STRUCT, "s:");
+        return;
+      }
     }
 
     if (char === "i" && nextChar === ":") {
@@ -483,6 +503,12 @@ export class Lexer {
   private peekNext(): string {
     if (this.position + 1 >= this.source.length) return "\0";
     return this.source[this.position + 1];
+  }
+
+  private peekAt(offset: number): string {
+    const idx = this.position + offset;
+    if (idx >= this.source.length) return "\0";
+    return this.source[idx];
   }
 
   private advance(): string {
