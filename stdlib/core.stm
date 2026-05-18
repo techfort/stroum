@@ -65,6 +65,11 @@ f:drop n:Int list:Any -> Any => __builtin_drop(n, list)
 f:reverse list:Any -> Any => __builtin_reverse(list)
 f:sort list:Any -> Any => __builtin_sort(list)
 f:is_empty list:Any -> Bool => __builtin_is_empty(list)
+f:nth list:Any index:Int -> Any => __builtin_nth(list, index)
+f:each list:Any fn:Fn -> Void => __builtin_each(list, fn)
+f:zip list_a:Any list_b:Any -> Any => __builtin_zip(list_a, list_b)
+f:flatten list:Any -> Any => __builtin_flatten(list)
+f:count list:Any -> Int => __builtin_count(list)
 f:from_list list:Any -> Void => from_list(list)
 
 -- ============================================================================
