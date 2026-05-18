@@ -54,7 +54,7 @@ export type PreprocessDirective =
  * Preprocess Stroum source code, expanding compile-time directives.
  * Supports:
  *   #derive schema "path/to/file.csv" as StructName
- *   #derive parser StructName "separator" [trim] [nullable]
+ *   #derive parser StructName "separator" [as funcName] [trim] [nullable]
  *
  * #derive parser must appear after the struct definition in the file.
  */
@@ -68,7 +68,7 @@ export function preprocess(
 
   // #derive schema "path" as Name [si|ai[:provider[/model]]]
   const schemaRegex = /^#derive\s+schema\s+"([^"]+)"\s+as\s+(\w+)(?:\s+(si|ai(?::\w+(?:\/[\w.-]+)?)?))??\s*$/;
-  const parserRegex = /^#derive\s+parser\s+(\w+)\s+"([^"]*)"\s*(.*?)\s*$/;
+  const parserRegex = /^#derive\s+parser\s+(\w+)\s+"([^"]*)"\s*(?:as\s+(\w+))?\s*(.*?)\s*$/;
   // #ingest "file" as Name separator "sep" (si|ai[:provider[/model]]) success @"stream" fail @"stream"
   const ingestRegex =
     /^#ingest\s+"([^"]+)"\s+as\s+(\w+)\s+separator\s+"([^"]*)"\s+(si|ai(?::\w+(?:\/[\w.-]+)?)?)\s+success\s+@"([^"]+)"\s+fail\s+@"([^"]+)"\s*$/;
@@ -181,7 +181,7 @@ export function preprocess(
         processedLines.push(line);
       }
     } else if (parserMatch) {
-      const [original, structName, separator, optStr] = parserMatch;
+      const [original, structName, separator, customFuncName, optStr] = parserMatch;
       const opts = optStr.split(/\s+/).filter(Boolean);
       const doTrim = opts.includes("trim");
       const doNullable = opts.includes("nullable");
@@ -200,6 +200,7 @@ export function preprocess(
           fields,
           doTrim,
           doNullable,
+          customFuncName || undefined,
         );
         processedLines.push(`-- Auto-generated parser from: ${original}`);
         for (const genLine of generated.split("\n")) {
@@ -296,9 +297,11 @@ function generateParser(
   fields: Array<{ name: string; type: string }>,
   doTrim: boolean,
   doNullable: boolean,
+  funcName?: string,
 ): string {
   const out: string[] = [];
-  out.push(`f:parse_${structName.toLowerCase()} __line:String -> ${structName} =>`);
+  const name = funcName ?? `parse_${structName.toLowerCase()}`;
+  out.push(`f:${name} __line:String -> ${structName} =>`);
 
   const splitExpr = doTrim
     ? `map(trim, split(__line, "${separator}"))`

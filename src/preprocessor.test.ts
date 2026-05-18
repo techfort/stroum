@@ -130,10 +130,24 @@ f:main => println("hi")`;
     it("expands basic parser with String and Float fields", () => {
       const source = `${structSource}\n#derive parser Student ","`;
       const result = preprocess(source);
-      expect(result.source).toContain("f:parse_student __line =>");
+      expect(result.source).toContain("f:parse_student __line:String -> Student =>");
       expect(result.source).toContain(':__fields split(__line, ",")');
       expect(result.source).toContain("name: head(__fields)");
       expect(result.source).toContain("average: to_float(head(drop(1, __fields)))");
+    });
+
+    it("uses custom function name when 'as' clause is provided", () => {
+      const source = `${structSource}\n#derive parser Student "," as parseStudentRow`;
+      const result = preprocess(source);
+      expect(result.source).toContain("f:parseStudentRow __line:String -> Student =>");
+      expect(result.source).not.toContain("f:parse_student");
+    });
+
+    it("uses custom function name with flags", () => {
+      const source = `${structSource}\n#derive parser Student "," as parseTrimmed trim`;
+      const result = preprocess(source);
+      expect(result.source).toContain("f:parseTrimmed __line:String -> Student =>");
+      expect(result.source).toContain(':__fields map(trim, split(__line, ","))');
     });
 
     it("expands with Int field cast", () => {

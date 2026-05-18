@@ -8,29 +8,29 @@ s:Rawstudent {
   s4: Float
 }
 
-#derive parser Rawstudent ","
+#derive parser Rawstudent "," as parse_rawstudent
 
 s:Student {
   name: String
   average: Float
 }
 
-f:read_students =>
+f:read_students -> Any =>
   read_file("test-fixtures/students.txt")
 
-f:parse_file content =>
+f:parse_file content:String -> Any =>
   split(content, "\n")
 
-f:to_student raw =>
+f:to_student raw:Rawstudent -> Student =>
   :avg div(add(add(add(raw.s1, raw.s2), raw.s3), raw.s4), 4)
   Student { name: raw.name, average: avg }
 
-f:format_student s =>
+f:format_student s:Student -> String =>
   "#{s.name}: #{s.average}"
 
 read_students()
 |> parse_file
-|> filter(|:s| => neq(s, ""), _)
+|> filter(|:s:Any| => neq(s, ""), _)
 |> map(parse_rawstudent, _)
 |> map(to_student, _)
 |> map(format_student, _)
