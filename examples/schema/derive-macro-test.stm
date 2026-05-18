@@ -5,8 +5,10 @@
 -- Now we can use the Row struct that was auto-generated
 
 f:process_row row =>
-  println("Processing a row:")
-  println(row)
+  println("Name: #{row.name}")
+  println("Email: #{row.email}")
+  println("Age: #{row.age}")
+  println("Score: #{row.score}")
 
 f:main =>
   println("=== Testing #derive Macro ===")

@@ -1,14 +1,29 @@
 -- Streams Example: Data Processing Pipeline
 -- Demonstrates pipes and function composition
 
-f:double n => mul(n, 2)
+s:Result {
+  home: String
+  away: String
+  home_score: Int
+  away_score: Int
+}
 
-f:add_ten n => add(n, 10)
+:results Result[
+  { home: "Team A", away: "Team B", home_score: 3, away_score: 1 },
+  { home: "Team C", away: "Team D", home_score: 0, away_score: 0 },
+  { home: "Team E", away: "Team F", home_score: 2, away_score: 4 }
+]
 
-f:process_data data =>
-  data
-  |> double
-  |> add_ten
-  |> println
+f:winner result ~> @"home-win", @"away-win", @"draw" =>
+  if gt(result.home_score, result.away_score) then
+    result @ "home-win"
+  else if lt(result.home_score, result.away_score) then
+    result @ "away-win"
+  else
+    result @ "draw"
 
-process_data(21)
+map(winner, results)
+
+on @"home-win" |> |:team| => println("Home win: #{team.home} vs #{team.away} (#{team.home_score}-#{team.away_score})")
+on @"away-win" |> |:team| => println("Away win: #{team.home} vs #{team.away} (#{team.home_score}-#{team.away_score})")
+on @"draw" |> |:msg| => println("Draw: #{msg.home} vs #{msg.away} (#{msg.home_score}-#{msg.away_score})")

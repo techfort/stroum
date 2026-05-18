@@ -811,6 +811,15 @@ export class Parser {
       return this.parseFieldAccessChain(this.parseListLiteral());
     }
 
+    // Type name for typed list literal: Int[1, 2, 3] or User[...]
+    if (
+      this.check(TokenType.TYPE_NAME) &&
+      this.peekNext()?.type === TokenType.LBRACKET
+    ) {
+      const elementType = this.advance().value;
+      return this.parseFieldAccessChain(this.parseListLiteral(elementType));
+    }
+
     // Type name for record literal: User { ... }
     if (this.check(TokenType.TYPE_NAME)) {
       return this.parseFieldAccessChain(this.parseRecordLiteral());
@@ -1042,18 +1051,29 @@ export class Parser {
     };
   }
 
-  private parseListLiteral(): AST.ListLiteral {
+  private parseListLiteral(elementType?: string): AST.ListLiteral {
     const location = this.currentLocation();
     this.consume(TokenType.LBRACKET, "Expected [");
 
+    // Allow elements to start on the next (indented) line
+    const indented = this.match(TokenType.INDENT);
+
     const elements: AST.Expression[] = [];
 
-    if (!this.check(TokenType.RBRACKET)) {
-      elements.push(this.parseExpression());
+    const parseElem = () =>
+      elementType && this.check(TokenType.LBRACE)
+        ? this.parseRecordLiteralBody(elementType)
+        : this.parseExpression();
+
+    if (!this.check(TokenType.RBRACKET) && !this.check(TokenType.DEDENT)) {
+      elements.push(parseElem());
       while (this.match(TokenType.COMMA)) {
-        elements.push(this.parseExpression());
+        if (this.check(TokenType.RBRACKET) || this.check(TokenType.DEDENT)) break;
+        elements.push(parseElem());
       }
     }
+
+    if (indented) this.consume(TokenType.DEDENT, "Expected dedent after list elements");
 
     this.consume(TokenType.RBRACKET, "Expected ]");
 
@@ -1061,49 +1081,43 @@ export class Parser {
       type: "ListLiteral",
       location,
       elements,
+      elementType,
     };
   }
 
-  private parseRecordLiteral(): AST.RecordLiteral {
+  private parseRecordLiteralBody(typeName: string): AST.RecordLiteral {
     const location = this.currentLocation();
-    const typeName = this.consume(
-      TokenType.TYPE_NAME,
-      "Expected type name",
-    ).value;
-
     this.consume(TokenType.LBRACE, "Expected {");
+    const fields = this.parseRecordFields();
+    this.consume(TokenType.RBRACE, "Expected }");
+    return { type: "RecordLiteral", location, typeName, fields };
+  }
 
+  private parseRecordFields(): AST.RecordField[] {
     const fields: AST.RecordField[] = [];
-
     if (!this.check(TokenType.RBRACE)) {
-      // field: value
-      const name = this.consume(
-        TokenType.IDENTIFIER,
-        "Expected field name",
-      ).value;
+      const name = this.consume(TokenType.IDENTIFIER, "Expected field name").value;
       this.consume(TokenType.COLON, "Expected :");
       const value = this.parseExpression();
       fields.push({ name, value });
-
       while (this.match(TokenType.COMMA)) {
-        const name = this.consume(
-          TokenType.IDENTIFIER,
-          "Expected field name",
-        ).value;
+        if (this.check(TokenType.RBRACE)) break;
+        const name = this.consume(TokenType.IDENTIFIER, "Expected field name").value;
         this.consume(TokenType.COLON, "Expected :");
         const value = this.parseExpression();
         fields.push({ name, value });
       }
     }
+    return fields;
+  }
 
+  private parseRecordLiteral(): AST.RecordLiteral {
+    const location = this.currentLocation();
+    const typeName = this.consume(TokenType.TYPE_NAME, "Expected type name").value;
+    this.consume(TokenType.LBRACE, "Expected {");
+    const fields = this.parseRecordFields();
     this.consume(TokenType.RBRACE, "Expected }");
-
-    return {
-      type: "RecordLiteral",
-      location,
-      typeName,
-      fields,
-    };
+    return { type: "RecordLiteral", location, typeName, fields };
   }
 
   // ============================================================================

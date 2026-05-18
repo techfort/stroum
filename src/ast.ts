@@ -245,6 +245,7 @@ export interface BooleanLiteral extends ASTNode {
 export interface ListLiteral extends ASTNode {
   type: "ListLiteral";
   elements: Expression[];
+  elementType?: string;
 }
 
 export interface RecordLiteral extends ASTNode {

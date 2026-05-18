@@ -417,6 +417,17 @@ export class Validator {
         for (const elem of expr.elements) {
           this.validateExpression(elem);
         }
+        if (expr.elementType) {
+          for (const elem of expr.elements) {
+            const mismatch = this.checkElementType(elem, expr.elementType);
+            if (mismatch) {
+              this.addError(
+                `Type mismatch in ${expr.elementType}[]: expected ${expr.elementType}, got ${mismatch}`,
+                elem.location,
+              );
+            }
+          }
+        }
         break;
       case "RecordLiteral":
         for (const field of expr.fields) {
@@ -703,6 +714,29 @@ export class Validator {
     // Check if it looks like a string literal (simple heuristic)
     // In practice, the emission contract stores the actual stream name without quotes
     // So we just ensure it's a valid identifier-like string
-    return /^[a-z_][a-z0-9_]*$/.test(value);
+    return /^[a-z_][a-z0-9_ -]*$/.test(value);
+  }
+
+  private checkElementType(
+    elem: AST.Expression,
+    expected: string,
+  ): string | null {
+    switch (elem.type) {
+      case "NumberLiteral":
+        if (expected === "Int" || expected === "Float") return null;
+        return "Number";
+      case "StringLiteral":
+        if (expected === "String") return null;
+        return "String";
+      case "BooleanLiteral":
+        if (expected === "Bool") return null;
+        return "Bool";
+      case "RecordLiteral":
+        if (elem.typeName === expected) return null;
+        return elem.typeName;
+      default:
+        // Can't statically check calls, identifiers, pipes — trust the user
+        return null;
+    }
   }
 }

@@ -6,7 +6,7 @@
 f:double x => mul(x, 2) @ "numbers"
 f:triple x => mul(x, 3) @ "numbers"
 f:square x => mul(x, x) @ "squares"
-f:negate x => mul(x, sub(0, 1)) @ "negated"
+f:negate x => mul(x, -1) @ "negated"
 f:is_even x => eq(mod(x, 2), 0) @ "checks"
 
 -- Calls: same destination
@@ -17,7 +17,7 @@ triple(4)
 square(3)
 square(5)
 negate(10)
-negate(sub(0, 4))
+negate(4)
 
 -- Calls: batch of even-checks
 is_even(2)
