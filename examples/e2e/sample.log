@@ -1,0 +1,14 @@
+INFO|2024-01-15T08:00:01Z|Server started on port 3000
+INFO|2024-01-15T08:00:02Z|Database connection established
+INFO|2024-01-15T08:01:10Z|Request received: GET /api/users
+ERROR|2024-01-15T08:01:11Z|Failed to authenticate: token expired
+INFO|2024-01-15T08:01:12Z|Request received: GET /api/health
+WARN|2024-01-15T08:01:55Z|Response time exceeded 500ms
+ERROR|2024-01-15T08:02:00Z|Database query timeout after 30s
+INFO|2024-01-15T08:02:01Z|Retrying database connection
+INFO|2024-01-15T08:02:03Z|Database reconnected
+WARN|2024-01-15T08:02:05Z|High memory usage: 87%
+INFO|2024-01-15T08:03:00Z|Processed 142 requests in window
+ERROR|2024-01-15T08:03:01Z|Disk write failed: no space left on device
+INFO|2024-01-15T08:03:02Z|Emergency cleanup started
+INFO|2024-01-15T08:03:10Z|Free space recovered: 2.1 GB

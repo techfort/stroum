@@ -1,6 +1,12 @@
 # Stroum Language Primer
 
-Stroum is a functional, pipe-first, stream-oriented language that transpiles to TypeScript. Programs are written as pipelines of transformations; side effects and branching are handled through named streams.
+Stroum is a stream-native, pipe-first language that transpiles to TypeScript. Streams, sources, and sinks are first-class language primitives — not library afterthoughts. You declare named streams, wire data sources into them, transform values through functional pipelines, and drain results through sinks. The result is programs that read as explicit dataflow graphs.
+
+**Core design philosophy:**
+- **Streams are the architecture.** Named streams are not an implementation detail — they are the connective tissue of a Stroum program. They carry types, accumulate metadata, and can be inspected at runtime.
+- **Transformation is functional and composable.** The `|>` pipe operator threads values through functions without mutation. Functions are pure; side effects are isolated to sinks and sources.
+- **No hidden wiring.** Every connection between a data source, a processing function, and a sink is declared explicitly. Reading a Stroum program is reading its dataflow.
+- **Tagged outcomes, not exceptions.** Functions return `.ok value` or `.error msg`; callers pattern-match the outcome. No try/catch, no nulls, no silent failures.
 
 ---
 
@@ -28,30 +34,52 @@ Stroum is a functional, pipe-first, stream-oriented language that transpiles to 
 
 ## 1. Module Structure
 
-Every Stroum file follows a strict top-to-bottom order:
+Every Stroum file is a dataflow declaration. Its sections appear top-to-bottom in this order:
 
 ```
-imports          (i:)
-definitions      (f:, s:, :bindings)
+imports              (i:)
+stream declarations  (stream:)
+struct definitions   (s:)
+function definitions (f:)
+bindings             (:)
+source declarations  (src:)
+sink declarations    (snk:)
 primary expressions
-stream handlers  (on, route)
+stream handlers      (on, route)
 ```
+
+Stream declarations name the streams of your program and assign types to them. Sources feed data in. Sinks drain data out. Everything in between — functions, pipes, routes — is pure transformation.
 
 There can be **multiple** primary expressions — each runs sequentially as the program entry point. Stream handlers are declared after all primary expressions.
 
 ```stroum
 -- imports
-i:"./utils.stm"
+i:io
 
--- definitions
+-- streams (named, typed)
+stream:raw     String
+stream:clean   Any
+stream:errors  String
+
+-- struct definitions
+s:Record { id: Int, body: String }
+
+-- function definitions
 f:double x => mul(x, 2)
+
+-- sources: wire data into streams
+src: @"raw" read_records("input.csv")
+
+-- sinks: drain streams to outputs
+snk: @"clean"  println
+snk: @"errors" |:e| => println(concat("[error] ", e))
 
 -- primary expressions (run the program, in order)
 double(21) |> println
-double(5) |> println
 
--- stream handlers
-on @"error" |> |:e| => println(e)
+-- stream handlers: transform and route
+route @"raw" |> parse_record
+on @"raw" |> |:v| => v @ "clean"
 ```
 
 ---
