@@ -1,0 +1,26 @@
+-- Demonstrates the three new source types: from_list, interval, stdin_lines
+i:io
+i:timer
+
+-- ── from_list: fan out a list as individual stream items ────────────────────
+stream:items Any
+
+src: @"items" from_list([10, 20, 30, 40, 50])
+route @"items" |> println
+
+-- ── interval: emit a tick counter every N milliseconds ─────────────────────
+stream:tick Any
+
+src: @"tick" interval(500)
+on @"tick" |> |:n:Any| =>
+  println("tick #{n}")
+
+run until timeout(2000)
+
+-- ── stdin_lines: read lines from stdin one at a time ────────────────────────
+-- Uncomment to use interactively (pipe text in or type, then Ctrl+D):
+--
+-- stream:line Any
+-- src: @"line" stdin_lines()
+-- route @"line" |> println
+-- run until signal

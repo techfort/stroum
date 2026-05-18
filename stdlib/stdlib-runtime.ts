@@ -633,6 +633,89 @@ export async function read_records(
   }
 }
 
+export async function from_list(
+  items: unknown[],
+  callback: (item: unknown) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
+  for (const item of items) {
+    if (signal?.aborted) break;
+    await callback(item);
+  }
+}
+
+export async function interval(
+  ms: number,
+  callback: (tick: number) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let tick = 0;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearInterval(id);
+      resolve();
+    };
+    const id = setInterval(async () => {
+      try {
+        await callback(tick++);
+      } catch (err) {
+        clearInterval(id);
+        reject(err);
+      }
+    }, ms);
+    signal?.addEventListener("abort", finish, { once: true });
+  });
+}
+
+export async function stdin_lines(
+  callback: (line: string) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let buffer = "";
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      process.stdin.off("data", onData);
+      process.stdin.off("end", onEnd);
+      process.stdin.off("error", onError);
+      resolve();
+    };
+    const onData = async (chunk: Buffer) => {
+      buffer += chunk.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (settled) break;
+        try {
+          await callback(line);
+        } catch (err) {
+          finish();
+          reject(err);
+          return;
+        }
+      }
+    };
+    const onEnd = () => {
+      if (buffer.length > 0 && !settled) {
+        callback(buffer).then(finish).catch((err) => { finish(); reject(err); });
+      } else {
+        finish();
+      }
+    };
+    const onError = (err: Error) => { finish(); reject(err); };
+    process.stdin.on("data", onData);
+    process.stdin.on("end", onEnd);
+    process.stdin.on("error", onError);
+    process.stdin.resume();
+    signal?.addEventListener("abort", finish, { once: true });
+  });
+}
+
 // ============================================================================
 // Stream Metadata (core runtime)
 // ============================================================================
