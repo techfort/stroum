@@ -7,8 +7,8 @@ i:"./enrich.stm"
 
 wire: @"triage.valid" -> @"enrich.input"
 
-to: @"triage.invalid" println
-to: @"enrich.output"  println
+snk: @"triage.invalid" println
+snk: @"enrich.output"  println
 
 src: @"triage.events" "hello world"
 src: @"triage.events" "error: something went wrong"

@@ -613,6 +613,34 @@ export const path_dirname = __builtin_path_dirname;
 export const path_ext = __builtin_path_ext;
 export const watch_file = __builtin_watch_file;
 
+export async function read_records(
+  path: string,
+  separatorOrCb: string | ((r: string) => Promise<void>),
+  cbOrSignal?: ((r: string) => Promise<void>) | AbortSignal,
+  signal?: AbortSignal,
+): Promise<void> {
+  const sep = typeof separatorOrCb === "string" ? separatorOrCb : "\n";
+  const callback = typeof separatorOrCb === "function"
+    ? separatorOrCb
+    : (cbOrSignal as (r: string) => Promise<void>);
+  const abort = typeof separatorOrCb === "function"
+    ? (cbOrSignal as AbortSignal | undefined)
+    : signal;
+  const content = _fs.readFileSync(path, "utf-8");
+  for (const record of content.split(sep).filter((r) => r.length > 0)) {
+    if (abort?.aborted) break;
+    await callback(record);
+  }
+}
+
+// ============================================================================
+// Stream Metadata (core runtime)
+// ============================================================================
+
+export function stream_info(name: string) {
+  return __router.getStreamInfo(name);
+}
+
 // ============================================================================
 // Process Operations (available via i:process)
 // ============================================================================

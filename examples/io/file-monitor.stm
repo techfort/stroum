@@ -15,18 +15,18 @@ i:timer
 :log_file "examples/io/change-log.txt"
 
 src: @"change"    watch_file(watched_file)
-to:  @"log_entry" file_sink(log_file)
+snk: @"log_entry" file_sink(log_file)
 
 -- Build a timestamped log entry from the raw content
-f:format_entry content =>
+f:format_entry content:String -> String =>
   "[#{timestamp()}]\n#{content}\n---\n"
 
 -- Speak a notification via Windows TTS (WSL-compatible)
-f:notify_speech msg =>
+f:notify_speech msg:String -> Void =>
   exec("powershell.exe -NoProfile -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('#{msg}')\"")
 
 -- Format the raw change, emit the result to @"log_entry", then notify
-f:handle_change content =>
+f:handle_change content:String -> Void =>
   format_entry(content) @ "log_entry"
   notify_speech("change detected")
   println("[monitor] change logged at #{timestamp()}")

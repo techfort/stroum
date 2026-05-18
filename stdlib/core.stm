@@ -7,98 +7,104 @@
 -- Arithmetic Operations
 -- ============================================================================
 
-f:add a b => __builtin_add(a, b)
-f:sub a b => __builtin_sub(a, b)
-f:mul a b => __builtin_mul(a, b)
-f:div a b => __builtin_div(a, b)
-f:mod a b => __builtin_mod(a, b)
-f:pow a b => __builtin_pow(a, b)
-f:abs n => __builtin_abs(n)
-f:min a b => __builtin_min(a, b)
-f:max a b => __builtin_max(a, b)
+f:add a:Float b:Float -> Float => __builtin_add(a, b)
+f:sub a:Float b:Float -> Float => __builtin_sub(a, b)
+f:mul a:Float b:Float -> Float => __builtin_mul(a, b)
+f:div a:Float b:Float -> Float => __builtin_div(a, b)
+f:mod a:Float b:Float -> Float => __builtin_mod(a, b)
+f:pow a:Float b:Float -> Float => __builtin_pow(a, b)
+f:abs n:Float -> Float => __builtin_abs(n)
+f:min a:Float b:Float -> Float => __builtin_min(a, b)
+f:max a:Float b:Float -> Float => __builtin_max(a, b)
 
 -- ============================================================================
 -- Comparison Operations
 -- ============================================================================
 
-f:eq a b => __builtin_eq(a, b)
-f:neq a b => __builtin_neq(a, b)
-f:gt a b => __builtin_gt(a, b)
-f:gte a b => __builtin_gte(a, b)
-f:lt a b => __builtin_lt(a, b)
-f:lte a b => __builtin_lte(a, b)
+f:eq a:Any b:Any -> Bool => __builtin_eq(a, b)
+f:neq a:Any b:Any -> Bool => __builtin_neq(a, b)
+f:gt a:Any b:Any -> Bool => __builtin_gt(a, b)
+f:gte a:Any b:Any -> Bool => __builtin_gte(a, b)
+f:lt a:Any b:Any -> Bool => __builtin_lt(a, b)
+f:lte a:Any b:Any -> Bool => __builtin_lte(a, b)
 
 -- ============================================================================
 -- Logic Operations
 -- ============================================================================
 
-f:and a b => __builtin_and(a, b)
-f:or a b => __builtin_or(a, b)
-f:not a => __builtin_not(a)
+f:and a:Bool b:Bool -> Bool => __builtin_and(a, b)
+f:or a:Bool b:Bool -> Bool => __builtin_or(a, b)
+f:not a:Bool -> Bool => __builtin_not(a)
 
 -- ============================================================================
 -- String Operations
 -- ============================================================================
 
-f:concat a b => __builtin_concat(a, b)
-f:length s => __builtin_length(s)
-f:upper s => __builtin_upper(s)
-f:lower s => __builtin_lower(s)
-f:trim s => __builtin_trim(s)
-f:split s delim => __builtin_split(s, delim)
-f:join arr delim => __builtin_join(arr, delim)
-f:starts_with s prefix => __builtin_starts_with(s, prefix)
-f:ends_with s suffix => __builtin_ends_with(s, suffix)
-f:contains s substr => __builtin_contains(s, substr)
+f:concat a:String b:String -> String => __builtin_concat(a, b)
+f:length s:String -> Int => __builtin_length(s)
+f:upper s:String -> String => __builtin_upper(s)
+f:lower s:String -> String => __builtin_lower(s)
+f:trim s:String -> String => __builtin_trim(s)
+f:split s:String delim:String -> Any => __builtin_split(s, delim)
+f:join arr:Any delim:String -> String => __builtin_join(arr, delim)
+f:starts_with s:String prefix:String -> Bool => __builtin_starts_with(s, prefix)
+f:ends_with s:String suffix:String -> Bool => __builtin_ends_with(s, suffix)
+f:contains s:String substr:String -> Bool => __builtin_contains(s, substr)
 
 -- ============================================================================
 -- List Operations
 -- ============================================================================
 
-f:map fn list => __builtin_map(fn, list)
-f:filter fn list => __builtin_filter(fn, list)
-f:reduce fn init list => __builtin_reduce(fn, init, list)
-f:head list => __builtin_head(list)
-f:tail list => __builtin_tail(list)
-f:take n list => __builtin_take(n, list)
-f:drop n list => __builtin_drop(n, list)
-f:reverse list => __builtin_reverse(list)
-f:sort list => __builtin_sort(list)
-f:is_empty list => __builtin_is_empty(list)
+f:map fn:Fn list:Any -> Any => __builtin_map(fn, list)
+f:filter fn:Fn list:Any -> Any => __builtin_filter(fn, list)
+f:reduce fn:Fn init:Any list:Any -> Any => __builtin_reduce(fn, init, list)
+f:head list:Any -> Any => __builtin_head(list)
+f:tail list:Any -> Any => __builtin_tail(list)
+f:take n:Int list:Any -> Any => __builtin_take(n, list)
+f:drop n:Int list:Any -> Any => __builtin_drop(n, list)
+f:reverse list:Any -> Any => __builtin_reverse(list)
+f:sort list:Any -> Any => __builtin_sort(list)
+f:is_empty list:Any -> Bool => __builtin_is_empty(list)
 
 -- ============================================================================
 -- I/O Operations
 -- ============================================================================
 
-f:print value => __builtin_print(value)
-f:println value => __builtin_println(value)
-f:stdout value => __builtin_println(value)
-f:null_sink value => __builtin_null_sink(value)
-f:log_sink prefix => __builtin_log_sink(prefix)
-f:debug value label => __builtin_debug(value, label)
-f:trace message => __builtin_trace(message)
+f:print value:Any -> Void => __builtin_print(value)
+f:println value:Any -> Void => __builtin_println(value)
+f:stdout value:Any -> Void => __builtin_println(value)
+f:null_sink value:Any -> Void => __builtin_null_sink(value)
+f:log_sink prefix:String -> Any => __builtin_log_sink(prefix)
+f:debug value:Any label:String -> Any => __builtin_debug(value, label)
+f:trace message:String -> Void => __builtin_trace(message)
 
 -- ============================================================================
 -- Type Conversion
 -- ============================================================================
 
-f:to_string value => __builtin_to_string(value)
-f:to_int value => __builtin_to_int(value)
-f:to_float value => __builtin_to_float(value)
+f:to_string value:Any -> String => __builtin_to_string(value)
+f:to_int value:Any -> Int => __builtin_to_int(value)
+f:to_float value:Any -> Float => __builtin_to_float(value)
 
 -- ============================================================================
 -- Error Handling
 -- ============================================================================
 
-f:error message => __builtin_error(message)
-f:try_catch fn fallback => __builtin_try_catch(fn, fallback)
+f:error message:String -> Any => __builtin_error(message)
+f:try_catch fn:Fn fallback:Any -> Any => __builtin_try_catch(fn, fallback)
+
+-- ============================================================================
+-- Stream Metadata (always available — no import needed)
+-- ============================================================================
+
+f:stream_info name:String -> Any => stream_info(name)
 
 -- ============================================================================
 -- Test Assertions (always available — no import needed)
 -- ============================================================================
 
-f:assert condition => assert(condition)
-f:assert_eq left right => assert_eq(left, right)
-f:assert_neq left right => assert_neq(left, right)
-f:assert_contains collection item => assert_contains(collection, item)
-f:assert_raises fn => assert_raises(fn)
+f:assert condition:Bool -> Void => assert(condition)
+f:assert_eq left:Any right:Any -> Void => assert_eq(left, right)
+f:assert_neq left:Any right:Any -> Void => assert_neq(left, right)
+f:assert_contains collection:Any item:Any -> Void => assert_contains(collection, item)
+f:assert_raises fn:Fn -> Void => assert_raises(fn)

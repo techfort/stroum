@@ -57,29 +57,29 @@ describe("Transpiler", () => {
     });
 
     it("should transpile field access with dot syntax", () => {
-      const output = transpile("f:is_adult user => gt(user.age, 18)");
+      const output = transpile("f:is_adult user:Any -> Bool => gt(user.age, 18)");
       expect(output).toContain("await gt((user).age, 18)");
     });
   });
 
   describe("functions", () => {
     it("should transpile simple function", () => {
-      const output = transpile("f:double n => multiply(n, 2)");
-      expect(output).toContain("async function double(n)");
+      const output = transpile("f:double n:Int -> Int => multiply(n, 2)");
+      expect(output).toContain("async function double(n: number): Promise<number>");
       expect(output).toContain("await multiply(n, 2)");
     });
 
     it("should transpile function with multiple params", () => {
-      const output = transpile("f:add a b => plus(a, b)");
-      expect(output).toContain("async function add(a, b)");
+      const output = transpile("f:add a:Any b:Any -> Any => plus(a, b)");
+      expect(output).toContain("async function add(a: any, b: any): Promise<any>");
       expect(output).toContain("await plus(a, b)");
     });
 
     it("should transpile recursive function", () => {
       const output = transpile(
-        "rec f:factorial n => multiply(n, factorial(n))",
+        "rec f:factorial n:Int -> Int => multiply(n, factorial(n))",
       );
-      expect(output).toContain("async function factorial(n)");
+      expect(output).toContain("async function factorial(n: number): Promise<number>");
       expect(output).toContain("await factorial(n)");
     });
   });
@@ -99,12 +99,12 @@ describe("Transpiler", () => {
 
   describe("tagged expressions", () => {
     it("should transpile tagged expression producer with identifier tag", () => {
-      const output = transpile("f:wrap x => .ok x");
+      const output = transpile("f:wrap x:Any -> Any => .ok x");
       expect(output).toContain('{ outcome: "ok", value: x }');
     });
 
     it("should transpile tagged expression producer with string literal tag", () => {
-      const output = transpile('f:wrap x => ."just right" x');
+      const output = transpile('f:wrap x:Any -> Any => ."just right" x');
       expect(output).toContain('{ outcome: "just right", value: x }');
     });
 
@@ -127,7 +127,7 @@ describe("Transpiler", () => {
     });
 
     it("should transpile outcome match with lambda handler that emits to stream", () => {
-      const output = transpile('process(x)\n| .ok => |:u| => u @ "result"');
+      const output = transpile('process(x)\n| .ok => |:u:Any| => u @ "result"');
       expect(output).toContain('__value.outcome === "ok"');
       expect(output).toContain("const __inner = __value.value");
       // Lambda must be called with __inner; its return value is emitted — not the lambda itself
@@ -168,9 +168,9 @@ describe("Transpiler", () => {
 
     it("should transpile pipe in function", () => {
       const output = transpile(
-        "f:process data => data |> transform |> validate",
+        "f:process data:Any -> Any => data |> transform |> validate",
       );
-      expect(output).toContain("async function process(data)");
+      expect(output).toContain("async function process(data: any): Promise<any>");
       expect(output).toContain("await validate(await transform(data))");
     });
   });
@@ -192,14 +192,14 @@ describe("Transpiler", () => {
 
   describe("lambdas", () => {
     it("should transpile lambda", () => {
-      const output = transpile("map(nums, |:n| => add(n, 1))");
-      expect(output).toContain("async (n) =>");
+      const output = transpile("map(nums, |:n:Int| => add(n, 1))");
+      expect(output).toContain("async (n: number) =>");
       expect(output).toContain("await add(n, 1)");
     });
 
     it("should transpile lambda with multiple params", () => {
-      const output = transpile("fold(nums, 0, |:acc, :v| => add(acc, v))");
-      expect(output).toContain("async (acc, v) =>");
+      const output = transpile("fold(nums, 0, |:acc:Int, :v:Int| => add(acc, v))");
+      expect(output).toContain("async (acc: number, v: number) =>");
     });
   });
 
@@ -207,10 +207,10 @@ describe("Transpiler", () => {
     it("should transpile on handler", () => {
       const source = `data |> process @"result"
 
-on @"errors" |> |:e| => log(e)`;
+on @"errors" |> |:e:Any| => log(e)`;
       const output = transpile(source);
       expect(output).toContain('__router.on("errors"');
-      expect(output).toContain("async (e) =>");
+      expect(output).toContain("async (e: any) =>");
     });
   });
 
@@ -232,7 +232,7 @@ on @"errors" |> |:e| => log(e)`;
     });
 
     it("should transpile route and on handler together", () => {
-      const source = `op1()\n\nroute @"ok" |> process\non @"fail" |> |:x| => rescue(x)`;
+      const source = `op1()\n\nroute @"ok" |> process\non @"fail" |> |:x:Any| => rescue(x)`;
       const output = transpile(source);
       expect(output).toContain('__router.on("ok"');
       expect(output).toContain('__router.on("fail"');
@@ -248,21 +248,21 @@ on @"errors" |> |:e| => log(e)`;
     });
 
     it("should transpile to declaration as a generated stream sink", () => {
-      const output = transpile('to: @"orders.clean" persist_order');
+      const output = transpile('snk: @"orders.clean" persist_order');
       expect(output).toContain(
         '__router.on("orders.clean", async (__sinkValue) => { await persist_order(__sinkValue); });',
       );
     });
 
     it("should transpile to declaration with a built-in stdout sink alias", () => {
-      const output = transpile('to: @"orders.clean" stdout');
+      const output = transpile('snk: @"orders.clean" stdout');
       expect(output).toContain(
         '__router.on("orders.clean", async (__sinkValue) => { await stdout(__sinkValue); });',
       );
     });
 
     it("should transpile to declaration with placeholder call", () => {
-      const output = transpile('to: @"audit" append_file("audit.log", _)');
+      const output = transpile('snk: @"audit" append_file("audit.log", _)');
       expect(output).toContain(
         '__router.on("audit", async (__sinkValue) => { await append_file("audit.log", __sinkValue); });',
       );
@@ -270,7 +270,7 @@ on @"errors" |> |:e| => log(e)`;
 
     it("should transpile to declaration with a sink-oriented stdlib alias", () => {
       const output = transpile(
-        'i:io\nto: @"audit" jsonl_file("audit.jsonl", _)',
+        'i:io\nsnk: @"audit" jsonl_file("audit.jsonl", _)',
       );
       expect(output).toContain(
         '__router.on("audit", async (__sinkValue) => { await jsonl_file("audit.jsonl", __sinkValue); });',
@@ -278,7 +278,7 @@ on @"errors" |> |:e| => log(e)`;
     });
 
     it("should transpile file_sink to declaration as a sink factory call", () => {
-      const output = transpile('i:io\nto: @"log_entry" file_sink("app.log")');
+      const output = transpile('i:io\nsnk: @"log_entry" file_sink("app.log")');
       expect(output).toContain(
         '__router.on("log_entry", async (__sinkValue) => { await (file_sink("app.log"))(__sinkValue); });',
       );
@@ -286,7 +286,7 @@ on @"errors" |> |:e| => log(e)`;
 
     it("should transpile jsonl_sink to declaration as a sink factory call", () => {
       const output = transpile(
-        'i:io\nto: @"events" jsonl_sink("events.jsonl")',
+        'i:io\nsnk: @"events" jsonl_sink("events.jsonl")',
       );
       expect(output).toContain(
         '__router.on("events", async (__sinkValue) => { await (jsonl_sink("events.jsonl"))(__sinkValue); });',
@@ -294,14 +294,14 @@ on @"errors" |> |:e| => log(e)`;
     });
 
     it("should transpile log_sink to declaration as a sink factory call", () => {
-      const output = transpile('to: @"debug" log_sink("app")');
+      const output = transpile('snk: @"debug" log_sink("app")');
       expect(output).toContain(
         '__router.on("debug", async (__sinkValue) => { await (log_sink("app"))(__sinkValue); });',
       );
     });
 
     it("should transpile null_sink to declaration as an identifier sink", () => {
-      const output = transpile('to: @"discard" null_sink');
+      const output = transpile('snk: @"discard" null_sink');
       expect(output).toContain(
         '__router.on("discard", async (__sinkValue) => { await null_sink(__sinkValue); });',
       );
@@ -309,7 +309,7 @@ on @"errors" |> |:e| => log(e)`;
 
     it("should transpile http_sink to declaration as a sink factory call", () => {
       const output = transpile(
-        'i:io\nto: @"events" http_sink("https://api.example.com/ingest")',
+        'i:io\nsnk: @"events" http_sink("https://api.example.com/ingest")',
       );
       expect(output).toContain(
         '__router.on("events", async (__sinkValue) => { await (http_sink("https://api.example.com/ingest"))(__sinkValue); });',
@@ -363,23 +363,23 @@ on @"errors" |> |:e| => log(e)`;
 
   describe("complete programs", () => {
     it("should transpile simple program", () => {
-      const source = `f:double n => multiply(n, 2)
+      const source = `f:double n:Int -> Int => multiply(n, 2)
 
 double(5)`;
       const output = transpile(source);
-      expect(output).toContain("async function double(n)");
+      expect(output).toContain("async function double(n: number): Promise<number>");
       expect(output).toContain("// Main program");
       expect(output).toContain("await double(5)");
     });
 
     it("should transpile program with outcome matches", () => {
-      const source = `f:fetch url =>
+      const source = `f:fetch url:String -> Any =>
   http_get(url) @"ok"
   | .error => @"fail"
 
 fetch("api.com")`;
       const output = transpile(source);
-      expect(output).toContain("async function fetch(url)");
+      expect(output).toContain("async function fetch(url: string): Promise<any>");
       expect(output).toContain('__value.outcome === "error"');
     });
 
@@ -389,12 +389,12 @@ fetch("api.com")`;
   age: Int
 }
 
-f:create_user name age => User {name: name, age: age}
+f:create_user name:String age:Int -> User => User {name: name, age: age}
 
 create_user("Alice", 30)`;
       const output = transpile(source);
       expect(output).toContain("interface User");
-      expect(output).toContain("async function create_user");
+      expect(output).toContain("async function create_user(name: string, age: number): Promise<User>");
       expect(output).toContain('await create_user("Alice", 30)');
     });
   });

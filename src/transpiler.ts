@@ -36,7 +36,7 @@ export class Transpiler {
     // Auto-import stdlib functions (unless --no-stdlib was used)
     if (this.stdlibPath) {
       this.emit(
-        `import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises } from './stdlib-runtime';`,
+        `import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises, stream_info } from './stdlib-runtime';`,
       );
     }
 
@@ -73,6 +73,7 @@ export class Transpiler {
 
     // Transpile main program
     if (
+      module.streamDeclarations.length > 0 ||
       module.wireDeclarations.length > 0 ||
       module.sourceDeclarations.length > 0 ||
       module.sinkDeclarations.length > 0 ||
@@ -86,6 +87,11 @@ export class Transpiler {
       this.emit("(async () => {");
       this.indent++;
       this.emit("const __sourceTasks: Promise<any>[] = [];");
+
+      // Declare typed streams first so metadata is available before any emissions
+      for (const streamDecl of module.streamDeclarations) {
+        this.emit(`__router.declareStream(${JSON.stringify(streamDecl.name)}, ${JSON.stringify(streamDecl.valueType)});`);
+      }
 
       // Register wire relays before other handlers
       for (const wireDecl of module.wireDeclarations) {
@@ -245,6 +251,7 @@ export class Transpiler {
             "path_dirname",
             "path_ext",
             "watch_file",
+            "read_records",
           ],
           process: [
             "exec",
@@ -352,12 +359,34 @@ export class Transpiler {
     return `{ fn: null, args: {} }`;
   }
 
-  private transpileFunctionDeclaration(func: AST.FunctionDeclaration): void {
-    const params = func.params.join(", ");
-    const asyncMark = "async ";
+  private stroumTypeToTs(t: string): string {
+    switch (t) {
+      case "Int":
+      case "Float":
+        return "number";
+      case "String":
+        return "string";
+      case "Bool":
+        return "boolean";
+      case "Void":
+        return "void";
+      case "Fn":
+        return "Function";
+      case "Any":
+        return "any";
+      default:
+        return t; // struct names, type vars — pass through
+    }
+  }
 
-    // Export all functions so they can be imported by other modules
-    this.emit(`export ${asyncMark}function ${func.name}(${params}) {`, func.location);
+  private transpileFunctionDeclaration(func: AST.FunctionDeclaration): void {
+    const params = func.params
+      .map((p, i) => `${p}: ${this.stroumTypeToTs(func.paramTypes[i])}`)
+      .join(", ");
+    const retTs = this.stroumTypeToTs(func.returnType);
+    const retAnnotation = retTs === "void" ? ": Promise<void>" : `: Promise<${retTs}>`;
+
+    this.emit(`export async function ${func.name}(${params})${retAnnotation} {`, func.location);
     this.indent++;
 
     this.currentFn = { name: func.name, params: func.params };
@@ -469,7 +498,11 @@ export class Transpiler {
   private transpileFieldAccessExpression(
     access: AST.FieldAccessExpression,
   ): string {
-    return `(${this.transpileExpression(access.receiver)}).${access.field}`;
+    const receiver = this.transpileExpression(access.receiver);
+    if (access.dynamic) {
+      return `(${receiver})["${access.field}"]`;
+    }
+    return `(${receiver}).${access.field}`;
   }
 
   private transpilePipeExpression(pipe: AST.PipeExpression): string {
@@ -618,7 +651,9 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
   }
 
   private transpileLambda(lambda: AST.Lambda): string {
-    const params = lambda.params.join(", ");
+    const params = lambda.params
+      .map((p, i) => `${p}: ${this.stroumTypeToTs(lambda.paramTypes[i])}`)
+      .join(", ");
     const body = this.transpileExpression(lambda.body);
     return `async (${params}) => ${body}`;
   }
@@ -829,7 +864,7 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
   }
 
   private isCallbackSource(callee: string): boolean {
-    return new Set(["watch_file"]).has(callee);
+    return new Set(["watch_file", "read_records"]).has(callee);
   }
 
   private isSinkFactory(callee: string): boolean {

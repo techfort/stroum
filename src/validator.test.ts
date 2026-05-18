@@ -14,7 +14,7 @@ function validate(source: string) {
 describe("Validator", () => {
   describe("duplicate bindings", () => {
     it("should error on duplicate function names", () => {
-      const issues = validate("f:foo => 1\nf:foo => 2");
+      const issues = validate("f:foo -> Int => 1\nf:foo -> Int => 2");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].message).toContain("Duplicate binding");
@@ -28,7 +28,7 @@ describe("Validator", () => {
     });
 
     it("should error on duplicate function parameters", () => {
-      const issues = validate("f:foo x x => add(x, x)");
+      const issues = validate("f:foo x:Int x:Int -> Int => add(x, x)");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].message).toContain("Duplicate parameter");
@@ -46,7 +46,7 @@ describe("Validator", () => {
     });
 
     it("should allow same name in different scopes", () => {
-      const issues = validate("f:foo x => |:x| => x");
+      const issues = validate("f:foo x:Any -> Any => |:x:Any| => x");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
@@ -54,14 +54,14 @@ describe("Validator", () => {
 
   describe("rec validation", () => {
     it("should warn when rec is used without self-reference", () => {
-      const issues = validate("rec f:foo n => add(n, 1)");
+      const issues = validate("rec f:foo n:Int -> Int => add(n, 1)");
       const warnings = issues.filter((i) => i.type === "warning");
       expect(warnings.length).toBeGreaterThan(0);
       expect(warnings[0].message).toContain("does not reference itself");
     });
 
     it("should not warn when rec is used with self-reference", () => {
-      const issues = validate("rec f:factorial n => multiply(n, factorial(n))");
+      const issues = validate("rec f:factorial n:Int -> Int => multiply(n, factorial(n))");
       const warnings = issues.filter(
         (i) =>
           i.type === "warning" &&
@@ -72,7 +72,7 @@ describe("Validator", () => {
 
     it("should detect self-reference in pipe chains", () => {
       const issues = validate(
-        "rec f:process data => data |> transform |> process",
+        "rec f:process data:Any -> Any => data |> transform |> process",
       );
       const warnings = issues.filter(
         (i) =>
@@ -85,7 +85,7 @@ describe("Validator", () => {
 
   describe("emission contract validation", () => {
     it("should warn when multiple outcomes without contract", () => {
-      const source = `f:fetch url =>
+      const source = `f:fetch url:String -> Any =>
   http_get(url) @"ok"
   | .error => @"fail"`;
       const issues = validate(source);
@@ -96,7 +96,7 @@ describe("Validator", () => {
     });
 
     it("should not warn when emission contract is declared", () => {
-      const source = `f:fetch url ~> @"ok", @"fail" =>
+      const source = `f:fetch url:String -> Any ~> @"ok", @"fail" =>
   http_get(url) @"ok"
   | .error => @"fail"`;
       const issues = validate(source);
@@ -107,7 +107,7 @@ describe("Validator", () => {
     });
 
     it("should not warn for single outcome", () => {
-      const issues = validate('f:double n => multiply(n, 2) @"result"');
+      const issues = validate('f:double n:Int -> Int => multiply(n, 2) @"result"');
       const warnings = issues.filter(
         (i) => i.type === "warning" && i.message.includes("outcome paths"),
       );
@@ -117,14 +117,14 @@ describe("Validator", () => {
 
   describe("stream declaration validation", () => {
     it("should error on invalid stream names in contract", () => {
-      const issues = validate('f:foo ~> @"123invalid", @"ok" => result @"ok"');
+      const issues = validate('f:foo -> Any ~> @"123invalid", @"ok" => result @"ok"');
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].message).toContain("string literal");
     });
 
     it("should accept valid stream names", () => {
-      const issues = validate('f:foo ~> @"ok", @"error" => result @"ok"');
+      const issues = validate('f:foo -> Any ~> @"ok", @"error" => result @"ok"');
       const errors = issues.filter(
         (i) => i.type === "error" && i.message.includes("string literal"),
       );
@@ -161,7 +161,7 @@ describe("Validator", () => {
 
     it("should validate to declarations without introducing liveness warnings", () => {
       const issues = validate(
-        'f:persist_order order => order\nto: @"orders.clean" persist_order',
+        'f:persist_order order:Any -> Any => order\nsnk: @"orders.clean" persist_order',
       );
       const errors = issues.filter((i) => i.type === "error");
       const warnings = issues.filter(
@@ -175,19 +175,19 @@ describe("Validator", () => {
 
   describe("complex validation", () => {
     it("should validate field access receiver names in expressions", () => {
-      const issues = validate("f:is_adult user => gt(user.age, 18)");
+      const issues = validate("f:is_adult user:Any -> Bool => gt(user.age, 18)");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
     it("should allow a function body binding to be referenced by later statements", () => {
-      const source = `f:check_positive x =>
+      const source = `f:check_positive x:Any -> Any =>
   if gt(x, 0) then
     x @ "positive"
   else
     x @ "non-positive"
 
-f:main =>
+f:main -> Void =>
   :nums [1, -2, 3, 0]
   map(check_positive, nums)`;
 
@@ -198,28 +198,28 @@ f:main =>
 
     it("should validate complete program with no errors", () => {
       const source = `-- Define helper functions used in this test
-f:json_parse raw => raw
-f:normalise data => data
-f:validate data => data
-f:merge a => a
-f:fetch url => url
-f:log msg => msg
+f:json_parse raw:Any -> Any => raw
+f:normalise data:Any -> Any => data
+f:validate data:Any -> Any => data
+f:merge a:Any -> Any => a
+f:fetch url:String -> Any => url
+f:log msg:Any -> Void => msg
 
 -- Define bindings used in expressions
 :primary "url1"
 :secondary "url2"
 
-f:parse raw ~> @"ok", @"fail" =>
+f:parse raw:Any -> Any ~> @"ok", @"fail" =>
   json_parse(raw) @"ok"
   | .fail => @"fail"
 
-f:transform data ~> @"clean", @"rejected" =>
+f:transform data:Any -> Any ~> @"clean", @"rejected" =>
   data |> normalise |> validate @"clean"
   | .invalid => @"rejected"
 
 fetch(primary) PP fetch(secondary) |> merge @"data"
 
-on @"errors" |> |:e| => log(e)`;
+on @"errors" |> |:e:Any| => log(e)`;
 
       const issues = validate(source);
       const errors = issues.filter((i) => i.type === "error");
@@ -227,10 +227,10 @@ on @"errors" |> |:e| => log(e)`;
     });
 
     it("should catch multiple issues in one program", () => {
-      const source = `f:foo => 1
-f:foo => 2
-rec f:bar x => add(x, 1)
-f:baz y =>
+      const source = `f:foo -> Int => 1
+f:foo -> Int => 2
+rec f:bar x:Int -> Int => add(x, 1)
+f:baz y:Any -> Any =>
   result @"ok"
   | .error => @"fail"`;
 
@@ -245,19 +245,19 @@ f:baz y =>
 
   describe("scope handling", () => {
     it("should track function parameter scope", () => {
-      const issues = validate("f:apply fn x => fn(x)");
+      const issues = validate("f:apply fn:Fn x:Any -> Any => fn(x)");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
     it("should track lambda parameter scope", () => {
-      const issues = validate(":nums [1, 2, 3]\nmap(nums, |:n| => add(n, 1))");
+      const issues = validate(":nums [1, 2, 3]\nmap(nums, |:n:Int| => add(n, 1))");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
 
     it("should handle nested lambdas", () => {
-      const issues = validate("f:curry fn => |:x| => |:y| => fn(x, y)");
+      const issues = validate("f:curry fn:Fn -> Any => |:x:Any| => |:y:Any| => fn(x, y)");
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
@@ -265,7 +265,7 @@ f:baz y =>
 
   describe("string interpolation", () => {
     it("should pass when interpolated identifiers are defined", () => {
-      const issues = validate('f:greet name => "Hello #{name}"');
+      const issues = validate('f:greet name:String -> String => "Hello #{name}"');
       const errors = issues.filter((i) => i.type === "error");
       expect(errors.length).toBe(0);
     });
