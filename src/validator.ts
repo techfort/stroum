@@ -20,6 +20,7 @@ export type ValidationIssue = ValidationError | ValidationWarning;
 interface ImportedScope {
   modulePath: string;
   functions: Set<string>; // Available function names
+  arities: Map<string, number>; // arity per function (user imports only)
   alias: string | null; // For qualified access
 }
 
@@ -27,6 +28,7 @@ export class Validator {
   private errors: ValidationError[] = [];
   private warnings: ValidationWarning[] = [];
   private moduleBindings: Set<string> = new Set();
+  private functionArities: Map<string, number> = new Map();
   private currentScope: Set<string> = new Set();
   private declaredStreams: Set<string> = new Set();
   private currentFunctionName: string | null = null;
@@ -44,6 +46,7 @@ export class Validator {
     this.errors = [];
     this.warnings = [];
     this.moduleBindings.clear();
+    this.functionArities.clear();
     this.currentScope.clear();
     this.declaredStreams.clear();
     this.imports = [];
@@ -54,10 +57,11 @@ export class Validator {
       this.processImport(importDecl);
     }
 
-    // First pass: collect all module-level bindings
+    // First pass: collect all module-level bindings and arities
     for (const def of module.definitions) {
       if (def.type === "FunctionDeclaration") {
         this.addModuleBinding(def.name, def.location);
+        this.functionArities.set(def.name, def.params.length);
       } else if (def.type === "BindingDeclaration") {
         this.addModuleBinding(def.name, def.location);
       }
@@ -162,6 +166,7 @@ export class Validator {
       "watch_dir",
       "interval",
       "stdin_lines",
+      "http_poll",
       "http_server",
       "kafka",
       "timer",
@@ -169,6 +174,10 @@ export class Validator {
       "websocket",
       "redis_stream",
     ]).has(source.callee);
+  }
+
+  private isStdlibModule(modulePath: string): boolean {
+    return new Set(["core", "io", "timer", "process", "formats"]).has(modulePath);
   }
 
   private processImport(importDecl: AST.ImportDeclaration): void {
@@ -180,22 +189,25 @@ export class Validator {
 
       const resolved = this.moduleResolver.loadModule(resolvedPath);
       const functions = new Set<string>();
+      // Collect arities for user imports only; stdlib may have TS-level overloads
+      const arities = new Map<string, number>();
+      const trackArities = !this.isStdlibModule(importDecl.modulePath);
 
       // If selective imports, only add those functions
       if (importDecl.imports) {
         for (const funcName of importDecl.imports) {
-          // Check if function exists in the module
-          const exists = resolved.module.definitions.some(
+          const decl = resolved.module.definitions.find(
             (def) =>
               def.type === "FunctionDeclaration" && def.name === funcName,
-          );
-          if (!exists) {
+          ) as AST.FunctionDeclaration | undefined;
+          if (!decl) {
             this.addError(
               `Function '${funcName}' not found in module '${importDecl.modulePath}'`,
               importDecl.location,
             );
           } else {
             functions.add(funcName);
+            if (trackArities) arities.set(funcName, decl.params.length);
           }
         }
       } else {
@@ -203,6 +215,7 @@ export class Validator {
         for (const def of resolved.module.definitions) {
           if (def.type === "FunctionDeclaration") {
             functions.add(def.name);
+            if (trackArities) arities.set(def.name, def.params.length);
           }
         }
       }
@@ -210,6 +223,7 @@ export class Validator {
       this.imports.push({
         modulePath: importDecl.modulePath,
         functions,
+        arities,
         alias: importDecl.alias,
       });
     } catch (error) {
@@ -218,6 +232,24 @@ export class Validator {
         importDecl.location,
       );
     }
+  }
+
+  private getExpectedArity(name: string): number | null {
+    // Skip builtins — TypeScript-level, arity not tracked in Stroum
+    if (name.startsWith("__builtin_") || name.startsWith("__formats_")) return null;
+
+    // Local user-defined functions
+    const local = this.functionArities.get(name);
+    if (local !== undefined) return local;
+
+    // User-imported module functions (non-stdlib only)
+    for (const imported of this.imports) {
+      const importedArity = imported.arities.get(name);
+      if (!imported.alias && importedArity !== undefined) return importedArity;
+    }
+
+    // Unknown (stdlib or unresolved) — don't check
+    return null;
   }
 
   private isFunctionAvailable(name: string): boolean {
@@ -481,6 +513,15 @@ export class Validator {
             this.addError(
               `Undefined function: '${callee}'. ` +
                 `Function is not defined locally, imported, or available in stdlib.`,
+              expr.location,
+            );
+          }
+
+          // Arity check (user-defined and user-imported functions only)
+          const expectedArity = this.getExpectedArity(callee);
+          if (expectedArity !== null && expr.args.length !== expectedArity) {
+            this.addError(
+              `Function '${callee}' expects ${expectedArity} argument${expectedArity === 1 ? "" : "s"} but got ${expr.args.length}`,
               expr.location,
             );
           }

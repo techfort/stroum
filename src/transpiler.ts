@@ -36,7 +36,7 @@ export class Transpiler {
     // Auto-import stdlib functions (unless --no-stdlib was used)
     if (this.stdlibPath) {
       this.emit(
-        `import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, from_list, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises, stream_info } from './stdlib-runtime';`,
+        `import { add, sub, mul, div, mod, pow, abs, min, max, eq, neq, gt, gte, lt, lte, and, or, not, concat, length, upper, lower, trim, split, join, starts_with, ends_with, contains, map, filter, reduce, head, tail, take, drop, reverse, sort, is_empty, nth, each, zip, flatten, count, from_list, print, println, null_sink, log_sink, debug, trace, to_string, to_int, to_float, error, try_catch, infer_schema, read_csv, read_json, assert, assert_eq, assert_neq, assert_contains, assert_raises, stream_info } from './stdlib-runtime';`,
       );
     }
 
@@ -253,6 +253,7 @@ export class Transpiler {
             "watch_file",
             "read_records",
             "stdin_lines",
+            "http_poll",
           ],
           process: [
             "exec",
@@ -865,7 +866,7 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
   }
 
   private isCallbackSource(callee: string): boolean {
-    return new Set(["watch_file", "read_records", "from_list", "interval", "stdin_lines"]).has(callee);
+    return new Set(["watch_file", "read_records", "from_list", "interval", "stdin_lines", "http_poll"]).has(callee);
   }
 
   private isSinkFactory(callee: string): boolean {

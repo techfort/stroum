@@ -224,6 +224,38 @@ export async function __builtin_is_empty<T>(list: T[]): Promise<boolean> {
   return list.length === 0;
 }
 
+export async function __builtin_nth<T>(list: T[], index: number): Promise<T> {
+  if (index < 0 || index >= list.length) {
+    throw new Error(`nth: index ${index} out of bounds (length ${list.length})`);
+  }
+  return list[index];
+}
+
+export async function __builtin_each<T>(
+  list: T[],
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  for (const item of list) {
+    await fn(item);
+  }
+}
+
+export async function __builtin_zip<A, B>(
+  listA: A[],
+  listB: B[],
+): Promise<[A, B][]> {
+  const len = Math.min(listA.length, listB.length);
+  return Array.from({ length: len }, (_, i) => [listA[i], listB[i]] as [A, B]);
+}
+
+export async function __builtin_flatten<T>(list: T[][]): Promise<T[]> {
+  return list.flat();
+}
+
+export async function __builtin_count<T>(list: T[]): Promise<number> {
+  return list.length;
+}
+
 // ============================================================================
 // I/O Operations
 // ============================================================================
@@ -349,6 +381,11 @@ export const drop = __builtin_drop;
 export const reverse = __builtin_reverse;
 export const sort = __builtin_sort;
 export const is_empty = __builtin_is_empty;
+export const nth = __builtin_nth;
+export const each = __builtin_each;
+export const zip = __builtin_zip;
+export const flatten = __builtin_flatten;
+export const count = __builtin_count;
 export const println = __builtin_println;
 export const null_sink = __builtin_null_sink;
 export const log_sink = __builtin_log_sink;
@@ -601,6 +638,38 @@ export const append_file = __builtin_append_file;
 export const file_sink = __builtin_file_sink;
 export const jsonl_sink = __builtin_jsonl_sink;
 export const http_sink = __builtin_http_sink;
+
+export async function http_poll(
+  url: string,
+  ms: number,
+  callback: (body: string) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearInterval(id);
+      resolve();
+    };
+    const id = setInterval(async () => {
+      if (settled) return;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`http_poll: GET ${url} returned ${res.status} ${res.statusText}`);
+        }
+        await callback(await res.text());
+      } catch (err) {
+        clearInterval(id);
+        settled = true;
+        reject(err);
+      }
+    }, ms);
+    signal?.addEventListener("abort", finish, { once: true });
+  });
+}
 export const file_exists = __builtin_file_exists;
 export const delete_file = __builtin_delete_file;
 export const list_dir = __builtin_list_dir;

@@ -288,6 +288,80 @@ f:baz y:Any -> Any =>
     });
   });
 
+  describe("arity checking", () => {
+    it("should error when too few arguments are passed to a user function", () => {
+      const issues = validate("f:my_add a:Int b:Int -> Int => add(a, b)\nmy_add(1)");
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].message).toContain("my_add");
+      expect(errors[0].message).toContain("2 arguments");
+      expect(errors[0].message).toContain("got 1");
+    });
+
+    it("should error when too many arguments are passed to a user function", () => {
+      const issues = validate("f:double x:Int -> Int => mul(x, 2)\ndouble(5, 6)");
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].message).toContain("double");
+      expect(errors[0].message).toContain("1 argument");
+      expect(errors[0].message).toContain("got 2");
+    });
+
+    it("should pass when argument count matches exactly", () => {
+      const issues = validate("f:my_add a:Int b:Int -> Int => add(a, b)\nmy_add(1, 2)");
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(errors.length).toBe(0);
+    });
+
+    it("should pass for zero-argument functions called with no args", () => {
+      const issues = validate('f:greet -> String => concat("Hello", "!")\ngreet()');
+      const errors = issues.filter((i) => i.type === "error");
+      expect(errors.length).toBe(0);
+    });
+
+    it("should error for zero-argument function called with args", () => {
+      const issues = validate('f:greet -> String => concat("Hello", "!")\ngreet(42)');
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].message).toContain("0 arguments");
+      expect(errors[0].message).toContain("got 1");
+    });
+
+    it("should not check arity for stdlib functions", () => {
+      const issues = validate("add(1, 2, 3)");
+      const arityErrors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(arityErrors.length).toBe(0);
+    });
+
+    it("should check arity in pipe expressions", () => {
+      const issues = validate("f:inc x:Int -> Int => add(x, 1)\n42 |> inc(_, 99)");
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it("should pass arity check inside function bodies", () => {
+      const issues = validate(
+        "f:double x:Int -> Int => mul(x, 2)\nf:quad x:Int -> Int => double(double(x))",
+      );
+      const errors = issues.filter(
+        (i) => i.type === "error" && i.message.includes("argument"),
+      );
+      expect(errors.length).toBe(0);
+    });
+  });
+
   describe("string interpolation", () => {
     it("should pass when interpolated identifiers are defined", () => {
       const issues = validate('f:greet name:String -> String => "Hello #{name}"');
