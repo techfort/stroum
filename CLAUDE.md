@@ -10,7 +10,7 @@ npm run build              # Compile TypeScript → dist/, copy stdlib, build gr
 npm run dev -- <args>      # Run without building (ts-node)
 
 # Test
-npm test                   # All 15 test suites (~374 tests)
+npm test                   # All 16 test suites (~412 tests)
 npm test -- lexer          # Run tests matching filename pattern
 npm test -- --testNamePattern="keyword"  # Run by test name
 npm test src/lexer.test.ts # Run single file
@@ -36,7 +36,7 @@ Source → Preprocessor → Lexer → Parser → Validator → Transpiler → Ty
 
 | Stage | File | Responsibility |
 |-------|------|----------------|
-| Preprocessor | `src/preprocessor.ts` | Expands `#derive schema` directives before parsing |
+| Preprocessor | `src/preprocessor.ts` | Expands `#derive schema` and `#derive parser [as funcName]` directives before parsing |
 | Lexer | `src/lexer.ts` | Tokenization with indentation-aware INDENT/DEDENT emission |
 | Parser | `src/parser.ts` | Recursive-descent, produces AST; has error recovery |
 | Validator | `src/validator.ts` | Scope, duplicate detection, emission contract checks |
@@ -62,7 +62,7 @@ The `|>` operator is central to Stroum. Two forms:
 
 The transpiler converts pipe chains into nested TypeScript `await` calls, right-to-left.
 
-Stream emission `@` terminates a pipe chain and routes the value to a named stream. Handlers subscribe with `on @"stream"` and continuations with `route @"stream"`. Because `emit` is awaited, a handler can re-emit on another stream and the original chain waits for full resolution.
+Stream emission `@` routes a value to a named stream **and returns the value** (tee semantics), so a pipe chain can continue after an emission. Handlers subscribe with `on @"stream"` and continuations with `route @"stream"`. Because `emit` is awaited, a handler can re-emit on another stream and the original chain waits for full resolution.
 
 Tagged values use `.tag value` syntax (producer side) and `| .tag => handler` (consumer side) for typed branching — similar to Result/Either.
 
@@ -108,6 +108,13 @@ result
 
 -- Struct
 s:User { id: Int, name: String }
+
+-- Stream / source / sink declarations
+stream:raw Any                         -- declare a typed named stream
+src: @"raw"   watch_file("data.csv")   -- open-ended source (callback-based)
+src: @"batch" file("data.csv")         -- finite source (emit once)
+snk: @"raw"   println                  -- sink: subscribe handler to stream
+stream_info("raw")                     -- returns { type, count, lastValue, firstEmitAt }
 
 -- Import
 i:io

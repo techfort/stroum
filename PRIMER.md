@@ -13,15 +13,16 @@ Stroum is a functional, pipe-first, stream-oriented language that transpiles to 
 5. [Stream Emission](#5-stream-emission)
 6. [Stream Handlers](#6-stream-handlers)
 7. [Route Declarations](#7-route-declarations)
-8. [Tagged Values](#8-tagged-values)
-9. [Conditionals](#9-conditionals)
-10. [Lambdas](#10-lambdas)
-11. [Parallel Composition](#11-parallel-composition)
-12. [Structs](#12-structs)
-13. [Imports](#13-imports)
-14. [Standard Library](#14-standard-library)
-15. [Testing](#15-testing)
-16. [Developer Tools](#16-developer-tools)
+8. [Source, Stream, and Sink Declarations](#8-source-stream-and-sink-declarations)
+9. [Tagged Values](#9-tagged-values)
+10. [Conditionals](#10-conditionals)
+11. [Lambdas](#11-lambdas)
+12. [Parallel Composition](#12-parallel-composition)
+13. [Structs](#13-structs)
+14. [Imports](#14-imports)
+15. [Standard Library](#15-standard-library)
+16. [Testing](#16-testing)
+17. [Developer Tools](#17-developer-tools)
 
 ---
 
@@ -225,10 +226,17 @@ f:pipeline input =>
 
 ## 5. Stream Emission
 
-The `@` operator emits a value onto a named stream. It returns `undefined`, so it terminates a pipe chain.
+The `@` operator emits a value onto a named stream **and returns the emitted value** (tee semantics). The pipe chain continues with the same value after emission.
 
 ```stroum
 value @ "results"
+```
+
+Because `@` returns the value, you can chain additional pipe stages or emit to multiple streams:
+
+```stroum
+value @ "audit" @ "results"            -- emit to two streams in sequence
+value @ "audit" |> transform           -- emit then continue the pipeline
 ```
 
 Use `if/then/else` to route to different streams conditionally.
@@ -264,7 +272,7 @@ value @ ("audit", "results")
 
 ### Sequencing independent emissions
 
-Because `@` terminates a pipe, sequence independent calls as separate top-level statements:
+Write independent emissions as separate top-level statements:
 
 ```stroum
 process(a) @ "stream-a"
@@ -334,7 +342,86 @@ Because `emit` is async and awaited, when the `@"fail"` handler re-emits on `@"o
 
 ---
 
-## 8. Tagged Values
+## 8. Source, Stream, and Sink Declarations
+
+Stroum has three first-class sigil declarations for wiring data pipelines:
+
+| Sigil | Role |
+|-------|------|
+| `stream:name Type` | Declare a typed named stream |
+| `src: @"name" expr` | Open a data source and route its output to a stream |
+| `snk: @"name" handler` | Subscribe a sink handler to a stream |
+
+### `stream:` — Typed stream declaration
+
+Declares a named stream and its value type. Optional but recommended — enables metadata tracking via `stream_info`.
+
+```stroum
+stream:raw     Any
+stream:cleaned Float
+stream:errors  String
+```
+
+### `src:` — Data source
+
+Connects a data source to a stream. Two forms:
+
+**Finite source** — reads once and emits a single value:
+
+```stroum
+src: @"orders" file("orders.csv")
+```
+
+**Open-ended (callback) source** — emits multiple times until stopped; requires `run until` to bound the program:
+
+```stroum
+src: @"changes" watch_file("data.csv")
+src: @"lines"   read_records("data.csv")         -- one record per line
+src: @"fields"  read_records("data.csv", ",")    -- comma-separated records
+
+run until signal
+```
+
+### `snk:` — Sink handler
+
+Subscribes a handler function to a stream. Equivalent to `on @"name" |> handler` but more explicit about intent.
+
+```stroum
+snk: @"orders.clean"  persist_order             -- bare name
+snk: @"audit"         append_file("log.txt", _) -- placeholder form
+snk: @"events"        jsonl_sink("events.jsonl") -- sink factory
+snk: @"discard"       null_sink                  -- discard all values
+```
+
+### Stream metadata
+
+Call `stream_info` to inspect a stream's runtime metadata:
+
+```stroum
+stream_info("orders")
+-- returns { type: "Any", count: 42, lastValue: ..., firstEmitAt: 1716000000000 }
+```
+
+### Complete wiring example
+
+```stroum
+i:io
+
+stream:raw   Any
+stream:clean Any
+
+src: @"raw"   watch_file("input.csv")
+snk: @"clean" persist_order
+
+route @"raw" |> validate |> normalise
+on @"raw" |> |:v:Any| => v @ "clean"
+
+run until signal
+```
+
+---
+
+## 9. Tagged Values
 
 Tagged values attach a named outcome label to a result. This is Stroum's typed branching mechanism — the functional equivalent of discriminated unions (F# Result, Elixir tagged tuples).
 
@@ -412,7 +499,7 @@ Because `dispatch` receives a tagged value and matches on it, it works identical
 
 ---
 
-## 9. Conditionals
+## 10. Conditionals
 
 ```stroum
 if condition then expr else expr
@@ -444,7 +531,7 @@ f:route_by_sign x =>
 
 ---
 
-## 10. Lambdas
+## 11. Lambdas
 
 Lambdas are anonymous functions written inline with `|:params| => body`.
 
@@ -466,7 +553,7 @@ pairs |> reduce(_, 0, |:acc, :x| => add(acc, x))
 
 ---
 
-## 11. Parallel Composition
+## 12. Parallel Composition
 
 `PP` runs two or more expressions concurrently and gathers results.
 
@@ -482,7 +569,7 @@ validate(a) PP validate(b) PP validate(c) |> all_results
 
 ---
 
-## 12. Structs
+## 13. Structs
 
 Structs are named record types declared with `s:`.
 
@@ -507,7 +594,7 @@ f:is_adult user => gt(user.age, 18)
 
 ---
 
-## 13. Imports
+## 14. Imports
 
 The `i:` sigil imports functions from the stdlib or local files.
 
@@ -532,9 +619,10 @@ The following modules are **not** auto-imported. Add the corresponding `i:` decl
 
 | Module | Import | Purpose |
 |---|---|---|
-| `io` | `i:io` | File system and path operations |
+| `io` | `i:io` | File system, path operations, streaming file sources |
 | `process` | `i:process` | Shell commands, environment, process control |
 | `timer` | `i:timer` | Delays, timestamps, elapsed time |
+| `formats` | `i:formats` | CSV/JSON parsing and schema inference |
 
 ```stroum
 i:io
@@ -548,7 +636,7 @@ now() |> to_string |> println
 
 ---
 
-## 14. Standard Library
+## 15. Standard Library
 
 ### `core` — auto-imported
 
@@ -562,6 +650,7 @@ now() |> to_string |> println
 | Lists | `map`, `filter`, `reduce`, `head`, `tail`, `take`, `drop`, `reverse`, `sort`, `is_empty` |
 | I/O | `print`, `println`, `debug`, `trace` |
 | Sinks | `null_sink`, `log_sink` |
+| Streams | `stream_info` |
 | Type conversion | `to_string`, `to_int`, `to_float` |
 | Error handling | `error`, `try_catch` |
 | Test assertions | `assert`, `assert_eq`, `assert_neq`, `assert_contains`, `assert_raises` |
@@ -584,6 +673,7 @@ now() |> to_string |> println
 | `path_dirname` | `path` | Directory component |
 | `path_ext` | `path` | File extension (e.g. `.txt`) |
 | `watch_file` | `path callback` | Call `callback` with file contents on each change |
+| `read_records` | `path [sep]` | Stream file records one at a time; default separator `\n` |
 | `file_sink` | `path` | Sink factory — appends each stream value as a string |
 | `jsonl_sink` | `path` | Sink factory — appends each stream value as a JSON line |
 | `http_sink` | `url` | Sink factory — POSTs each stream value as JSON; throws on non-2xx |
@@ -620,7 +710,7 @@ items |> debug(_, "before filter") |> filter(_, positive)
 
 ---
 
-## 15. Testing
+## 16. Testing
 
 Test files use the `.test.stm` extension. Each `test` declaration is a labelled block that runs independently — bindings in one test are invisible to others.
 
@@ -740,6 +830,16 @@ i:io
 i:process
 i:timer
 
+-- Stream / source / sink declarations
+stream:name Type                       -- declare typed named stream
+src: @"name" watch_file("f.csv")       -- open-ended callback source
+src: @"name" read_records("f.csv")     -- record-per-line source
+src: @"name" file("f.csv")             -- finite source (emit once)
+snk: @"name" handler                   -- sink: bare name
+snk: @"name" fn("arg", _)             -- sink: placeholder form
+snk: @"name" jsonl_sink("out.jsonl")   -- sink: factory
+stream_info("name")                    -- { type, count, lastValue, firstEmitAt }
+
 -- Test declaration
 test "label" =>
   assert_eq(fn(arg), expected)
@@ -752,7 +852,7 @@ f:negate n => mul(n, -1)
 
 ---
 
-## 16. Developer Tools
+## 17. Developer Tools
 
 ### Format
 
