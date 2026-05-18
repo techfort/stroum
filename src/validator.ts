@@ -160,6 +160,8 @@ export class Validator {
     return new Set([
       "watch_file",
       "watch_dir",
+      "interval",
+      "stdin_lines",
       "http_server",
       "kafka",
       "timer",

@@ -327,6 +327,32 @@ on @"errors" |> |:e:Any| => log(e)`;
       expect(output).toContain("await __runUntilSignal();");
     });
 
+    it("should transpile from_list src declaration as a source task", () => {
+      const output = transpile('src: @"items" from_list([1, 2, 3])');
+      expect(output).toContain(
+        "__sourceTasks.push(from_list([1, 2, 3], async (__sourceValue) => { await __route(__sourceValue, \"items\"",
+      );
+    });
+
+    it("should transpile interval src declaration as a source task", () => {
+      const output = transpile(
+        'i:timer\nsrc: @"tick" interval(1000)\nrun until signal',
+      );
+      expect(output).toContain(
+        '__sourceTasks.push(interval(1000, async (__sourceValue) => { await __route(__sourceValue, "tick"',
+      );
+      expect(output).toContain("__runtimeControl.signal");
+    });
+
+    it("should transpile stdin_lines src declaration as a source task", () => {
+      const output = transpile(
+        'i:io\nsrc: @"lines" stdin_lines()\nrun until signal',
+      );
+      expect(output).toContain(
+        '__sourceTasks.push(stdin_lines(async (__sourceValue) => { await __route(__sourceValue, "lines"',
+      );
+    });
+
     it("should transpile run until stream declaration", () => {
       const output = transpile('run until @"shutdown"');
       expect(output).toContain('await __runUntilStream("shutdown");');

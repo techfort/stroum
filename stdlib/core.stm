@@ -65,6 +65,7 @@ f:drop n:Int list:Any -> Any => __builtin_drop(n, list)
 f:reverse list:Any -> Any => __builtin_reverse(list)
 f:sort list:Any -> Any => __builtin_sort(list)
 f:is_empty list:Any -> Bool => __builtin_is_empty(list)
+f:from_list list:Any -> Void => from_list(list)
 
 -- ============================================================================
 -- I/O Operations

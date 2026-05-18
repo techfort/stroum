@@ -159,6 +159,31 @@ describe("Validator", () => {
       expect(warnings.length).toBe(0);
     });
 
+    it("should not warn for from_list src without run until", () => {
+      const issues = validate('src: @"items" from_list([1, 2, 3])');
+      const warnings = issues.filter(
+        (i) =>
+          i.type === "warning" && i.message.includes("open-ended src: sources"),
+      );
+      expect(warnings.length).toBe(0);
+    });
+
+    it("should warn for interval src without run until", () => {
+      const issues = validate('i:timer\nsrc: @"tick" interval(1000)');
+      const warnings = issues.filter(
+        (i) => i.type === "warning" && i.message.includes("open-ended src: sources"),
+      );
+      expect(warnings.length).toBeGreaterThan(0);
+    });
+
+    it("should warn for stdin_lines src without run until", () => {
+      const issues = validate('i:io\nsrc: @"lines" stdin_lines()');
+      const warnings = issues.filter(
+        (i) => i.type === "warning" && i.message.includes("open-ended src: sources"),
+      );
+      expect(warnings.length).toBeGreaterThan(0);
+    });
+
     it("should validate to declarations without introducing liveness warnings", () => {
       const issues = validate(
         'f:persist_order order:Any -> Any => order\nsnk: @"orders.clean" persist_order',
