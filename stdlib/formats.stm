@@ -4,20 +4,20 @@
 -- Infer schema from a CSV or JSON file
 -- Automatically emits schema metadata to the __meta stream
 -- Returns: { name: String, fields: List }
-f:infer_schema path => __formats_infer_schema(path)
+f:infer_schema path:String -> Any => __formats_infer_schema(path)
 
 -- Read a CSV file into an array of records
 -- Each record is a struct-like object with fields matching the CSV columns
-f:read_csv path => __formats_read_csv(path)
+f:read_csv path:String -> Any => __formats_read_csv(path)
 
 -- Read and parse a JSON file
 -- Returns the parsed JSON data structure
-f:read_json path => __formats_read_json(path)
+f:read_json path:String -> Any => __formats_read_json(path)
 
 -- Read a Parquet file into an array of records
 -- Each record is a struct-like object with fields matching the Parquet schema
-f:read_parquet path => __formats_read_parquet(path)
+f:read_parquet path:String -> Any => __formats_read_parquet(path)
 
 -- Read an Avro file into an array of records
 -- Each record is a struct-like object with fields matching the Avro schema
-f:read_avro path => __formats_read_avro(path)
+f:read_avro path:String -> Any => __formats_read_avro(path)

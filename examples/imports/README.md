@@ -19,7 +19,7 @@ stroum run 02-selective-import.stm
 ```
 
 ### 03-qualified-import.stm
-Demonstrates qualified imports with an alias: `i:core as c`. Functions are accessed with the alias prefix: `c:add()`, `c:mul()`, etc.
+Demonstrates qualified imports with an alias: `i:core as c`. Functions are accessed with the alias prefix: `c.add()`, `c.mul()`, etc.
 
 ```bash
 stroum run 03-qualified-import.stm
@@ -58,7 +58,7 @@ i:"./file.stm" fn1, fn2   -- Import specific functions from local file
 
 ### Qualified Import
 ```stroum
-i:core as c               -- Import with alias, use as c:add(), c:mul(), etc.
+i:core as c               -- Import with alias, use as c.add(), c.mul(), etc.
 i:"./file.stm" as utils   -- Import local file with alias
 ```
 

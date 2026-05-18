@@ -26,7 +26,7 @@ function hasEdge(
 describe("analyzeDataflow", () => {
   describe("node collection", () => {
     it("creates a function node for f: declarations", () => {
-      const g = analyze("f:my_fn x => x");
+      const g = analyze("f:my_fn x:Any -> Any => x");
       expect(g.nodes.find((n) => n.id === "fn:my_fn")).toMatchObject({
         id: "fn:my_fn",
         kind: "function",
@@ -45,7 +45,7 @@ describe("analyzeDataflow", () => {
     });
 
     it("creates a stream node for @ emit inside a function", () => {
-      const g = analyze('f:emit x => x @ "events"');
+      const g = analyze('f:emit x:Any -> Any => x @ "events"');
       expect(g.nodes.find((n) => n.id === "stream:events")).toMatchObject({
         id: "stream:events",
         kind: "stream",
@@ -54,7 +54,7 @@ describe("analyzeDataflow", () => {
     });
 
     it("creates a tag node for tagged expressions", () => {
-      const g = analyze("f:wrap x => .my_tag x");
+      const g = analyze("f:wrap x:Any -> Any => .my_tag x");
       expect(g.nodes.find((n) => n.id === "tag:my_tag")).toMatchObject({
         id: "tag:my_tag",
         kind: "tag",
@@ -63,24 +63,24 @@ describe("analyzeDataflow", () => {
     });
 
     it("creates a stream node from on handler", () => {
-      const g = analyze('f:noop x => x\non @"updates" |> |:v| => noop(v)');
+      const g = analyze('f:noop x:Any -> Any => x\non @"updates" |> |:v:Any| => noop(v)');
       expect(g.nodes.find((n) => n.id === "stream:updates")).toBeTruthy();
     });
 
     it("creates a stream node from route declaration", () => {
-      const g = analyze('f:process x => x\nroute @"raw" |> process');
+      const g = analyze('f:process x:Any -> Any => x\nroute @"raw" |> process');
       expect(g.nodes.find((n) => n.id === "stream:raw")).toBeTruthy();
     });
 
     it("marks unknown callees as external", () => {
-      const g = analyze("f:my_fn x => println(x)");
+      const g = analyze("f:my_fn x:Any -> Any => println(x)");
       const node = g.nodes.find((n) => n.id === "fn:println");
       expect(node).toBeTruthy();
       expect(node?.isExternal).toBe(true);
     });
 
     it("does not mark declared functions as external", () => {
-      const g = analyze("f:helper x => x\nf:main x => helper(x)");
+      const g = analyze("f:helper x:Any -> Any => x\nf:main x:Any -> Any => helper(x)");
       const node = g.nodes.find((n) => n.id === "fn:helper");
       expect(node?.isExternal).toBeFalsy();
     });
@@ -88,38 +88,38 @@ describe("analyzeDataflow", () => {
 
   describe("edge collection", () => {
     it("adds a pipe edge between consecutive pipe stages", () => {
-      const g = analyze("f:double x => x\nf:inc x => x\ndouble |> inc");
+      const g = analyze("f:double x:Any -> Any => x\nf:inc x:Any -> Any => x\ndouble |> inc");
       expect(hasEdge(g, "fn:double", "fn:inc", "pipe")).toBe(true);
     });
 
     it("adds an emit edge from function to stream", () => {
-      const g = analyze('f:emit x => x @ "out"');
+      const g = analyze('f:emit x:Any -> Any => x @ "out"');
       expect(hasEdge(g, "fn:emit", "stream:out", "emit")).toBe(true);
     });
 
     it("adds a pipe edge from stream to function via route", () => {
-      const g = analyze('f:process x => x\nroute @"raw" |> process');
+      const g = analyze('f:process x:Any -> Any => x\nroute @"raw" |> process');
       expect(hasEdge(g, "stream:raw", "fn:process", "pipe")).toBe(true);
     });
 
     it("adds a pipe edge from identifier handler in outcome match", () => {
       // .tag => fn_handler should create tag -> fn_handler pipe edge
       const g = analyze(
-        "f:handler x => x\nf:classify x =>\n  x\n  | .done => handler",
+        "f:handler x:Any -> Any => x\nf:classify x:Any -> Any =>\n  x\n  | .done => handler",
       );
       expect(hasEdge(g, "tag:done", "fn:handler", "pipe")).toBe(true);
     });
 
     it("adds an outcome edge for tagged expression inside pipe", () => {
       const g = analyze(
-        'f:classify x =>\n  x\n  | .high => x @ "alerts"\n  | .low  => x @ "logs"',
+        'f:classify x:Any -> Any =>\n  x\n  | .high => x @ "alerts"\n  | .low  => x @ "logs"',
       );
       expect(hasEdge(g, "fn:classify", "tag:high", "outcome")).toBe(true);
       expect(hasEdge(g, "fn:classify", "tag:low", "outcome")).toBe(true);
     });
 
     it("deduplicates identical edges", () => {
-      const g = analyze("f:helper x => x\nf:main x => helper(helper(x))");
+      const g = analyze("f:helper x:Any -> Any => x\nf:main x:Any -> Any => helper(helper(x))");
       const edges = g.edges.filter(
         (e) => e.from === "fn:main" && e.to === "fn:helper",
       );
@@ -128,7 +128,7 @@ describe("analyzeDataflow", () => {
 
     it("adds a call edge when a user-defined function is passed as argument", () => {
       const g = analyze(
-        "f:transform x => x\nf:apply fn => fn(1)\napply(transform)",
+        "f:transform x:Any -> Any => x\nf:apply fn:Fn -> Any => fn(1)\napply(transform)",
       );
       expect(hasEdge(g, "fn:apply", "fn:transform", "call")).toBe(true);
     });
@@ -137,7 +137,7 @@ describe("analyzeDataflow", () => {
   describe("parallel expressions", () => {
     it("creates a fork node for PP", () => {
       const g = analyze(
-        "f:a x => x\nf:b x => x\nf:gather x => x\na PP b |> gather",
+        "f:a x:Any -> Any => x\nf:b x:Any -> Any => x\nf:gather x:Any -> Any => x\na PP b |> gather",
       );
       const fork = g.nodes.find((n) => n.kind === "fork");
       expect(fork).toBeTruthy();
@@ -146,7 +146,7 @@ describe("analyzeDataflow", () => {
 
     it("adds parallel edges from fork to branches", () => {
       const g = analyze(
-        "f:a x => x\nf:b x => x\nf:gather x => x\na PP b |> gather",
+        "f:a x:Any -> Any => x\nf:b x:Any -> Any => x\nf:gather x:Any -> Any => x\na PP b |> gather",
       );
       const fork = g.nodes.find((n) => n.kind === "fork");
       expect(fork).toBeTruthy();
@@ -159,7 +159,7 @@ describe("analyzeDataflow", () => {
 
     it("connects branch ends to gather target", () => {
       const g = analyze(
-        "f:a x => x\nf:b x => x\nf:gather x => x\na PP b |> gather",
+        "f:a x:Any -> Any => x\nf:b x:Any -> Any => x\nf:gather x:Any -> Any => x\na PP b |> gather",
       );
       // Branch ends (fn:a, fn:b) should connect to fn:gather
       expect(

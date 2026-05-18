@@ -5,12 +5,12 @@ i:formats
 i:io
 
 -- Helper function
-f:show_schema data => debug(data, "Schema")
+f:show_schema data:Any -> Void => debug(data, "Schema")
 
 -- Read CSV file
 read_csv("test-fixtures/sample.csv") |> println
 
--- Read JSON file  
+-- Read JSON file
 read_json("test-fixtures/sample.json") |> println
 
 -- Read Parquet file (add a sample.parquet file to test)

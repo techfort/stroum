@@ -5,7 +5,7 @@
 input:  @"enrich.input"
 output: @"enrich.output"
 
-f:stamp event =>
+f:stamp event:Any -> String =>
   concat("[enriched] ", to_string(event))
 
 route @"enrich.input" |> stamp @"enrich.output"

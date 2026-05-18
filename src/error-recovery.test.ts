@@ -58,7 +58,7 @@ describe("Parser error recovery", () => {
   it("recovers and parses a valid function after a broken one", () => {
     const source = [
       "f: => 42",           // broken: missing name
-      "f:good x => add(x, 1)", // valid
+      "f:good x:Int -> Int => add(x, 1)", // valid
     ].join("\n");
     const { module, diagnostics } = parse(source);
     expect(diagnostics.length).toBeGreaterThan(0);

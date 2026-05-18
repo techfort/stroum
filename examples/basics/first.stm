@@ -5,24 +5,24 @@ s:User {
   age: Int
 }
 
-f:check_age u =>
+f:check_age u:User -> Any =>
     if gt(u.age, 18) then
-        .adult u 
+        .adult u
     else
         .minor u
 
-f:dispatch_user u =>
+f:dispatch_user u:User -> Void =>
     check_age(u)
-    | .adult => |:u| => u @ "adult" 
-    | .minor => |:u| => println("Minor user: #{u.name}")
+    | .adult => |:u:User| => u @ "adult"
+    | .minor => |:u:User| => println("Minor user: #{u.name}")
 
-f:check_positive x =>
+f:check_positive x:Int -> Void =>
     if gt(x, 0) then
         x @ "positive"
     else
         x @ "non-positive"
 
-f:main =>
+f:main -> Void =>
     :nums [1, -2, 3, 0]
     map(check_positive, nums)
 
@@ -31,6 +31,6 @@ f:main =>
 
 main()
 
-on @"positive" |> |:x| => println("Positive number: #{x}")
-on @"adult" |> |:u| => println("Adult user: #{u.name}")
-route @"non-positive" |> |:x| => mul(x, -1) @ "positive"
+on @"positive" |> |:x:Int| => println("Positive number: #{x}")
+on @"adult" |> |:u:User| => println("Adult user: #{u.name}")
+route @"non-positive" |> |:x:Int| => mul(x, -1) @ "positive"

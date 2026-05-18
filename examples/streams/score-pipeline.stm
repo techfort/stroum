@@ -8,28 +8,28 @@
 -- ============================================================================
 
 -- evaluate: tags its result so callers know which outcome they received.
-f:evaluate score =>
+f:evaluate score:Int -> Any =>
   if gte(score, 90) then .distinction score
   else if gte(score, 70) then .pass score
   else if gte(score, 50) then .borderline score
   else .fail score
 
 -- Per-outcome handlers: each receives the unwrapped inner value.
-f:on_distinction n =>
+f:on_distinction n:Int -> Void =>
   println("  Distinction  : #{n}")
 
-f:on_pass n =>
+f:on_pass n:Int -> Void =>
   println("  Pass         : #{n}")
 
-f:on_borderline n =>
+f:on_borderline n:Int -> Void =>
   println("  Borderline   : #{n}")
 
-f:on_fail n =>
+f:on_fail n:Int -> Void =>
   println("  FAIL         : #{n}")
 
 -- dispatch: accepts a tagged value and routes to the right handler.
 -- Works both when called inline and when used as a route target.
-f:dispatch result =>
+f:dispatch result:Any -> Void =>
   result
   | .distinction => on_distinction
   | .pass        => on_pass
@@ -37,7 +37,7 @@ f:dispatch result =>
   | .fail        => on_fail
 
 -- rate_temp: uses multi-word string literal tags.
-f:rate_temp c =>
+f:rate_temp c:Float -> Any =>
   if gt(c, 36) then ."too hot" c
   else if lt(c, 10) then ."too cold" c
   else ."just right" c
@@ -68,19 +68,19 @@ evaluate(45)
 println("=== B: String literal tags ===")
 
 rate_temp(39)
-| ."just right" => |:n| => println("  Comfortable : #{n}")
-| ."too hot"    => |:n| => println("  Too hot     : #{n}")
-| ."too cold"   => |:n| => println("  Too cold    : #{n}")
+| ."just right" => |:n:Float| => println("  Comfortable : #{n}")
+| ."too hot"    => |:n:Float| => println("  Too hot     : #{n}")
+| ."too cold"   => |:n:Float| => println("  Too cold    : #{n}")
 
 rate_temp(22)
-| ."just right" => |:n| => println("  Comfortable : #{n}")
-| ."too hot"    => |:n| => println("  Too hot     : #{n}")
-| ."too cold"   => |:n| => println("  Too cold    : #{n}")
+| ."just right" => |:n:Float| => println("  Comfortable : #{n}")
+| ."too hot"    => |:n:Float| => println("  Too hot     : #{n}")
+| ."too cold"   => |:n:Float| => println("  Too cold    : #{n}")
 
 rate_temp(4)
-| ."just right" => |:n| => println("  Comfortable : #{n}")
-| ."too hot"    => |:n| => println("  Too hot     : #{n}")
-| ."too cold"   => |:n| => println("  Too cold    : #{n}")
+| ."just right" => |:n:Float| => println("  Comfortable : #{n}")
+| ."too hot"    => |:n:Float| => println("  Too hot     : #{n}")
+| ."too cold"   => |:n:Float| => println("  Too cold    : #{n}")
 
 -- ============================================================================
 -- Pattern C: Stream routing

@@ -3,33 +3,33 @@
 
 -- === Mathematical Functions ===
 
-rec f:factorial n =>
+rec f:factorial n:Int -> Int =>
   if eq(n, 0) then 1
   else if eq(n, 1) then 1
   else mul(n, factorial(sub(n, 1)))
 
-f:is_even n => eq(mod(n, 2), 0)
+f:is_even n:Int -> Bool => eq(mod(n, 2), 0)
 
-f:sign x => if gt(x, 0) then 1 else sub(0, 1)
+f:sign x:Int -> Int => if gt(x, 0) then 1 else sub(0, 1)
 
 -- === Temperature Pipeline (Stream Routing) ===
 
-f:celsius_to_fahrenheit c => add(mul(c, div(9, 5)), 32)
+f:celsius_to_fahrenheit c:Float -> Float => add(mul(c, div(9, 5)), 32)
 
-f:classify_temp c =>
+f:classify_temp c:Float -> Void =>
   if gt(celsius_to_fahrenheit(c), 100) then c @ "hot"
   else if gt(celsius_to_fahrenheit(c), 60) then c @ "comfortable"
   else c @ "cold"
 
-f:format_temp c => "#{c}C (#{celsius_to_fahrenheit(c)}F)"
+f:format_temp c:Float -> String => "#{c}C (#{celsius_to_fahrenheit(c)}F)"
 
 -- === Pipes and String Interpolation ===
 
-f:greet name => "Hello, #{name}!"
+f:greet name:String -> String => "Hello, #{name}!"
 
 -- === Main ===
 
-f:run =>
+f:run -> Void =>
   println("=== Math ===")
   println("factorial(6) = #{factorial(6)}")
   println("is 42 even?  #{if is_even(42) then \"yes\" else \"no\"}")
@@ -46,6 +46,6 @@ f:run =>
 
 run()
 
-on @"hot"         |> |:c| => println("  HOT:         #{format_temp(c)}")
-on @"comfortable" |> |:c| => println("  COMFORTABLE: #{format_temp(c)}")
-on @"cold"        |> |:c| => println("  COLD:        #{format_temp(c)}")
+on @"hot"         |> |:c:Float| => println("  HOT:         #{format_temp(c)}")
+on @"comfortable" |> |:c:Float| => println("  COMFORTABLE: #{format_temp(c)}")
+on @"cold"        |> |:c:Float| => println("  COLD:        #{format_temp(c)}")

@@ -4,13 +4,13 @@
 
 -- Now we can use the Row struct that was auto-generated
 
-f:process_row row =>
+f:process_row row:Row -> Void =>
   println("Name: #{row.name}")
   println("Email: #{row.email}")
   println("Age: #{row.age}")
   println("Score: #{row.score}")
 
-f:main =>
+f:main -> Void =>
   println("=== Testing #derive Macro ===")
   read_csv("test-fixtures/sample.csv") |> head |> process_row
 

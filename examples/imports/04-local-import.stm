@@ -3,9 +3,9 @@
 
 i:"./math-utils.stm"
 
-f:main => 
+f:main -> Void =>
   square(5)
-  |> add(cube(2))
+  |> add(cube(2), _)
   |> println()
 
 main()

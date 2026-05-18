@@ -3,9 +3,9 @@
 
 i:core as c
 
-f:main => 
-  c:add(5, 3)
-  |> c:mul(2)
-  |> c:println()
+f:main -> Void =>
+  c.add(5, 3)
+  |> c.mul(2, _)
+  |> c.println
 
 main()

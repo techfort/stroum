@@ -10,18 +10,18 @@
 --   failing input:  op1 -> @"fail" -> fail_handler -> @"ok" -> op2 -> op3
 
 -- op1: validates input. Positive numbers pass, negative numbers fail.
-f:op1 x =>
+f:op1 x:Int -> Void =>
   if gt(x, 0) then x @ "ok" else x @ "fail"
 
 -- op2: doubles the value
-f:op2 x => mul(x, 2)
+f:op2 x:Int -> Int => mul(x, 2)
 
 -- op3: formats and prints the final result
-f:op3 x => println("Final result: #{x}")
+f:op3 x:Int -> Void => println("Final result: #{x}")
 
 -- fail_handler: rescues a negative number by making it positive, re-emits on @"ok"
 -- debug() passes the value through so we can log without breaking the chain
-f:fail_handler x =>
+f:fail_handler x:Int -> Void =>
   debug(mul(x, sub(0, 1)), "rescued") @ "ok"
 
 -- Primary expression: run four values through op1
@@ -35,4 +35,4 @@ route @"ok" |> op2 |> op3
 
 -- Rescue path: @"fail" values are rescued and re-emitted on @"ok"
 -- Because emit() is async, the @"ok" route fully completes before continuing
-on @"fail" |> |:x| => fail_handler(x)
+on @"fail" |> |:x:Int| => fail_handler(x)

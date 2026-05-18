@@ -10,8 +10,8 @@ import {
 
 describe("isDeclaration", () => {
   it("recognises function sigil", () => {
-    expect(isDeclaration("f:double n => mul(n, 2)")).toBe(true);
-    expect(isDeclaration("f:greet name => println(name)")).toBe(true);
+    expect(isDeclaration("f:double n:Int -> Int => mul(n, 2)")).toBe(true);
+    expect(isDeclaration("f:greet name:String -> Void => println(name)")).toBe(true);
   });
 
   it("recognises struct sigil", () => {
@@ -19,7 +19,7 @@ describe("isDeclaration", () => {
   });
 
   it("recognises recursive function", () => {
-    expect(isDeclaration("rec f:factorial n =>")).toBe(true);
+    expect(isDeclaration("rec f:factorial n:Int ->")).toBe(true);
   });
 
   it("recognises binding with explicit b: sigil", () => {
@@ -48,7 +48,7 @@ describe("isDeclaration", () => {
 
 describe("extractName", () => {
   it("extracts function name", () => {
-    expect(extractName("f:double n => mul(n, 2)")).toBe("double");
+    expect(extractName("f:double n:Int -> Int => mul(n, 2)")).toBe("double");
   });
 
   it("extracts struct name", () => {
@@ -56,7 +56,7 @@ describe("extractName", () => {
   });
 
   it("extracts recursive function name", () => {
-    expect(extractName("rec f:factorial n =>")).toBe("factorial");
+    expect(extractName("rec f:factorial n:Int ->")).toBe("factorial");
   });
 
   it("extracts binding name from explicit sigil", () => {
@@ -77,8 +77,8 @@ describe("extractName", () => {
 
 describe("needsContinuation", () => {
   it("continues on trailing =>", () => {
-    expect(needsContinuation("f:foo x =>")).toBe(true);
-    expect(needsContinuation("f:foo x =>   ")).toBe(true);
+    expect(needsContinuation("f:foo x:Any -> Any =>")).toBe(true);
+    expect(needsContinuation("f:foo x:Any -> Any =>   ")).toBe(true);
   });
 
   it("continues on trailing |>", () => {
@@ -90,7 +90,7 @@ describe("needsContinuation", () => {
   });
 
   it("does not continue on complete lines", () => {
-    expect(needsContinuation("f:double n => mul(n, 2)")).toBe(false);
+    expect(needsContinuation("f:double n:Int -> Int => mul(n, 2)")).toBe(false);
     expect(needsContinuation("42 |> print")).toBe(false);
     expect(needsContinuation(":x 5")).toBe(false);
     expect(needsContinuation("")).toBe(false);
@@ -125,7 +125,7 @@ describe("REPL session", () => {
   });
 
   it("defines a function and confirms", () => {
-    const out = repl("i:core\nf:double n => mul(n, 2)\n:quit\n");
+    const out = repl("i:core\nf:double n:Int -> Int => mul(n, 2)\n:quit\n");
     expect(out).toContain("defined double");
   });
 
@@ -135,7 +135,7 @@ describe("REPL session", () => {
   });
 
   it("evaluates an expression using session state", () => {
-    const out = repl("i:core\nf:double n => mul(n, 2)\ndouble(21) |> print\n:quit\n");
+    const out = repl("i:core\nf:double n:Int -> Int => mul(n, 2)\ndouble(21) |> print\n:quit\n");
     expect(out).toContain("42");
   });
 
@@ -145,12 +145,12 @@ describe("REPL session", () => {
   });
 
   it(":session shows accumulated declarations", () => {
-    const out = repl("f:double n => mul(n, 2)\n:session\n:quit\n");
+    const out = repl("f:double n:Int -> Int => mul(n, 2)\n:session\n:quit\n");
     expect(out).toContain("f:double");
   });
 
   it(":reset clears the session", () => {
-    const out = repl("f:double n => mul(n, 2)\n:reset\n:session\n:quit\n");
+    const out = repl("f:double n:Int -> Int => mul(n, 2)\n:reset\n:session\n:quit\n");
     expect(out).toContain("session cleared");
     expect(out).toContain("empty session");
   });

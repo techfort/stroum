@@ -3,7 +3,7 @@
 
 i:"./math-utils.stm" square, double
 
-f:main => 
+f:main -> Void =>
   double(5)
   |> square()
   |> println()
