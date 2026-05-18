@@ -11,22 +11,22 @@
 -- Source A: temperature sensor (celsius)
 -- ============================================================================
 
-f:emit_temp v => .temp v @ "raw"
+f:emit_temp v:Float -> Any => .temp v @ "raw"
 
 -- ============================================================================
 -- Source B: pressure sensor (hPa, scaled to 0–100)
 -- ============================================================================
 
-f:emit_pressure v => .pressure div(v, 10) @ "raw"
+f:emit_pressure v:Float -> Any => .pressure div(v, 10) @ "raw"
 
 -- ============================================================================
 -- Merge node: both sources converge on @"raw"
 -- normalize strips the type tag and forwards a plain value to @"pipeline"
 -- ============================================================================
 
-f:fwd v => v @ "pipeline"
+f:fwd v:Any -> Any => v @ "pipeline"
 
-f:normalize reading ~> @"pipeline" =>
+f:normalize reading:Any -> Any ~> @"pipeline" =>
   reading
   | .temp     => fwd
   | .pressure => fwd
@@ -35,7 +35,7 @@ f:normalize reading ~> @"pipeline" =>
 -- Split node: classify routes @"pipeline" into three output streams
 -- ============================================================================
 
-f:classify v =>
+f:classify v:Float -> Float =>
   if gt(v, 75) then v @ "critical"
   else if gt(v, 40) then v @ "normal"
   else v @ "low"
@@ -58,6 +58,6 @@ emit_pressure(310)
 route @"raw"      |> normalize
 route @"pipeline" |> classify
 
-on @"critical" |> |:v| => println("CRITICAL : #{v}")
-on @"normal"   |> |:v| => println("Normal   : #{v}")
-on @"low"      |> |:v| => println("Low      : #{v}")
+on @"critical" |> |:v:Float| => println("CRITICAL : #{v}")
+on @"normal"   |> |:v:Float| => println("Normal   : #{v}")
+on @"low"      |> |:v:Float| => println("Low      : #{v}")

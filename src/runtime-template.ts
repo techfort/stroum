@@ -350,7 +350,7 @@ export async function __route(
 ): Promise<any> {
   if (streamName) {
     await __router.emit(streamName, value, meta);
-    return undefined; // Stream emit doesn't return a value
+    return value;
   }
   return value;
 }
