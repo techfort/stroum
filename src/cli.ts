@@ -131,10 +131,10 @@ ${colorize("EXAMPLES:", "bright")}
   stroum compile app.stm -o build/app.ts
   stroum compile app.stm --ast
   stroum compile app.stm --no-stdlib
-  stroum run examples/demo.stm
-  stroum run examples/demo.stm --trace
-  stroum graph examples/dataflow-graph.stm
-  stroum graph examples/dataflow-graph.stm --port 4000 --no-open
+  stroum run examples/basics/demo.stm
+  stroum run examples/basics/demo.stm --trace
+  stroum graph examples/streams/dataflow-graph.stm
+  stroum graph examples/streams/dataflow-graph.stm --port 4000 --no-open
   stroum derive schema data/users.csv --name UserRow
   stroum derive schema data/users.csv --name UserRow
 

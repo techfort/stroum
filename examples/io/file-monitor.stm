@@ -11,8 +11,8 @@ i:process
 i:timer
 
 -- Paths
-:watched_file "examples/watched.txt"
-:log_file "examples/change-log.txt"
+:watched_file "examples/io/watched.txt"
+:log_file "examples/io/change-log.txt"
 
 src: @"change"    watch_file(watched_file)
 to:  @"log_entry" file_sink(log_file)
@@ -32,7 +32,7 @@ f:handle_change content =>
   println("[monitor] change logged at #{timestamp()}")
 
 -- Start the monitor (blocks until SIGINT / Ctrl-C)
-println("[monitor] watching examples/watched.txt — edit and save to trigger")
+println("[monitor] watching examples/io/watched.txt — edit and save to trigger")
 
 route @"change" |> handle_change
 

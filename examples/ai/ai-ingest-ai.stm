@@ -2,7 +2,7 @@ i:io
 
 -- Uses AI (Anthropic) to infer semantic field names from sample rows.
 -- Requires ANTHROPIC_API_KEY. Falls back to positional names if unavailable.
-#ingest "../test-fixtures/personnel.txt" as Personnel separator "," ai:anthropic success @"personnel" fail @"fails"
+#ingest "../../test-fixtures/personnel.txt" as Personnel separator "," ai:anthropic success @"personnel" fail @"fails"
 
 -- Field names below are AI-inferred (e.g. name, age, profession, nationality).
 -- On first run without a cached result, positional names (field_0, field_1, ...) are used.

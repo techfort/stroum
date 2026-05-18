@@ -1,0 +1,34 @@
+-- Stream Inspection
+-- Shows how to observe values flowing through multiple named streams.
+-- Functions emitting to named streams; handlers observe the results.
+
+-- Function definitions (all grouped before any calls)
+f:double x => mul(x, 2) @ "numbers"
+f:triple x => mul(x, 3) @ "numbers"
+f:square x => mul(x, x) @ "squares"
+f:negate x => mul(x, -1) @ "negated"
+f:is_even x => eq(mod(x, 2), 0) @ "checks"
+
+-- Calls: same destination
+double(7)
+triple(4)
+
+-- Calls: different destinations
+square(3)
+square(5)
+negate(10)
+negate(4)
+
+-- Calls: batch of even-checks
+is_even(2)
+is_even(3)
+is_even(100)
+
+-- Handlers observe all stream activity
+on @"numbers"  |> |:v| => println("numbers:  #{v}")
+on @"squares"  |> |:v| => println("squares:  #{v}")
+on @"negated"  |> |:v| => println("negated:  #{v}")
+on @"checks"   |> |:v| => println("is_even:  #{v}")
+
+-- Uncomment to capture all stream activity with full metadata:
+-- on @"__trace" |> |:ev| => debug(ev, "TRACE")

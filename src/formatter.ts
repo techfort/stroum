@@ -113,12 +113,13 @@ function fmtInterpolated(
 }
 
 function fmtList(expr: AST.ListLiteral, depth: number): string {
-  if (expr.elements.length === 0) return "[]";
+  const prefix = expr.elementType ? expr.elementType : "";
+  if (expr.elements.length === 0) return `${prefix}[]`;
   const elems = expr.elements.map((e) => fmtExpr(e, depth));
-  const inline = `[${elems.join(", ")}]`;
+  const inline = `${prefix}[${elems.join(", ")}]`;
   if (inline.length <= 60) return inline;
   const ind = INDENT.repeat(depth + 1);
-  return `[\n${elems.map((e) => ind + e).join(",\n")}\n${INDENT.repeat(depth)}]`;
+  return `${prefix}[\n${elems.map((e) => ind + e).join(",\n")}\n${INDENT.repeat(depth)}]`;
 }
 
 function fmtRecord(expr: AST.RecordLiteral, depth: number): string {
