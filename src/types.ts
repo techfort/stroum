@@ -11,6 +11,7 @@ export enum TokenType {
   // Sigils
   SIGIL_BINDING = "SIGIL_BINDING", // b:
   SIGIL_FUNCTION = "SIGIL_FUNCTION", // f:
+  SIGIL_TYPE = "SIGIL_TYPE", // t:
   SIGIL_STRUCT = "SIGIL_STRUCT", // s:
   SIGIL_IMPORT = "SIGIL_IMPORT", // i:
   SIGIL_SOURCE = "SIGIL_SOURCE", // src:
@@ -21,6 +22,7 @@ export enum TokenType {
   // Operators - pipe and composition
   PIPE = "PIPE", // |>
   PIPE_PARTIAL = "PIPE_PARTIAL", // |?>
+  EQUAL = "EQUAL", // =
   ARROW = "ARROW", // =>
   OUTPUT_ARROW = "OUTPUT_ARROW", // -> (reserved, unused in v1)
 

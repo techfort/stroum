@@ -33,11 +33,13 @@ s:Logentry {
   msg:   String
 }
 
+t:Parselineresult = .ok Logentry | .error String
+
 -- ── Parsing ───────────────────────────────────────────────────────────────────
--- Returns a tagged value: .ok Logentry on success, .error String on failure.
+-- Returns a Parselineresult: .ok Logentry on success, .error String on failure.
 -- Callers pattern-match the outcome — no exceptions, no nulls.
 
-f:parse_line line:String -> Any =>
+f:parse_line line:String -> Parselineresult =>
   :parts split(line, "|")
   if lt(count(parts), 3) then
     .error concat("malformed line: ", line)

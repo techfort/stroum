@@ -14,6 +14,7 @@ export interface ASTNode {
 export interface Module extends ASTNode {
   type: "Module";
   imports: ImportDeclaration[];
+  typeDeclarations: TypeDeclaration[];
   streamDeclarations: StreamDeclaration[];
   inputDeclarations: InputDeclaration[];
   outputDeclarations: OutputDeclaration[];
@@ -114,6 +115,48 @@ export type Declaration =
   | StructDeclaration
   | FunctionDeclaration
   | BindingDeclaration;
+
+export type TypeDeclaration = TypeSignatureDeclaration | TypeAliasDeclaration;
+
+export type TypeExpression =
+  | NamedTypeExpression
+  | FunctionTypeExpression
+  | UnionTypeExpression;
+
+export interface NamedTypeExpression {
+  type: "NamedTypeExpression";
+  name: string;
+  params: TypeExpression[];
+}
+
+export interface FunctionTypeExpression {
+  type: "FunctionTypeExpression";
+  from: TypeExpression;
+  to: TypeExpression;
+}
+
+export interface UnionVariant {
+  tag: string;
+  payload: TypeExpression | null;
+}
+
+export interface UnionTypeExpression {
+  type: "UnionTypeExpression";
+  variants: UnionVariant[];
+}
+
+export interface TypeSignatureDeclaration extends ASTNode {
+  type: "TypeSignatureDeclaration";
+  name: string;
+  typeExpression: TypeExpression;
+}
+
+export interface TypeAliasDeclaration extends ASTNode {
+  type: "TypeAliasDeclaration";
+  name: string;
+  typeParams: string[];
+  typeExpression: TypeExpression;
+}
 
 export interface TestDeclaration extends ASTNode {
   type: 'TestDeclaration';

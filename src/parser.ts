@@ -44,6 +44,7 @@ export class Parser {
       const t = this.peek();
       if (
         t.type === TokenType.SIGIL_IMPORT ||
+        t.type === TokenType.SIGIL_TYPE ||
         t.type === TokenType.SIGIL_FUNCTION ||
         t.type === TokenType.SIGIL_BINDING ||
         t.type === TokenType.SIGIL_STRUCT ||
@@ -65,6 +66,7 @@ export class Parser {
   parse(): AST.Module {
     const location = this.currentLocation();
     const imports: AST.ImportDeclaration[] = [];
+    const typeDeclarations: AST.TypeDeclaration[] = [];
     const streamDeclarations: AST.StreamDeclaration[] = [];
     const inputDeclarations: AST.InputDeclaration[] = [];
     const outputDeclarations: AST.OutputDeclaration[] = [];
@@ -96,6 +98,7 @@ export class Parser {
         this.isInputDeclaration() ||
         this.isOutputDeclaration() ||
         this.isWireDeclaration() ||
+        this.isTypeDeclaration() ||
         this.isDefinition() ||
         this.isTestDeclaration())
     ) {
@@ -114,6 +117,8 @@ export class Parser {
           sinkDeclarations.push(this.parseSinkDeclaration());
         } else if (this.isTestDeclaration()) {
           testDeclarations.push(this.parseTestDeclaration());
+        } else if (this.isTypeDeclaration()) {
+          typeDeclarations.push(this.parseTypeDeclaration());
         } else {
           definitions.push(this.parseDefinition());
         }
@@ -153,7 +158,7 @@ export class Parser {
           sourceDeclarations.push(this.parseSourceDeclaration());
         } else {
           this.error(
-            `Unexpected ${this.formatToken(this.peek())} at module level — expected a declaration (f:, s:, :, i:, stream:, src:, snk:, on, route, run, test) or an expression`,
+            `Unexpected ${this.formatToken(this.peek())} at module level — expected a declaration (t:, f:, s:, :, i:, stream:, src:, snk:, on, route, run, test) or an expression`,
           );
         }
       } catch (e) {
@@ -179,6 +184,7 @@ export class Parser {
       type: "Module",
       location,
       imports,
+      typeDeclarations,
       streamDeclarations,
       inputDeclarations,
       outputDeclarations,
@@ -262,6 +268,10 @@ export class Parser {
       this.check(TokenType.SIGIL_BINDING) ||
       this.check(TokenType.COLON)
     );
+  }
+
+  private isTypeDeclaration(): boolean {
+    return this.check(TokenType.SIGIL_TYPE);
   }
 
   private isStreamDeclaration(): boolean {
@@ -423,6 +433,126 @@ export class Parser {
     } else {
       return this.parseBindingDeclaration();
     }
+  }
+
+  private parseTypeDeclaration(): AST.TypeDeclaration {
+    const location = this.currentLocation();
+    this.consume(TokenType.SIGIL_TYPE, "Expected t:");
+
+    const name = this.consume(TokenType.TYPE_NAME, "Expected type name after t:").value;
+    const typeParams = this.parseOptionalTypeParams();
+
+    if (this.match(TokenType.EQUAL)) {
+      return {
+        type: "TypeAliasDeclaration",
+        location,
+        name,
+        typeParams,
+        typeExpression: this.parseTypeExpression(),
+      };
+    }
+
+    return {
+      type: "TypeSignatureDeclaration",
+      location,
+      name,
+      typeExpression: this.parseTypeExpression(),
+    };
+  }
+
+  private parseOptionalTypeParams(): string[] {
+    const typeParams: string[] = [];
+    if (!this.match(TokenType.LBRACKET)) {
+      return typeParams;
+    }
+
+    do {
+      typeParams.push(
+        this.consume(TokenType.TYPE_NAME, "Expected type parameter name").value,
+      );
+    } while (this.match(TokenType.COMMA));
+
+    this.consume(TokenType.RBRACKET, "Expected ] after type parameters");
+    return typeParams;
+  }
+
+  private parseTypeExpression(): AST.TypeExpression {
+    if (this.check(TokenType.DOT)) {
+      return this.parseUnionTypeExpression();
+    }
+
+    return this.parseFunctionTypeExpression();
+  }
+
+  private parseFunctionTypeExpression(): AST.TypeExpression {
+    let left = this.parseTypeAtom();
+
+    if (this.match(TokenType.OUTPUT_ARROW)) {
+      const right = this.parseFunctionTypeExpression();
+      left = {
+        type: "FunctionTypeExpression",
+        from: left,
+        to: right,
+      };
+    }
+
+    return left;
+  }
+
+  private parseUnionTypeExpression(): AST.UnionTypeExpression {
+    const variants: AST.UnionVariant[] = [this.parseUnionVariant()];
+
+    while (this.match(TokenType.BAR)) {
+      variants.push(this.parseUnionVariant());
+    }
+
+    return {
+      type: "UnionTypeExpression",
+      variants,
+    };
+  }
+
+  private parseUnionVariant(): AST.UnionVariant {
+    this.consume(TokenType.DOT, "Expected .tag in union variant");
+
+    let tag: string;
+    if (this.check(TokenType.IDENTIFIER) || this.check(TokenType.STRING)) {
+      tag = this.advance().value;
+    } else {
+      this.error("Expected union tag name after .");
+    }
+
+    let payload: AST.TypeExpression | null = null;
+    if (this.startsTypeExpression()) {
+      payload = this.parseTypeExpression();
+    }
+
+    return { tag, payload };
+  }
+
+  private startsTypeExpression(): boolean {
+    return this.check(TokenType.TYPE_NAME) || this.check(TokenType.DOT);
+  }
+
+  private parseTypeAtom(): AST.TypeExpression {
+    const name = this.consume(TokenType.TYPE_NAME, "Expected type name").value;
+
+    const params: AST.TypeExpression[] = [];
+    if (this.match(TokenType.LBRACKET)) {
+      if (!this.check(TokenType.RBRACKET)) {
+        params.push(this.parseTypeExpression());
+        while (this.match(TokenType.COMMA)) {
+          params.push(this.parseTypeExpression());
+        }
+      }
+      this.consume(TokenType.RBRACKET, "Expected ] after type arguments");
+    }
+
+    return {
+      type: "NamedTypeExpression",
+      name,
+      params,
+    };
   }
 
   private parseStructDeclaration(): AST.StructDeclaration {

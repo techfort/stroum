@@ -97,6 +97,28 @@ describe("Transpiler", () => {
     });
   });
 
+  describe("type declarations", () => {
+    it("should transpile tagged union type alias", () => {
+      const source = "t:Parselineresult = .ok Logentry | .error String";
+      const output = transpile(source);
+      expect(output).toContain(
+        'type Parselineresult = { outcome: "ok"; value: Logentry } | { outcome: "error"; value: string };',
+      );
+    });
+
+    it("should transpile function return type that references a type alias", () => {
+      const source = `t:Parselineresult = .ok Logentry | .error String
+s:Logentry {
+  level: String
+}
+f:parse_line line:String -> Parselineresult => .error line`;
+      const output = transpile(source);
+      expect(output).toContain(
+        "async function parse_line(line: string): Promise<Parselineresult>",
+      );
+    });
+  });
+
   describe("tagged expressions", () => {
     it("should transpile tagged expression producer with identifier tag", () => {
       const output = transpile("f:wrap x:Any -> Any => .ok x");

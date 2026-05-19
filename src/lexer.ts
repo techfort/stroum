@@ -114,14 +114,14 @@ export class Lexer {
       }
     }
 
-    // => or ->
+    // => or =
     if (char === "=") {
       this.advance();
       if (this.match(">")) {
         this.addToken(TokenType.ARROW, "=>");
         return;
       }
-      this.error(startLine, startColumn, "Unexpected = (did you mean =>?)");
+      this.addToken(TokenType.EQUAL, "=");
       return;
     }
 
@@ -166,7 +166,7 @@ export class Lexer {
       return;
     }
 
-    // Sigils: b:, f:, s:, i:, or just :
+    // Sigils: b:, f:, t:, s:, i:, or just :
     if (char === "b" && nextChar === ":") {
       this.advance();
       this.advance();
@@ -178,6 +178,13 @@ export class Lexer {
       this.advance();
       this.advance();
       this.addToken(TokenType.SIGIL_FUNCTION, "f:");
+      return;
+    }
+
+    if (char === "t" && nextChar === ":") {
+      this.advance();
+      this.advance();
+      this.addToken(TokenType.SIGIL_TYPE, "t:");
       return;
     }
 

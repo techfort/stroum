@@ -92,6 +92,10 @@ describe("Lexer", () => {
       ]);
     });
 
+    it("should tokenize t: sigil", () => {
+      expect(tokenTypes("t:")).toEqual([TokenType.SIGIL_TYPE, TokenType.EOF]);
+    });
+
     it("should tokenize s: sigil", () => {
       expect(tokenTypes("s:")).toEqual([TokenType.SIGIL_STRUCT, TokenType.EOF]);
     });
@@ -129,6 +133,10 @@ describe("Lexer", () => {
 
     it("should tokenize arrow", () => {
       expect(tokenTypes("=>")).toEqual([TokenType.ARROW, TokenType.EOF]);
+    });
+
+    it("should tokenize equals", () => {
+      expect(tokenTypes("=")).toEqual([TokenType.EQUAL, TokenType.EOF]);
     });
 
     it("should tokenize output arrow", () => {
@@ -451,8 +459,10 @@ describe("Lexer", () => {
       expect(errs[0].line).toBe(2);
     });
 
-    it("should reject = without >", () => {
-      expect(lexErrors("a = b")[0].message).toMatch(/did you mean/);
+    it("should tokenize standalone = without error", () => {
+      const types = tokenTypes("a = b");
+      expect(types).toContain(TokenType.EQUAL);
+      expect(lexErrors("a = b")).toHaveLength(0);
     });
 
     it("should reject ~ without >", () => {
