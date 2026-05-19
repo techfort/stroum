@@ -447,7 +447,7 @@ export async function __runForever(): Promise<void> {
 
 // Print summary at program end when tracing is enabled
 if (process.env.STROUM_TRACE === "1") {
-  process.on("beforeExit", () => __router.printSummary());
+  process.once("beforeExit", () => __router.printSummary());
 }
 
 // Global error handlers — catch unhandled rejections/exceptions and surface them
@@ -462,7 +462,7 @@ process.on("uncaughtException", (err) => {
 // Auto-connect IPC socket when env var is set
 if (process.env.STROUM_IPC_SOCKET) {
   __router.connectIPC(process.env.STROUM_IPC_SOCKET);
-  process.on("beforeExit", () => {
+  process.once("beforeExit", () => {
     __router.sendExit(0);
   });
 }
