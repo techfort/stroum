@@ -121,13 +121,13 @@ describe("Transpiler", () => {
     });
 
     it("should transpile outcome match with stream redirect", () => {
-      const output = transpile('process(x)\n| .fail => @"errors"');
+      const output = transpile('process(x)\n| .fail => @errors');
       expect(output).toContain('__value.outcome === "fail"');
       expect(output).toContain('await __route(__inner, "errors"');
     });
 
     it("should transpile outcome match with lambda handler that emits to stream", () => {
-      const output = transpile('process(x)\n| .ok => |:u:Any| => u @ "result"');
+      const output = transpile("process(x)\n| .ok => |:u:Any| => u @result");
       expect(output).toContain('__value.outcome === "ok"');
       expect(output).toContain("const __inner = __value.value");
       // Lambda must be called with __inner; its return value is emitted — not the lambda itself
@@ -161,7 +161,7 @@ describe("Transpiler", () => {
     });
 
     it("should transpile pipe with stream emit", () => {
-      const output = transpile('data |> process @"result"');
+      const output = transpile('data |> process @result');
       expect(output).toContain("__route");
       expect(output).toContain('"result"');
     });
@@ -183,7 +183,7 @@ describe("Transpiler", () => {
     });
 
     it("should transpile parallel with stream emit", () => {
-      const output = transpile('fetch(a) PP fetch(b) |> merge @"data"');
+      const output = transpile('fetch(a) PP fetch(b) |> merge @data');
       expect(output).toContain("Promise.all");
       expect(output).toContain("__route");
       expect(output).toContain('"data"');
@@ -205,9 +205,9 @@ describe("Transpiler", () => {
 
   describe("on handlers", () => {
     it("should transpile on handler", () => {
-      const source = `data |> process @"result"
+      const source = `data |> process @result
 
-on @"errors" |> |:e:Any| => log(e)`;
+on @errors |> |:e:Any| => log(e)`;
       const output = transpile(source);
       expect(output).toContain('__router.on("errors"');
       expect(output).toContain("async (e: any) =>");
@@ -216,7 +216,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
   describe("route declarations", () => {
     it("should transpile route with single function", () => {
-      const source = `op1()\n\nroute @"ok" |> op2`;
+      const source = `op1()\n\nroute @ok |> op2`;
       const output = transpile(source);
       expect(output).toContain('__router.on("ok"');
       expect(output).toContain("__routeValue");
@@ -224,7 +224,7 @@ on @"errors" |> |:e:Any| => log(e)`;
     });
 
     it("should transpile route with pipe chain", () => {
-      const source = `op1()\n\nroute @"ok" |> op2 |> op3`;
+      const source = `op1()\n\nroute @ok |> op2 |> op3`;
       const output = transpile(source);
       expect(output).toContain('__router.on("ok"');
       expect(output).toContain("op2");
@@ -232,7 +232,7 @@ on @"errors" |> |:e:Any| => log(e)`;
     });
 
     it("should transpile route and on handler together", () => {
-      const source = `op1()\n\nroute @"ok" |> process\non @"fail" |> |:x:Any| => rescue(x)`;
+      const source = `op1()\n\nroute @ok |> process\non @fail |> |:x:Any| => rescue(x)`;
       const output = transpile(source);
       expect(output).toContain('__router.on("ok"');
       expect(output).toContain('__router.on("fail"');
@@ -241,28 +241,28 @@ on @"errors" |> |:e:Any| => log(e)`;
 
   describe("source and runtime declarations", () => {
     it("should transpile finite src declaration as a routed emission", () => {
-      const output = transpile('src: @"orders" file("orders.csv")');
+      const output = transpile('src: @orders file("orders.csv")');
       expect(output).toContain(
         'await __route(await file("orders.csv"), "orders"',
       );
     });
 
     it("should transpile to declaration as a generated stream sink", () => {
-      const output = transpile('snk: @"orders.clean" persist_order');
+      const output = transpile("snk: @orders_clean persist_order");
       expect(output).toContain(
-        '__router.on("orders.clean", async (__sinkValue) => { await persist_order(__sinkValue); });',
+        '__router.on("orders_clean", async (__sinkValue) => { await persist_order(__sinkValue); });',
       );
     });
 
     it("should transpile to declaration with a built-in stdout sink alias", () => {
-      const output = transpile('snk: @"orders.clean" stdout');
+      const output = transpile("snk: @orders_clean stdout");
       expect(output).toContain(
-        '__router.on("orders.clean", async (__sinkValue) => { await stdout(__sinkValue); });',
+        '__router.on("orders_clean", async (__sinkValue) => { await stdout(__sinkValue); });',
       );
     });
 
     it("should transpile to declaration with placeholder call", () => {
-      const output = transpile('snk: @"audit" append_file("audit.log", _)');
+      const output = transpile('snk: @audit append_file("audit.log", _)');
       expect(output).toContain(
         '__router.on("audit", async (__sinkValue) => { await append_file("audit.log", __sinkValue); });',
       );
@@ -270,7 +270,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
     it("should transpile to declaration with a sink-oriented stdlib alias", () => {
       const output = transpile(
-        'i:io\nsnk: @"audit" jsonl_file("audit.jsonl", _)',
+        'i:io\nsnk: @audit jsonl_file("audit.jsonl", _)',
       );
       expect(output).toContain(
         '__router.on("audit", async (__sinkValue) => { await jsonl_file("audit.jsonl", __sinkValue); });',
@@ -278,7 +278,7 @@ on @"errors" |> |:e:Any| => log(e)`;
     });
 
     it("should transpile file_sink to declaration as a sink factory call", () => {
-      const output = transpile('i:io\nsnk: @"log_entry" file_sink("app.log")');
+      const output = transpile('i:io\nsnk: @log_entry file_sink("app.log")');
       expect(output).toContain(
         '__router.on("log_entry", async (__sinkValue) => { await (file_sink("app.log"))(__sinkValue); });',
       );
@@ -286,7 +286,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
     it("should transpile jsonl_sink to declaration as a sink factory call", () => {
       const output = transpile(
-        'i:io\nsnk: @"events" jsonl_sink("events.jsonl")',
+        'i:io\nsnk: @events jsonl_sink("events.jsonl")',
       );
       expect(output).toContain(
         '__router.on("events", async (__sinkValue) => { await (jsonl_sink("events.jsonl"))(__sinkValue); });',
@@ -294,14 +294,14 @@ on @"errors" |> |:e:Any| => log(e)`;
     });
 
     it("should transpile log_sink to declaration as a sink factory call", () => {
-      const output = transpile('snk: @"debug" log_sink("app")');
+      const output = transpile('snk: @debug log_sink("app")');
       expect(output).toContain(
         '__router.on("debug", async (__sinkValue) => { await (log_sink("app"))(__sinkValue); });',
       );
     });
 
     it("should transpile null_sink to declaration as an identifier sink", () => {
-      const output = transpile('snk: @"discard" null_sink');
+      const output = transpile('snk: @discard null_sink');
       expect(output).toContain(
         '__router.on("discard", async (__sinkValue) => { await null_sink(__sinkValue); });',
       );
@@ -309,7 +309,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
     it("should transpile http_sink to declaration as a sink factory call", () => {
       const output = transpile(
-        'i:io\nsnk: @"events" http_sink("https://api.example.com/ingest")',
+        'i:io\nsnk: @events http_sink("https://api.example.com/ingest")',
       );
       expect(output).toContain(
         '__router.on("events", async (__sinkValue) => { await (http_sink("https://api.example.com/ingest"))(__sinkValue); });',
@@ -318,7 +318,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
     it("should transpile watch_file src declaration as a source task", () => {
       const output = transpile(
-        'src: @"changes" watch_file("watched.txt")\nrun until signal',
+        'src: @changes watch_file("watched.txt")\nrun until signal',
       );
       expect(output).toContain(
         '__sourceTasks.push(watch_file("watched.txt", async (__sourceValue) => { await __route(__sourceValue, "changes"',
@@ -328,7 +328,7 @@ on @"errors" |> |:e:Any| => log(e)`;
     });
 
     it("should transpile from_list src declaration as a source task", () => {
-      const output = transpile('src: @"items" from_list([1, 2, 3])');
+      const output = transpile('src: @items from_list([1, 2, 3])');
       expect(output).toContain(
         "__sourceTasks.push(from_list([1, 2, 3], async (__sourceValue) => { await __route(__sourceValue, \"items\"",
       );
@@ -336,7 +336,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
     it("should transpile interval src declaration as a source task", () => {
       const output = transpile(
-        'i:timer\nsrc: @"tick" interval(1000)\nrun until signal',
+        'i:timer\nsrc: @tick interval(1000)\nrun until signal',
       );
       expect(output).toContain(
         '__sourceTasks.push(interval(1000, async (__sourceValue) => { await __route(__sourceValue, "tick"',
@@ -346,7 +346,7 @@ on @"errors" |> |:e:Any| => log(e)`;
 
     it("should transpile stdin_lines src declaration as a source task", () => {
       const output = transpile(
-        'i:io\nsrc: @"lines" stdin_lines()\nrun until signal',
+        'i:io\nsrc: @lines stdin_lines()\nrun until signal',
       );
       expect(output).toContain(
         '__sourceTasks.push(stdin_lines(async (__sourceValue) => { await __route(__sourceValue, "lines"',
@@ -354,13 +354,18 @@ on @"errors" |> |:e:Any| => log(e)`;
     });
 
     it("should transpile run until stream declaration", () => {
-      const output = transpile('run until @"shutdown"');
+      const output = transpile('run until @shutdown');
       expect(output).toContain('await __runUntilStream("shutdown");');
     });
 
     it("should transpile run until timeout declaration", () => {
       const output = transpile("run until timeout(5000)");
       expect(output).toContain("await __runUntilTimeout(5000);");
+    });
+
+    it("should transpile stream_info with stream symbol argument", () => {
+      const output = transpile(":meta stream_info(@raw)");
+      expect(output).toContain('const meta = await stream_info("raw");');
     });
   });
 
@@ -400,8 +405,8 @@ double(5)`;
 
     it("should transpile program with outcome matches", () => {
       const source = `f:fetch url:String -> Any =>
-  http_get(url) @"ok"
-  | .error => @"fail"
+  http_get(url) @ok
+  | .error => @fail
 
 fetch("api.com")`;
       const output = transpile(source);

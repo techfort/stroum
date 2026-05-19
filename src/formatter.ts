@@ -22,6 +22,8 @@ function fmtExpr(expr: AST.Expression, depth = 0): string {
       return fmtIf(expr, depth);
     case "TaggedExpression":
       return fmtTagged(expr, depth);
+    case "StreamSymbol":
+      return `@${expr.name}`;
     case "Identifier":
       return expr.name;
     case "NumberLiteral":
@@ -138,7 +140,7 @@ function fmtRecord(expr: AST.RecordLiteral, depth: number): string {
 // ─── Stream / emit helpers ────────────────────────────────────────────────────
 
 function fmtStreamRef(ref: AST.StreamRef): string {
-  return ref.isDynamic ? `@${ref.name}` : `@"${ref.name}"`;
+  return `@${ref.name}`;
 }
 
 function fmtStreamEmit(emit: AST.StreamEmit): string {
@@ -180,7 +182,7 @@ function fmtFunction(decl: AST.FunctionDeclaration): string {
   const ret = ` -> ${decl.returnType}`;
   const contract =
     decl.emissionContract && decl.emissionContract.length > 0
-      ? ` ~> ${decl.emissionContract.map((s) => `@"${s}"`).join(", ")}`
+      ? ` ~> ${decl.emissionContract.map((s) => `@${s}`).join(", ")}`
       : "";
   const head = `${prefix}f:${decl.name}${params}${ret}${contract}`;
 
@@ -231,7 +233,7 @@ function fmtSink(decl: AST.SinkDeclaration): string {
 }
 
 function fmtOnHandler(h: AST.OnHandler): string {
-  const pattern = `@"${h.streamPattern}"`;
+  const pattern = fmtStreamRef(h.streamPattern);
   const handler = fmtLambda(h.handler, 0);
   const emit = h.streamEmit ? ` ${fmtStreamEmit(h.streamEmit)}` : "";
   return `on ${pattern} |> ${handler}${emit}`;

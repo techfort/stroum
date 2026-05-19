@@ -45,11 +45,11 @@ describe("analyzeDataflow", () => {
     });
 
     it("creates a stream node for @ emit inside a function", () => {
-      const g = analyze('f:emit x:Any -> Any => x @ "events"');
+      const g = analyze("f:emit x:Any -> Any => x @events");
       expect(g.nodes.find((n) => n.id === "stream:events")).toMatchObject({
         id: "stream:events",
         kind: "stream",
-        label: '@"events"',
+        label: "@events",
       });
     });
 
@@ -63,12 +63,12 @@ describe("analyzeDataflow", () => {
     });
 
     it("creates a stream node from on handler", () => {
-      const g = analyze('f:noop x:Any -> Any => x\non @"updates" |> |:v:Any| => noop(v)');
+      const g = analyze("f:noop x:Any -> Any => x\non @updates |> |:v:Any| => noop(v)");
       expect(g.nodes.find((n) => n.id === "stream:updates")).toBeTruthy();
     });
 
     it("creates a stream node from route declaration", () => {
-      const g = analyze('f:process x:Any -> Any => x\nroute @"raw" |> process');
+      const g = analyze("f:process x:Any -> Any => x\nroute @raw |> process");
       expect(g.nodes.find((n) => n.id === "stream:raw")).toBeTruthy();
     });
 
@@ -93,12 +93,12 @@ describe("analyzeDataflow", () => {
     });
 
     it("adds an emit edge from function to stream", () => {
-      const g = analyze('f:emit x:Any -> Any => x @ "out"');
+      const g = analyze("f:emit x:Any -> Any => x @out");
       expect(hasEdge(g, "fn:emit", "stream:out", "emit")).toBe(true);
     });
 
     it("adds a pipe edge from stream to function via route", () => {
-      const g = analyze('f:process x:Any -> Any => x\nroute @"raw" |> process');
+      const g = analyze("f:process x:Any -> Any => x\nroute @raw |> process");
       expect(hasEdge(g, "stream:raw", "fn:process", "pipe")).toBe(true);
     });
 
@@ -112,7 +112,7 @@ describe("analyzeDataflow", () => {
 
     it("adds an outcome edge for tagged expression inside pipe", () => {
       const g = analyze(
-        'f:classify x:Any -> Any =>\n  x\n  | .high => x @ "alerts"\n  | .low  => x @ "logs"',
+        "f:classify x:Any -> Any =>\n  x\n  | .high => x @alerts\n  | .low  => x @logs",
       );
       expect(hasEdge(g, "fn:classify", "tag:high", "outcome")).toBe(true);
       expect(hasEdge(g, "fn:classify", "tag:low", "outcome")).toBe(true);

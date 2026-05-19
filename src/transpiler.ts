@@ -332,7 +332,7 @@ export class Transpiler {
               `import { ${functions.join(", ")} } from '${importPath}';`,
             );
           }
-        } catch (error) {
+        } catch {
           // Fallback to namespace import if we can't parse the module
           this.emit(
             `import * as __imported_${path.basename(modulePath, ".stm")} from '${importPath}';`,
@@ -438,6 +438,8 @@ export class Transpiler {
     switch (expr.type) {
       case "Identifier":
         return expr.name;
+      case "StreamSymbol":
+        return JSON.stringify(expr.name);
       case "NumberLiteral":
         return expr.value.toString();
       case "StringLiteral":
@@ -646,10 +648,9 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
     }
   }
 
-  // Convert a StreamRef to a TypeScript expression string.
-  // Static: "name" (quoted)   Dynamic: name (unquoted binding reference)
+  // Convert a StreamRef to a TypeScript stream key.
   private streamRefToTs(ref: AST.StreamRef): string {
-    return ref.isDynamic ? ref.name : `"${ref.name}"`;
+    return JSON.stringify(ref.name);
   }
 
   private transpileLambda(lambda: AST.Lambda): string {
@@ -750,7 +751,7 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
   private transpileOnHandler(handler: AST.OnHandler): void {
     // Handler.handler is a Lambda, we need to transpile it
     const handlerExpr = this.transpileLambda(handler.handler);
-    this.emit(`__router.on("${handler.streamPattern}", ${handlerExpr});`);
+    this.emit(`__router.on(${this.streamRefToTs(handler.streamPattern)}, ${handlerExpr});`);
   }
 
   private transpileSourceDeclaration(sourceDecl: AST.SourceDeclaration): void {

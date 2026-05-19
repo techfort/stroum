@@ -11,6 +11,14 @@ function validate(source: string) {
   return validator.validate(ast);
 }
 
+function parseDiagnostics(source: string) {
+  const lexer = new Lexer(source);
+  const tokens = lexer.tokenize();
+  const parser = new Parser(tokens);
+  parser.parse();
+  return parser.diagnostics;
+}
+
 describe("Validator", () => {
   describe("duplicate bindings", () => {
     it("should error on duplicate function names", () => {
@@ -86,8 +94,8 @@ describe("Validator", () => {
   describe("emission contract validation", () => {
     it("should warn when multiple outcomes without contract", () => {
       const source = `f:fetch url:String -> Any =>
-  http_get(url) @"ok"
-  | .error => @"fail"`;
+  http_get(url) @ok
+  | .error => @fail`;
       const issues = validate(source);
       const warnings = issues.filter((i) => i.type === "warning");
       expect(warnings.length).toBeGreaterThan(0);
@@ -96,9 +104,9 @@ describe("Validator", () => {
     });
 
     it("should not warn when emission contract is declared", () => {
-      const source = `f:fetch url:String -> Any ~> @"ok", @"fail" =>
-  http_get(url) @"ok"
-  | .error => @"fail"`;
+      const source = `f:fetch url:String -> Any ~> @ok, @fail =>
+  http_get(url) @ok
+  | .error => @fail`;
       const issues = validate(source);
       const warnings = issues.filter(
         (i) => i.type === "warning" && i.message.includes("outcome paths"),
@@ -107,7 +115,7 @@ describe("Validator", () => {
     });
 
     it("should not warn for single outcome", () => {
-      const issues = validate('f:double n:Int -> Int => multiply(n, 2) @"result"');
+      const issues = validate('f:double n:Int -> Int => multiply(n, 2) @result');
       const warnings = issues.filter(
         (i) => i.type === "warning" && i.message.includes("outcome paths"),
       );
@@ -116,15 +124,16 @@ describe("Validator", () => {
   });
 
   describe("stream declaration validation", () => {
-    it("should error on invalid stream names in contract", () => {
-      const issues = validate('f:foo -> Any ~> @"123invalid", @"ok" => result @"ok"');
-      const errors = issues.filter((i) => i.type === "error");
-      expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain("string literal");
+    it("should reject invalid stream names in contract at parse stage", () => {
+      const diagnostics = parseDiagnostics(
+        "f:foo -> Any ~> @123invalid, @ok => result @ok",
+      );
+      expect(diagnostics.length).toBeGreaterThan(0);
+      expect(diagnostics[0].message).toContain("Expected stream identifier");
     });
 
     it("should accept valid stream names", () => {
-      const issues = validate('f:foo -> Any ~> @"ok", @"error" => result @"ok"');
+      const issues = validate('f:foo -> Any ~> @ok, @error => result @ok');
       const errors = issues.filter(
         (i) => i.type === "error" && i.message.includes("string literal"),
       );
@@ -132,7 +141,7 @@ describe("Validator", () => {
     });
 
     it("should warn for open-ended src declarations without run until", () => {
-      const issues = validate('src: @"changes" watch_file("watched.txt")');
+      const issues = validate('src: @changes watch_file("watched.txt")');
       const warnings = issues.filter((i) => i.type === "warning");
       expect(warnings.length).toBeGreaterThan(0);
       expect(warnings[0].message).toContain("open-ended src: sources");
@@ -141,7 +150,7 @@ describe("Validator", () => {
 
     it("should not warn for open-ended src declarations with run until", () => {
       const issues = validate(
-        'src: @"changes" watch_file("watched.txt")\nrun until signal',
+        'src: @changes watch_file("watched.txt")\nrun until signal',
       );
       const warnings = issues.filter(
         (i) =>
@@ -151,7 +160,7 @@ describe("Validator", () => {
     });
 
     it("should not warn for finite src declarations without run until", () => {
-      const issues = validate('src: @"orders" file("orders.csv")');
+      const issues = validate('src: @orders file("orders.csv")');
       const warnings = issues.filter(
         (i) =>
           i.type === "warning" && i.message.includes("open-ended src: sources"),
@@ -160,7 +169,7 @@ describe("Validator", () => {
     });
 
     it("should not warn for from_list src without run until", () => {
-      const issues = validate('src: @"items" from_list([1, 2, 3])');
+      const issues = validate('src: @items from_list([1, 2, 3])');
       const warnings = issues.filter(
         (i) =>
           i.type === "warning" && i.message.includes("open-ended src: sources"),
@@ -169,7 +178,7 @@ describe("Validator", () => {
     });
 
     it("should warn for interval src without run until", () => {
-      const issues = validate('i:timer\nsrc: @"tick" interval(1000)');
+      const issues = validate('i:timer\nsrc: @tick interval(1000)');
       const warnings = issues.filter(
         (i) => i.type === "warning" && i.message.includes("open-ended src: sources"),
       );
@@ -177,7 +186,7 @@ describe("Validator", () => {
     });
 
     it("should warn for stdin_lines src without run until", () => {
-      const issues = validate('i:io\nsrc: @"lines" stdin_lines()');
+      const issues = validate('i:io\nsrc: @lines stdin_lines()');
       const warnings = issues.filter(
         (i) => i.type === "warning" && i.message.includes("open-ended src: sources"),
       );
@@ -186,7 +195,7 @@ describe("Validator", () => {
 
     it("should validate to declarations without introducing liveness warnings", () => {
       const issues = validate(
-        'f:persist_order order:Any -> Any => order\nsnk: @"orders.clean" persist_order',
+        "f:persist_order order:Any -> Any => order\nsnk: @orders_clean persist_order",
       );
       const errors = issues.filter((i) => i.type === "error");
       const warnings = issues.filter(
@@ -208,9 +217,9 @@ describe("Validator", () => {
     it("should allow a function body binding to be referenced by later statements", () => {
       const source = `f:check_positive x:Any -> Any =>
   if gt(x, 0) then
-    x @ "positive"
+    x @positive
   else
-    x @ "non-positive"
+    x @non_positive
 
 f:main -> Void =>
   :nums [1, -2, 3, 0]
@@ -234,17 +243,17 @@ f:log msg:Any -> Void => msg
 :primary "url1"
 :secondary "url2"
 
-f:parse raw:Any -> Any ~> @"ok", @"fail" =>
-  json_parse(raw) @"ok"
-  | .fail => @"fail"
+f:parse raw:Any -> Any ~> @ok, @fail =>
+  json_parse(raw) @ok
+  | .fail => @fail
 
-f:transform data:Any -> Any ~> @"clean", @"rejected" =>
-  data |> normalise |> validate @"clean"
-  | .invalid => @"rejected"
+f:transform data:Any -> Any ~> @clean, @rejected =>
+  data |> normalise |> validate @clean
+  | .invalid => @rejected
 
-fetch(primary) PP fetch(secondary) |> merge @"data"
+fetch(primary) PP fetch(secondary) |> merge @data
 
-on @"errors" |> |:e:Any| => log(e)`;
+on @errors |> |:e:Any| => log(e)`;
 
       const issues = validate(source);
       const errors = issues.filter((i) => i.type === "error");
@@ -256,8 +265,8 @@ on @"errors" |> |:e:Any| => log(e)`;
 f:foo -> Int => 2
 rec f:bar x:Int -> Int => add(x, 1)
 f:baz y:Any -> Any =>
-  result @"ok"
-  | .error => @"fail"`;
+  result @ok
+  | .error => @fail`;
 
       const issues = validate(source);
       const errors = issues.filter((i) => i.type === "error");

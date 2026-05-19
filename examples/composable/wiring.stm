@@ -5,12 +5,12 @@
 i:"./triage.stm"
 i:"./enrich.stm"
 
-wire: @"triage.valid" -> @"enrich.input"
+wire: @triage_valid -> @enrich_input
 
-snk: @"triage.invalid" println
-snk: @"enrich.output"  println
+snk: @triage_invalid println
+snk: @enrich_output  println
 
-src: @"triage.events" "hello world"
-src: @"triage.events" "error: something went wrong"
+src: @triage_events "hello world"
+src: @triage_events "error: something went wrong"
 
 run until timeout(100)

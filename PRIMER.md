@@ -68,18 +68,18 @@ s:Record { id: Int, body: String }
 f:double x => mul(x, 2)
 
 -- sources: wire data into streams
-src: @"raw" read_records("input.csv")
+src: @raw read_records("input.csv")
 
 -- sinks: drain streams to outputs
-snk: @"clean"  println
-snk: @"errors" |:e| => println(concat("[error] ", e))
+snk: @clean  println
+snk: @errors |:e| => println(concat("[error] ", e))
 
 -- primary expressions (run the program, in order)
 double(21) |> println
 
 -- stream handlers: transform and route
-route @"raw" |> parse_record
-on @"raw" |> |:v| => v @ "clean"
+route @raw |> parse_record
+on @raw |> |:v| => v @clean
 ```
 
 ---
@@ -181,8 +181,8 @@ run()
 Declare which streams a function may emit on using `~>`.
 
 ```stroum
-f:validate x ~> @"ok", @"fail" =>
-  if gt(x, 0) then x @ "ok" else x @ "fail"
+f:validate x ~> @ok, @fail =>
+  if gt(x, 0) then x @ok else x @fail
 ```
 
 ---
@@ -257,45 +257,36 @@ f:pipeline input =>
 The `@` operator emits a value onto a named stream **and returns the emitted value** (tee semantics). The pipe chain continues with the same value after emission.
 
 ```stroum
-value @ "results"
+value @results
 ```
 
 Because `@` returns the value, you can chain additional pipe stages or emit to multiple streams:
 
 ```stroum
-value @ "audit" @ "results"            -- emit to two streams in sequence
-value @ "audit" |> transform           -- emit then continue the pipeline
+value @audit @results            -- emit to two streams in sequence
+value @audit |> transform           -- emit then continue the pipeline
 ```
 
 Use `if/then/else` to route to different streams conditionally.
 
 ```stroum
 f:validate x =>
-  if gt(x, 0) then x @ "ok" else x @ "fail"
+  if gt(x, 0) then x @ok else x @fail
 ```
 
-### Dynamic stream names
+### Stream identifiers
 
-Stream names can be stored in bindings and referenced by name — the name resolves at runtime.
-
-```stroum
-:ok "ok"
-:fail "fail"
-
-result @ ok       -- emits to the stream named by the binding
-result @ fail
-```
-
-This also works for fan-out with mixed static and dynamic names:
+Stream references are identifier-only at syntax level. Use `@name` consistently.
 
 ```stroum
-result @ (ok, "audit")    -- one dynamic, one static
+result @ok
+result @fail
 ```
 
 Fan-out to multiple streams:
 
 ```stroum
-value @ ("audit", "results")
+value @(audit, results)
 ```
 
 ### Sequencing independent emissions
@@ -303,8 +294,8 @@ value @ ("audit", "results")
 Write independent emissions as separate top-level statements:
 
 ```stroum
-process(a) @ "stream-a"
-process(b) @ "stream-b"
+process(a) @stream_a
+process(b) @stream_b
 ```
 
 ---
@@ -314,16 +305,16 @@ process(b) @ "stream-b"
 `on` subscribes a lambda to a named stream. Handlers are declared after the primary expression.
 
 ```stroum
-on @"results" |> |:value| => println(to_string(value))
+on @results |> |:value| => println(to_string(value))
 
-on @"error"   |> |:e|     => println(concat("Error: ", e))
+on @error   |> |:e|     => println(concat("Error: ", e))
 ```
 
 The lambda receives the emitted value. The handler body can be any expression, including another emission — enabling feedback loops.
 
 ```stroum
-on @"negative" |> |:x| => validate(negate(x))
--- if validate re-emits on @"ok", that handler fires next
+on @negative |> |:x| => validate(negate(x))
+-- if validate re-emits on @ok, that handler fires next
 ```
 
 **Handlers are awaited in sequence.** When a handler emits on another stream, that stream's full handler chain resolves before execution continues.
@@ -335,19 +326,17 @@ on @"negative" |> |:x| => validate(negate(x))
 `route` declares a **continuation pipeline** for a stream. The emitted value becomes the first argument to the pipeline. This is the idiomatic way to express a happy path.
 
 ```stroum
-route @"ok" |> process |> save |> println
+route @ok |> process |> save |> println
 ```
 
 Equivalent to writing an `on` handler with a lambda, but reads as a pipeline declaration.
 
-### Dynamic stream names in route
+### Route stream identifiers
 
-Like `@`, route accepts a binding reference instead of a string literal:
+Route declarations also use stream identifiers:
 
 ```stroum
-:ok "ok"
-
-route @ ok |> process |> save
+route @ok |> process |> save
 ```
 
 ### Happy path + rescue pattern
@@ -355,18 +344,18 @@ route @ ok |> process |> save
 ```stroum
 -- Entry point emits success or failure
 f:validate x =>
-  if gt(x, 0) then x @ "ok" else x @ "fail"
+  if gt(x, 0) then x @ok else x @fail
 
 validate(input)
 
 -- Happy path: ok values flow through the processing pipeline
-route @"ok" |> transform |> save
+route @ok |> transform |> save
 
--- Rescue: fix the value and re-inject into @"ok"
-on @"fail" |> |:x| => negate(x) @ "ok"
+-- Rescue: fix the value and re-inject into @ok
+on @fail |> |:x| => negate(x) @ok
 ```
 
-Because `emit` is async and awaited, when the `@"fail"` handler re-emits on `@"ok"`, the route pipeline for `@"ok"` fully completes before execution continues.
+Because `emit` is async and awaited, when the `@fail` handler re-emits on `@ok`, the route pipeline for `@ok` fully completes before execution continues.
 
 ---
 
@@ -377,8 +366,8 @@ Stroum has three first-class sigil declarations for wiring data pipelines:
 | Sigil | Role |
 |-------|------|
 | `stream:name Type` | Declare a typed named stream |
-| `src: @"name" expr` | Open a data source and route its output to a stream |
-| `snk: @"name" handler` | Subscribe a sink handler to a stream |
+| `src: @name expr` | Open a data source and route its output to a stream |
+| `snk: @name handler` | Subscribe a sink handler to a stream |
 
 ### `stream:` — Typed stream declaration
 
@@ -397,28 +386,28 @@ Connects a data source to a stream. Two forms:
 **Finite source** — reads once and emits a single value:
 
 ```stroum
-src: @"orders" file("orders.csv")
+src: @orders file("orders.csv")
 ```
 
 **Open-ended (callback) source** — emits multiple times until stopped; requires `run until` to bound the program:
 
 ```stroum
-src: @"changes" watch_file("data.csv")
-src: @"lines"   read_records("data.csv")         -- one record per line
-src: @"fields"  read_records("data.csv", ",")    -- comma-separated records
+src: @changes watch_file("data.csv")
+src: @lines   read_records("data.csv")         -- one record per line
+src: @fields  read_records("data.csv", ",")    -- comma-separated records
 
 run until signal
 ```
 
 ### `snk:` — Sink handler
 
-Subscribes a handler function to a stream. Equivalent to `on @"name" |> handler` but more explicit about intent.
+Subscribes a handler function to a stream. Equivalent to `on @name |> handler` but more explicit about intent.
 
 ```stroum
-snk: @"orders.clean"  persist_order             -- bare name
-snk: @"audit"         append_file("log.txt", _) -- placeholder form
-snk: @"events"        jsonl_sink("events.jsonl") -- sink factory
-snk: @"discard"       null_sink                  -- discard all values
+snk: @orders_clean  persist_order             -- bare name
+snk: @audit         append_file("log.txt", _) -- placeholder form
+snk: @events        jsonl_sink("events.jsonl") -- sink factory
+snk: @discard       null_sink                  -- discard all values
 ```
 
 ### Stream metadata
@@ -426,7 +415,7 @@ snk: @"discard"       null_sink                  -- discard all values
 Call `stream_info` to inspect a stream's runtime metadata:
 
 ```stroum
-stream_info("orders")
+stream_info(@orders)
 -- returns { type: "Any", count: 42, lastValue: ..., firstEmitAt: 1716000000000 }
 ```
 
@@ -438,11 +427,11 @@ i:io
 stream:raw   Any
 stream:clean Any
 
-src: @"raw"   watch_file("input.csv")
-snk: @"clean" persist_order
+src: @raw   watch_file("input.csv")
+snk: @clean persist_order
 
-route @"raw" |> validate |> normalise
-on @"raw" |> |:v:Any| => v @ "clean"
+route @raw |> validate |> normalise
+on @raw |> |:v:Any| => v @clean
 
 run until signal
 ```
@@ -500,8 +489,8 @@ Tags compose with stream emission — emit the tagged value for downstream strea
 
 ```stroum
 f:classify x =>
-  if gt(x, 0) then .positive x @ "results"
-  else .negative x @ "results"
+  if gt(x, 0) then .positive x @results
+  else .negative x @results
 ```
 
 ### Stream routing with tagged values
@@ -516,11 +505,11 @@ f:dispatch result =>
   | .fail        => on_fail
 
 -- Emit tagged values onto a stream
-evaluate(85) @ "scores"
-evaluate(38) @ "scores"
+evaluate(85) @scores
+evaluate(38) @scores
 
 -- The route picks up each tagged value and dispatches by outcome
-route @"scores" |> dispatch
+route @scores |> dispatch
 ```
 
 Because `dispatch` receives a tagged value and matches on it, it works identically whether called inline or as a route target.
@@ -554,7 +543,7 @@ Conditionals can route to streams:
 
 ```stroum
 f:route_by_sign x =>
-  if gt(x, 0) then x @ "positive" else x @ "negative"
+  if gt(x, 0) then x @positive else x @negative
 ```
 
 ---
@@ -814,14 +803,10 @@ value |> transform |> validate |> println
 value |> add(_, 10) |> mul(_, 2)
 
 -- Stream emit (static)
-value @ "stream-name"
-
--- Stream emit (dynamic — name from binding)
-:s "stream-name"
-value @ s
+value @stream_name
 
 -- Stream fan-out
-value @ ("stream-a", "stream-b")
+value @(stream_a, stream_b)
 
 -- Tagged value — producer
 .ok result
@@ -839,10 +824,10 @@ if cond then a else b
 |:x| => mul(x, 2)
 
 -- On handler
-on @"stream" |> |:x| => handler(x)
+on @stream |> |:x| => handler(x)
 
 -- Route (happy path)
-route @"stream" |> step1 |> step2
+route @stream |> step1 |> step2
 
 -- Route (dynamic name)
 route @ binding |> step1 |> step2
@@ -860,13 +845,13 @@ i:timer
 
 -- Stream / source / sink declarations
 stream:name Type                       -- declare typed named stream
-src: @"name" watch_file("f.csv")       -- open-ended callback source
-src: @"name" read_records("f.csv")     -- record-per-line source
-src: @"name" file("f.csv")             -- finite source (emit once)
-snk: @"name" handler                   -- sink: bare name
-snk: @"name" fn("arg", _)             -- sink: placeholder form
-snk: @"name" jsonl_sink("out.jsonl")   -- sink: factory
-stream_info("name")                    -- { type, count, lastValue, firstEmitAt }
+src: @name watch_file("f.csv")       -- open-ended callback source
+src: @name read_records("f.csv")     -- record-per-line source
+src: @name file("f.csv")             -- finite source (emit once)
+snk: @name handler                   -- sink: bare name
+snk: @name fn("arg", _)             -- sink: placeholder form
+snk: @name jsonl_sink("out.jsonl")   -- sink: factory
+stream_info(@name)                    -- { type, count, lastValue, firstEmitAt }
 
 -- Test declaration
 test "label" =>

@@ -147,6 +147,10 @@ export class Parser {
           contingencies.push(this.parseRouteDeclaration());
         } else if (this.check(TokenType.BAR)) {
           contingencies.push(this.parseOutcomeMatch());
+        } else if (this.isSinkDeclaration()) {
+          sinkDeclarations.push(this.parseSinkDeclaration());
+        } else if (this.isSourceDeclaration()) {
+          sourceDeclarations.push(this.parseSourceDeclaration());
         } else {
           this.error(
             `Unexpected ${this.formatToken(this.peek())} at module level — expected a declaration (f:, s:, :, i:, stream:, src:, snk:, on, route, run, test) or an expression`,
@@ -397,7 +401,7 @@ export class Parser {
       };
     } else {
       this.error(
-        'Expected signal, @"stream", timeout(...), or forever after run until',
+        "Expected signal, @stream, timeout(...), or forever after run until",
       );
     }
 
@@ -515,17 +519,17 @@ export class Parser {
     if (this.match(TokenType.EMIT_CONTRACT)) {
       emissionContract = [];
 
-      // Expect @"stream"
+      // Expect @stream
       this.consume(TokenType.AT, "Expected @ after ~>");
       emissionContract.push(
-        this.consume(TokenType.STRING, "Expected stream name").value,
+        this.consume(TokenType.IDENTIFIER, "Expected stream identifier").value,
       );
 
       // Additional streams separated by commas
       while (this.match(TokenType.COMMA)) {
         this.consume(TokenType.AT, "Expected @");
         emissionContract.push(
-          this.consume(TokenType.STRING, "Expected stream name").value,
+          this.consume(TokenType.IDENTIFIER, "Expected stream identifier").value,
         );
       }
     }
@@ -828,6 +832,16 @@ export class Parser {
     // Tagged expression: ."tag" value  or  .name value
     if (this.check(TokenType.DOT)) {
       return this.parseTaggedExpression();
+    }
+
+    // Stream symbol in expression position: @stream
+    if (this.check(TokenType.AT)) {
+      const streamRef = this.parseStreamRef("Expected stream identifier after @");
+      return {
+        type: "StreamSymbol",
+        location,
+        name: streamRef.name,
+      };
     }
 
     // Literals
@@ -1189,19 +1203,23 @@ export class Parser {
 
   private parseRecordFields(): AST.RecordField[] {
     const fields: AST.RecordField[] = [];
-    if (!this.check(TokenType.RBRACE)) {
+    const indented = this.match(TokenType.INDENT);
+    const isDone = () =>
+      this.check(TokenType.RBRACE) || (indented && this.check(TokenType.DEDENT));
+    if (!isDone()) {
       const name = this.consume(TokenType.IDENTIFIER, "Expected field name").value;
       this.consume(TokenType.COLON, "Expected :");
       const value = this.parseExpression();
       fields.push({ name, value });
       while (this.match(TokenType.COMMA)) {
-        if (this.check(TokenType.RBRACE)) break;
+        if (isDone()) break;
         const name = this.consume(TokenType.IDENTIFIER, "Expected field name").value;
         this.consume(TokenType.COLON, "Expected :");
         const value = this.parseExpression();
         fields.push({ name, value });
       }
     }
+    if (indented) this.consume(TokenType.DEDENT, "Expected dedent after record fields");
     return fields;
   }
 
@@ -1231,20 +1249,20 @@ export class Parser {
 
     const streams: AST.StreamRef[] = [];
 
-    // Parse a single stream reference: "literal" or identifier (binding)
+    // Parse a single stream reference: identifier
     const parseStreamRef = (): AST.StreamRef => {
+      if (this.check(TokenType.IDENTIFIER)) {
+        return { name: this.advance().value };
+      }
       if (this.check(TokenType.STRING)) {
-        return { name: this.advance().value, isDynamic: false };
-      } else if (this.check(TokenType.IDENTIFIER)) {
-        return { name: this.advance().value, isDynamic: true };
-      } else {
         this.error(
-          "Expected stream name (string literal or binding identifier)",
+          "Stream references must use identifiers (e.g. @raw), not string literals",
         );
       }
+      this.error("Expected stream identifier after @");
     };
 
-    // @"stream", @binding, or @("s1", binding2, ...)
+    // @stream or @(s1, s2, ...)
     if (this.match(TokenType.LPAREN)) {
       // Fan-out: multiple streams
       streams.push(parseStreamRef());
@@ -1320,12 +1338,9 @@ export class Parser {
     const location = this.currentLocation();
     this.consume(TokenType.ON, "Expected on");
 
-    // Stream pattern: @"pattern"
-    this.consume(TokenType.AT, "Expected @");
-    const streamPattern = this.consume(
-      TokenType.STRING,
-      "Expected stream pattern",
-    ).value;
+    const streamPattern = this.parseStreamRef(
+      "Expected stream identifier after on",
+    );
 
     this.consume(TokenType.PIPE, "Expected |>");
 
@@ -1345,16 +1360,42 @@ export class Parser {
     const location = this.currentLocation();
     this.consume(TokenType.ROUTE, "Expected route");
 
-    // Stream pattern: @"pattern" or @ binding
+    // Stream pattern: @stream
     const streamPattern = this.parseStreamRef(
-      "Expected stream pattern (string literal or binding identifier)",
+      "Expected stream identifier after route",
     );
 
     // Expect |> followed by pipeline
     this.consume(TokenType.PIPE, "Expected |>");
 
-    // Parse the pipeline — a chain of function calls/expressions
-    const pipeline = this.parsePipeChain(false, false);
+    // Parse the pipeline — a chain of function calls/expressions, without consuming outcome matches
+    let pipeline: AST.Expression = this.parsePipeChain(false, false);
+
+    // Optionally parse indented outcome match arms (| .tag => handler)
+    const indented = this.match(TokenType.INDENT);
+    const outcomeMatches: AST.OutcomeMatch[] = [];
+    while (
+      this.check(TokenType.BAR) &&
+      this.peekNext()?.type === TokenType.DOT
+    ) {
+      outcomeMatches.push(this.parseOutcomeMatch());
+    }
+    if (indented) this.consume(TokenType.DEDENT, "Expected dedent after route outcome matches");
+
+    if (outcomeMatches.length > 0) {
+      // Attach outcome matches to an existing PipeExpression, or wrap in one
+      if (pipeline.type === "PipeExpression") {
+        (pipeline as AST.PipeExpression).outcomeMatches = outcomeMatches;
+      } else {
+        pipeline = {
+          type: "PipeExpression",
+          location: pipeline.location,
+          stages: [pipeline],
+          streamEmit: null,
+          outcomeMatches,
+        };
+      }
+    }
 
     return {
       type: "RouteDeclaration",
@@ -1415,11 +1456,13 @@ export class Parser {
 
   private parseStreamRef(message: string): AST.StreamRef {
     this.consume(TokenType.AT, "Expected @");
-    if (this.check(TokenType.STRING)) {
-      return { name: this.advance().value, isDynamic: false };
-    }
     if (this.check(TokenType.IDENTIFIER)) {
-      return { name: this.advance().value, isDynamic: true };
+      return { name: this.advance().value };
+    }
+    if (this.check(TokenType.STRING)) {
+      this.error(
+        "Stream references must use identifiers (e.g. @raw), not string literals",
+      );
     }
     this.error(message);
   }

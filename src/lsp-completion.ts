@@ -100,54 +100,66 @@ const STDLIB: StdlibEntry[] = [
 const KEYWORDS: Array<{ label: string; insert: string; doc: string }> = [
   {
     label: "f:",
-    insert: "f:${1:name} ${2:param} => $0",
+    insert: "f:" + "$" + "{1:name} " + "$" + "{2:param} => $0",
     doc: "Define a function",
   },
   {
     label: "rec f:",
-    insert: "rec f:${1:name} ${2:param} =>\n  $0",
+    insert: "rec f:" + "$" + "{1:name} " + "$" + "{2:param} =>\n  $0",
     doc: "Define a recursive function",
   },
-  { label: "i:", insert: 'i:"${1:module}"', doc: "Import a module" },
+  {
+    label: "i:",
+    insert: 'i:"' + "$" + "{1:module}" + '"',
+    doc: "Import a module",
+  },
   { label: "i:core", insert: "i:core", doc: "Import the standard library" },
   {
     label: "s:",
-    insert: "s:${1:Name} {\n  ${2:field}: ${3:Type}\n}",
+    insert:
+      "s:" +
+      "$" +
+      "{1:Name} {\n  " +
+      "$" +
+      "{2:field}: " +
+      "$" +
+      "{3:Type}\n}",
     doc: "Define a struct",
   },
   {
     label: "on",
-    insert: 'on @"${1:stream}" |> |:${2:x}| => $0',
+    insert:
+      "on @" + "$" + "{1:stream} |> |:" + "$" + "{2:x}| => $0",
     doc: "Stream event handler",
   },
   {
     label: "route",
-    insert: 'route @"${1:stream}" |> $0',
+    insert: "route @" + "$" + "{1:stream} |> $0",
     doc: "Route a stream through a pipeline",
   },
   {
     label: "wire:",
-    insert: 'wire: @"${1:from}" -> @"${2:to}"',
+    insert: "wire: @" + "$" + "{1:from} -> @" + "$" + "{2:to}",
     doc: "Wire two pipeline streams",
   },
   {
     label: "input:",
-    insert: 'input:  @"${1:stream}"',
+    insert: "input:  @" + "$" + "{1:stream}",
     doc: "Declare a module input stream",
   },
   {
     label: "output:",
-    insert: 'output: @"${1:stream}"',
+    insert: "output: @" + "$" + "{1:stream}",
     doc: "Declare a module output stream",
   },
   {
     label: "src:",
-    insert: 'src: @"${1:stream}" ${2:value}',
+    insert: "src: @" + "$" + "{1:stream} " + "$" + "{2:value}",
     doc: "Inject a value into a stream",
   },
   {
     label: "to:",
-    insert: 'to: @"${1:stream}" ${2:sink}',
+    insert: "to: @" + "$" + "{1:stream} " + "$" + "{2:sink}",
     doc: "Drain a stream to a sink",
   },
 ];

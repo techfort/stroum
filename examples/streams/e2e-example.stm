@@ -24,14 +24,14 @@ f:log err:Any -> Any =>
   err
 
 
-f:process data:Any -> Void ~> @"saved", @"errors" =>
+f:process data:Any -> Void ~> @saved, @errors =>
   validate(data)
-  | .ok   => save(data) @ "saved"
-  | .error => log(data) @ "errors"
+  | .ok   => save(data) @saved
+  | .error => log(data) @errors
 
 
 
-fetch("api/data") |> process @ "results"
+fetch("api/data") |> process @results
 
-on @"saved" |> |:item:Any| => notify(item)
-on @"errors" |> |:err:Any| => report(err)
+on @saved |> |:item:Any| => notify(item)
+on @errors |> |:err:Any| => report(err)

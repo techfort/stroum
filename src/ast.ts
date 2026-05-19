@@ -164,6 +164,7 @@ export type Expression =
   | PipeExpression
   | CallExpression
   | FieldAccessExpression
+  | StreamSymbol
   | Lambda
   | IfExpression
   | TaggedExpression
@@ -212,6 +213,12 @@ export interface Lambda extends ASTNode {
 
 export interface Identifier extends ASTNode {
   type: "Identifier";
+  name: string;
+}
+
+// Stream symbol literal used in expression positions, e.g. stream_info(@raw)
+export interface StreamSymbol extends ASTNode {
+  type: "StreamSymbol";
   name: string;
 }
 
@@ -285,10 +292,9 @@ export interface IfExpression extends ASTNode {
 // Stream Operations
 // ============================================================================
 
-// A stream target is either a static string literal or a dynamic binding reference.
+// Stream references are identifier-only at syntax level: @raw, @errors, ...
 export interface StreamRef {
-  name: string; // string value (static) or binding identifier (dynamic)
-  isDynamic: boolean; // true when @ok (identifier), false when @"ok" (literal)
+  name: string;
 }
 
 // A tag reference — always a static string name.
@@ -330,13 +336,12 @@ export type Contingency = OnHandler | RouteDeclaration | OutcomeMatch;
 
 export interface OnHandler extends ASTNode {
   type: "OnHandler";
-  streamPattern: string; // may contain * and #{}
+  streamPattern: StreamRef;
   handler: Lambda;
   streamEmit: StreamEmit | null;
 }
 
-// route @"stream" |> op1 |> op2
-// route @ binding |> op1 |> op2
+// route @stream |> op1 |> op2
 // Subscribes the pipeline as the continuation handler for a stream.
 // The emitted value becomes the first input to the pipeline.
 export interface RouteDeclaration extends ASTNode {

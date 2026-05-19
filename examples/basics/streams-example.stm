@@ -12,13 +12,13 @@ f:report_error msg:Any -> Any =>
   println("Error: #{msg}")
   msg
 
-f:validate num:Int -> Void ~> @"valid", @"errors" =>
+f:validate num:Int -> Void ~> @valid, @errors =>
   check(num)
-  | .ok    => save(num) @ "valid"
-  | .error => report_error(num) @ "errors"
+  | .ok    => save(num) @valid
+  | .error => report_error(num) @errors
 
 validate(42)
 validate(sub(0, 5))
 
-on @"valid" |> |:x:Int| => println("OK: #{x}")
-on @"errors" |> |:e:Any| => println("Invalid: #{e}")
+on @valid |> |:x:Int| => println("OK: #{x}")
+on @errors |> |:e:Any| => println("Invalid: #{e}")

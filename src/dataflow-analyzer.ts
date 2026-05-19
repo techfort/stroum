@@ -121,12 +121,11 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
         for (const s of expr.stages) scanNodes(s);
         if (expr.streamEmit) {
           for (const sr of expr.streamEmit.streams) {
-            if (!sr.isDynamic)
-              addNode({
-                id: `stream:${sr.name}`,
-                kind: "stream",
-                label: `@"${sr.name}"`,
-              });
+            addNode({
+              id: `stream:${sr.name}`,
+              kind: "stream",
+              label: `@${sr.name}`,
+            });
           }
         }
         for (const om of expr.outcomeMatches) {
@@ -138,12 +137,11 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
           scanNodes(om.handler);
           if (om.streamEmit) {
             for (const sr of om.streamEmit.streams) {
-              if (!sr.isDynamic)
-                addNode({
-                  id: `stream:${sr.name}`,
-                  kind: "stream",
-                  label: `@"${sr.name}"`,
-                });
+              addNode({
+                id: `stream:${sr.name}`,
+                kind: "stream",
+                label: `@${sr.name}`,
+              });
             }
           }
         }
@@ -153,12 +151,11 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
         for (const b of expr.branches) scanNodes(b);
         if (expr.gatherPipe.streamEmit) {
           for (const sr of expr.gatherPipe.streamEmit.streams) {
-            if (!sr.isDynamic)
-              addNode({
-                id: `stream:${sr.name}`,
-                kind: "stream",
-                label: `@"${sr.name}"`,
-              });
+            addNode({
+              id: `stream:${sr.name}`,
+              kind: "stream",
+              label: `@${sr.name}`,
+            });
           }
         }
         scanNodes(expr.gatherPipe.target);
@@ -215,28 +212,25 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
   for (const cont of module.contingencies) {
     if (cont.type === "OnHandler") {
       addNode({
-        id: `stream:${cont.streamPattern}`,
+        id: `stream:${cont.streamPattern.name}`,
         kind: "stream",
-        label: `@"${cont.streamPattern}"`,
+        label: `@${cont.streamPattern.name}`,
       });
       if (cont.streamEmit) {
         for (const sr of cont.streamEmit.streams) {
-          if (!sr.isDynamic)
-            addNode({
-              id: `stream:${sr.name}`,
-              kind: "stream",
-              label: `@"${sr.name}"`,
-            });
+          addNode({
+            id: `stream:${sr.name}`,
+            kind: "stream",
+            label: `@${sr.name}`,
+          });
         }
       }
     } else if (cont.type === "RouteDeclaration") {
-      if (!cont.streamPattern.isDynamic) {
-        addNode({
-          id: `stream:${cont.streamPattern.name}`,
-          kind: "stream",
-          label: `@"${cont.streamPattern.name}"`,
-        });
-      }
+      addNode({
+        id: `stream:${cont.streamPattern.name}`,
+        kind: "stream",
+        label: `@${cont.streamPattern.name}`,
+      });
       scanNodes(cont.pipeline);
     } else if (cont.type === "OutcomeMatch") {
       addNode({
@@ -247,12 +241,11 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
       scanNodes(cont.handler);
       if (cont.streamEmit) {
         for (const sr of cont.streamEmit.streams) {
-          if (!sr.isDynamic)
-            addNode({
-              id: `stream:${sr.name}`,
-              kind: "stream",
-              label: `@"${sr.name}"`,
-            });
+          addNode({
+            id: `stream:${sr.name}`,
+            kind: "stream",
+            label: `@${sr.name}`,
+          });
         }
       }
     }
@@ -285,8 +278,7 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
 
     if (pipe.streamEmit) {
       for (const sr of pipe.streamEmit.streams) {
-        if (!sr.isDynamic && prevId)
-          addEdge(prevId, `stream:${sr.name}`, "emit");
+        if (prevId) addEdge(prevId, `stream:${sr.name}`, "emit");
       }
     }
     for (const om of pipe.outcomeMatches) {
@@ -354,8 +346,7 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
         }
         if (expr.gatherPipe.streamEmit) {
           for (const sr of expr.gatherPipe.streamEmit.streams) {
-            if (!sr.isDynamic)
-              addEdge(gatherTarget, `stream:${sr.name}`, "emit");
+            addEdge(gatherTarget, `stream:${sr.name}`, "emit");
           }
         }
         return gatherTarget;
@@ -483,11 +474,11 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
   // Walk contingencies
   for (const cont of module.contingencies) {
     if (cont.type === "OnHandler") {
-      const streamId = `stream:${cont.streamPattern}`;
+      const streamId = `stream:${cont.streamPattern.name}`;
       walkExpr(cont.handler.body, streamId);
       if (cont.streamEmit) {
         for (const sr of cont.streamEmit.streams) {
-          if (!sr.isDynamic) addEdge(streamId, `stream:${sr.name}`, "handler");
+          addEdge(streamId, `stream:${sr.name}`, "handler");
         }
       }
     } else if (cont.type === "RouteDeclaration") {
@@ -498,7 +489,7 @@ export function analyzeDataflow(module: AST.Module): DataflowGraph {
       walkExpr(cont.handler, tagId);
       if (cont.streamEmit) {
         for (const sr of cont.streamEmit.streams) {
-          if (!sr.isDynamic) addEdge(tagId, `stream:${sr.name}`, "emit");
+          addEdge(tagId, `stream:${sr.name}`, "emit");
         }
       }
     }

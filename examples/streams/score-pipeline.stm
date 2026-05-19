@@ -91,12 +91,12 @@ rate_temp(4)
 
 println("=== C: Stream routing ===")
 
-evaluate(85) @ "scores"
-evaluate(62) @ "scores"
-evaluate(38) @ "scores"
+evaluate(85) @scores
+evaluate(62) @scores
+evaluate(38) @scores
 
 -- ============================================================================
 -- Contingencies: route/on declarations must come last
 -- ============================================================================
 
-route @"scores" |> dispatch
+route @scores |> dispatch

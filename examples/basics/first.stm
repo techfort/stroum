@@ -13,14 +13,14 @@ f:check_age u:User -> Any =>
 
 f:dispatch_user u:User -> Void =>
     check_age(u)
-    | .adult => |:u:User| => u @ "adult"
+    | .adult => |:u:User| => u @adult
     | .minor => |:u:User| => println("Minor user: #{u.name}")
 
 f:check_positive x:Int -> Void =>
     if gt(x, 0) then
-        x @ "positive"
+        x @positive
     else
-        x @ "non-positive"
+        x @non_positive
 
 f:main -> Void =>
     :nums [1, -2, 3, 0]
@@ -31,6 +31,6 @@ f:main -> Void =>
 
 main()
 
-on @"positive" |> |:x:Int| => println("Positive number: #{x}")
-on @"adult" |> |:u:User| => println("Adult user: #{u.name}")
-route @"non-positive" |> |:x:Int| => mul(x, -1) @ "positive"
+on @positive |> |:x:Int| => println("Positive number: #{x}")
+on @adult |> |:u:User| => println("Adult user: #{u.name}")
+route @non_positive |> |:x:Int| => mul(x, -1) @positive

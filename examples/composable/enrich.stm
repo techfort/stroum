@@ -2,10 +2,10 @@
 -- Enriches valid events by attaching a timestamp prefix.
 -- Namespace: "enrich"
 
-input:  @"enrich.input"
-output: @"enrich.output"
+input:  @enrich_input
+output: @enrich_output
 
 f:stamp event:Any -> String =>
   concat("[enriched] ", to_string(event))
 
-route @"enrich.input" |> stamp @"enrich.output"
+route @enrich_input |> stamp @enrich_output

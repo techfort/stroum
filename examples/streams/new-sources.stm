@@ -5,14 +5,14 @@ i:timer
 -- ── from_list: fan out a list as individual stream items ────────────────────
 stream:items Any
 
-src: @"items" from_list([10, 20, 30, 40, 50])
-route @"items" |> println
+src: @items from_list([10, 20, 30, 40, 50])
+route @items |> println
 
 -- ── interval: emit a tick counter every N milliseconds ─────────────────────
 stream:tick Any
 
-src: @"tick" interval(500)
-on @"tick" |> |:n:Any| =>
+src: @tick interval(500)
+on @tick |> |:n:Any| =>
   println("tick #{n}")
 
 run until timeout(2000)
@@ -21,6 +21,6 @@ run until timeout(2000)
 -- Uncomment to use interactively (pipe text in or type, then Ctrl+D):
 --
 -- stream:line Any
--- src: @"line" stdin_lines()
--- route @"line" |> println
+-- src: @line stdin_lines()
+-- route @line |> println
 -- run until signal
