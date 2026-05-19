@@ -1,8 +1,8 @@
 -- Simple executable example
-f:double x => mul(x, 2)
+f:double x:Int -> Int => mul(x, 2)
 
-f:sum a b => add(a, b)
+f:sum a:Int b:Int -> Int => add(a, b)
 
-f:compute => sum(double(5), double(3))
+f:compute -> Int => sum(double(5), double(3))
 
 compute() |> print

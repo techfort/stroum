@@ -3,9 +3,9 @@
 
 i:core add, mul, println
 
-f:main => 
+f:main -> Void =>
   add(5, 3)
-  |> mul(2)
+  |> mul(2, _)
   |> println()
 
 main()

@@ -13,13 +13,17 @@ function fmtExpr(expr: AST.Expression, depth = 0): string {
     case "CallExpression":
       return fmtCall(expr, depth);
     case "FieldAccessExpression":
-      return `${fmtExpr(expr.receiver, depth)}.${expr.field}`;
+      return expr.dynamic
+        ? `${fmtExpr(expr.receiver, depth)}."${expr.field}"`
+        : `${fmtExpr(expr.receiver, depth)}.${expr.field}`;
     case "Lambda":
       return fmtLambda(expr, depth);
     case "IfExpression":
       return fmtIf(expr, depth);
     case "TaggedExpression":
       return fmtTagged(expr, depth);
+    case "StreamSymbol":
+      return `@${expr.name}`;
     case "Identifier":
       return expr.name;
     case "NumberLiteral":
@@ -81,7 +85,7 @@ function fmtCall(expr: AST.CallExpression, depth: number): string {
 }
 
 function fmtLambda(expr: AST.Lambda, depth: number): string {
-  const params = expr.params.map((p) => `:${p}`).join(" ");
+  const params = expr.params.map((p, i) => `:${p}:${expr.paramTypes[i]}`).join(", ");
   const body = fmtExpr(expr.body, depth);
   return `|${params}| => ${body}`;
 }
@@ -136,7 +140,7 @@ function fmtRecord(expr: AST.RecordLiteral, depth: number): string {
 // ─── Stream / emit helpers ────────────────────────────────────────────────────
 
 function fmtStreamRef(ref: AST.StreamRef): string {
-  return ref.isDynamic ? `@${ref.name}` : `@"${ref.name}"`;
+  return `@${ref.name}`;
 }
 
 function fmtStreamEmit(emit: AST.StreamEmit): string {
@@ -172,12 +176,15 @@ function fmtImport(decl: AST.ImportDeclaration): string {
 
 function fmtFunction(decl: AST.FunctionDeclaration): string {
   const prefix = decl.isRecursive ? "rec " : "";
-  const params = decl.params.length > 0 ? ` ${decl.params.join(" ")}` : "";
+  const params = decl.params.length > 0
+    ? " " + decl.params.map((p, i) => `${p}:${decl.paramTypes[i]}`).join(" ")
+    : "";
+  const ret = ` -> ${decl.returnType}`;
   const contract =
     decl.emissionContract && decl.emissionContract.length > 0
-      ? ` ~> ${decl.emissionContract.map((s) => `@"${s}"`).join(", ")}`
+      ? ` ~> ${decl.emissionContract.map((s) => `@${s}`).join(", ")}`
       : "";
-  const head = `${prefix}f:${decl.name}${params}${contract}`;
+  const head = `${prefix}f:${decl.name}${params}${ret}${contract}`;
 
   if (decl.body.type === "IndentedBody") {
     const stmts = decl.body.statements
@@ -226,7 +233,7 @@ function fmtSink(decl: AST.SinkDeclaration): string {
 }
 
 function fmtOnHandler(h: AST.OnHandler): string {
-  const pattern = `@"${h.streamPattern}"`;
+  const pattern = fmtStreamRef(h.streamPattern);
   const handler = fmtLambda(h.handler, 0);
   const emit = h.streamEmit ? ` ${fmtStreamEmit(h.streamEmit)}` : "";
   return `on ${pattern} |> ${handler}${emit}`;

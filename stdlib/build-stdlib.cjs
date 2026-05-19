@@ -7,8 +7,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const { Lexer } = require("../dist/tmp/lexer");
-const { Parser } = require("../dist/tmp/parser");
+const { Lexer } = require("../dist/lexer");
+const { Parser } = require("../dist/parser");
 
 const STDLIB_DIR = __dirname;
 const CORE_STM = path.join(STDLIB_DIR, "core.stm");

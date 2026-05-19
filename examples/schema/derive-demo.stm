@@ -3,44 +3,44 @@
 -- and work with CSV data in Stroum
 
 -- Infer schema from CSV
-f:csv_schema => infer_schema("test-fixtures/sample.csv")
+f:csv_schema -> Any => infer_schema("test-fixtures/sample.csv")
 
 -- Infer schema from JSON
-f:json_schema => infer_schema("test-fixtures/sample.json")
+f:json_schema -> Any => infer_schema("test-fixtures/sample.json")
 
 -- Read CSV data
-f:csv_data => read_csv("test-fixtures/sample.csv")
+f:csv_data -> Any => read_csv("test-fixtures/sample.csv")
 
 -- Read JSON data
-f:json_data => read_json("test-fixtures/sample.json")
+f:json_data -> Any => read_json("test-fixtures/sample.json")
 
 -- Show CSV schema
-f:show_csv_schema =>
+f:show_csv_schema -> Void =>
   println("CSV Schema:")
   csv_schema() |> println
 
--- Show JSON schema  
-f:show_json_schema =>
+-- Show JSON schema
+f:show_json_schema -> Void =>
   println("\nJSON Schema:")
   json_schema() |> println
 
 -- Show CSV data
-f:show_csv_data =>
+f:show_csv_data -> Void =>
   println("\nCSV Data:")
   csv_data() |> println
 
 -- Show JSON data
-f:show_json_data =>
+f:show_json_data -> Void =>
   println("\nJSON Data:")
   json_data() |> println
 
 -- Show first CSV row
-f:show_first =>
+f:show_first -> Void =>
   println("\nFirst CSV Row:")
   csv_data() |> head |> println
 
 -- Main execution
-f:main =>
+f:main -> Void =>
   println("=== Schema Inference Demo ===")
   show_csv_schema()
   show_json_schema()

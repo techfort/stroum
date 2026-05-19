@@ -1,37 +1,37 @@
 -- E2E Example: Simple Pipeline
 
 
-f:notify item => println("Notification: #{item}")
-f:report err => println("Error Reported: #{err}")
-f:fetch url =>
+f:notify item:Any -> Void => println("Notification: #{item}")
+f:report err:Any -> Void => println("Error Reported: #{err}")
+f:fetch url:String -> Any =>
   -- Simulate fetching data from an API
   if eq(url, "api/data") then [1, 2, 3, 4, 5]
   else []
 
-f:validate data =>
+f:validate data:Any -> Any =>
   -- Simulate validation logic
   if gt(length(data), 0) then .ok data
   else .error "Data is empty"
 
-f:save data =>
+f:save data:Any -> Any =>
   -- Simulate saving data
   println("Data saved: #{data}")
   data
 
-f:log err =>
+f:log err:Any -> Any =>
   -- Simulate logging an error
   println("Logged error: #{err}")
   err
 
 
-f:process data ~> @"saved", @"errors" =>
+f:process data:Any -> Void ~> @saved, @errors =>
   validate(data)
-  | .ok   => save(data) @ "saved"
-  | .error => log(data) @ "errors"
+  | .ok   => save(data) @saved
+  | .error => log(data) @errors
 
 
 
-fetch("api/data") |> process @ "results"
+fetch("api/data") |> process @results
 
-on @"saved" |> |:item| => notify(item)
-on @"errors" |> |:err| => report(err)
+on @saved |> |:item:Any| => notify(item)
+on @errors |> |:err:Any| => report(err)

@@ -47,7 +47,7 @@ describe("Parser", () => {
     });
 
     it("should parse function with emission contract", () => {
-      const ast = parse('f:fetch url:String -> Any ~> @"ok", @"fail" => http_get(url)');
+      const ast = parse('f:fetch url:String -> Any ~> @ok, @fail => http_get(url)');
       const func = ast.definitions[0] as AST.FunctionDeclaration;
       expect(func.emissionContract).toEqual(["ok", "fail"]);
     });
@@ -79,7 +79,7 @@ describe("Parser", () => {
 
   describe("source and runtime declarations", () => {
     it("should parse source declaration after a bare import without treating it as a selective import", () => {
-      const ast = parse('i:timer\nsrc: @"ticks" watch_file("watched.txt")');
+      const ast = parse('i:timer\nsrc: @ticks watch_file("watched.txt")');
       expect(ast.imports).toHaveLength(1);
       expect(ast.imports[0].modulePath).toBe("timer");
       expect(ast.imports[0].imports).toBeNull();
@@ -89,7 +89,7 @@ describe("Parser", () => {
     it("should parse src declarations interleaved with other declarations", () => {
       const source = `i:io
 :watched_file "examples/watched.txt"
-src: @"change" watch_file(watched_file)
+src: @change watch_file(watched_file)
 f:identity x:Any -> Any => x`;
       const ast = parse(source);
 
@@ -104,27 +104,26 @@ f:identity x:Any -> Any => x`;
       );
       expect(ast.sourceDeclarations[0].stream).toEqual({
         name: "change",
-        isDynamic: false,
       });
     });
 
     it("should parse finite source declaration", () => {
-      const ast = parse('src: @"orders" file("orders.csv")');
+      const ast = parse('src: @orders file("orders.csv")');
       expect(ast.sourceDeclarations).toHaveLength(1);
 
       const source = ast.sourceDeclarations[0];
       expect(source.type).toBe("SourceDeclaration");
-      expect(source.stream).toEqual({ name: "orders", isDynamic: false });
+      expect(source.stream).toEqual({ name: "orders" });
       expect(source.source.type).toBe("CallExpression");
       expect((source.source as AST.CallExpression).callee).toBe("file");
     });
 
     it("should parse to declaration in the declaration region", () => {
-      const ast = parse('snk: @"orders.clean" persist_order');
+      const ast = parse("snk: @orders_clean persist_order");
       expect(ast.sinkDeclarations).toHaveLength(1);
       const sink = ast.sinkDeclarations[0];
       expect(sink.type).toBe("SinkDeclaration");
-      expect(sink.stream).toEqual({ name: "orders.clean", isDynamic: false });
+      expect(sink.stream).toEqual({ name: "orders_clean" });
       expect(sink.sink.type).toBe("Identifier");
       expect((sink.sink as AST.Identifier).name).toBe("persist_order");
     });
@@ -158,8 +157,8 @@ test "double zero" =>
     it("should parse src and to declarations interleaved with other declarations", () => {
       const source = `i:io
 :watched_file "examples/watched.txt"
-src: @"change" watch_file(watched_file)
-snk: @"change" handle_change
+src: @change watch_file(watched_file)
+snk: @change handle_change
 f:identity x:Any -> Any => x`;
       const ast = parse(source);
 
@@ -169,7 +168,7 @@ f:identity x:Any -> Any => x`;
     });
 
     it("should parse open-ended source and run-until-signal declaration", () => {
-      const source = `src: @"changes" watch_file("watched.txt")
+      const source = `src: @changes watch_file("watched.txt")
 run until signal`;
       const ast = parse(source);
 
@@ -181,9 +180,9 @@ run until signal`;
     });
 
     it("should parse run until stream declaration after contingencies", () => {
-      const source = `src: @"jobs" cron("0 * * * *")
-route @"jobs" |> handle_job
-run until @"shutdown"`;
+      const source = `src: @jobs cron("0 * * * *")
+route @jobs |> handle_job
+run until @shutdown`;
       const ast = parse(source);
 
       expect(ast.contingencies).toHaveLength(1);
@@ -191,7 +190,7 @@ run until @"shutdown"`;
       const condition = (ast.runtimeDeclaration as AST.RunUntilDeclaration)
         .condition as AST.StreamCondition;
       expect(condition.type).toBe("StreamCondition");
-      expect(condition.stream).toEqual({ name: "shutdown", isDynamic: false });
+      expect(condition.stream).toEqual({ name: "shutdown" });
     });
 
     it("should parse run until timeout declaration", () => {
@@ -375,6 +374,18 @@ run until @"shutdown"`;
       expect(call.args).toHaveLength(0);
     });
 
+    it("should parse stream symbol argument in calls", () => {
+      const ast = parse(":meta stream_info(@raw)");
+      const binding = ast.definitions[0] as AST.BindingDeclaration;
+      const call = binding.value as AST.CallExpression;
+      expect(call.type).toBe("CallExpression");
+      expect(call.callee).toBe("stream_info");
+      expect(call.args).toHaveLength(1);
+      expect(call.args[0]).toEqual(
+        expect.objectContaining({ type: "StreamSymbol", name: "raw" }),
+      );
+    });
+
     it("should parse lambda", () => {
       const ast = parse(":fn |:x:Any| => multiply(x, 2)");
       const binding = ast.definitions[0] as AST.BindingDeclaration;
@@ -419,44 +430,42 @@ run until @"shutdown"`;
     });
 
     it("should parse pipe with stream emit", () => {
-      const ast = parse('nums |> double @"results"');
+      const ast = parse('nums |> double @results');
       const pipe = ast.primaryExpressions[0] as AST.PipeExpression;
       expect(pipe.streamEmit).not.toBeNull();
       expect(pipe.streamEmit?.streams[0]).toEqual({
         name: "results",
-        isDynamic: false,
       });
       expect(pipe.streamEmit?.isRedirect).toBe(false);
     });
 
-    it("should parse pipe with dynamic stream name from binding", () => {
+    it("should parse pipe with stream name from identifier", () => {
       const ast = parse(':ch "ok"\nnums |> double @ ch');
       const pipe = ast.primaryExpressions[0] as AST.PipeExpression;
       expect(pipe.streamEmit).not.toBeNull();
       expect(pipe.streamEmit?.streams[0]).toEqual({
         name: "ch",
-        isDynamic: true,
       });
     });
 
     it("should parse pipe with redirect", () => {
-      const ast = parse('nums |> double @>"results"');
+      const ast = parse("nums |> double @>results");
       const pipe = ast.primaryExpressions[0] as AST.PipeExpression;
       expect(pipe.streamEmit?.isRedirect).toBe(true);
     });
 
     it("should parse pipe with fan-out emit", () => {
-      const ast = parse('process(data) @("ok", "audit")');
+      const ast = parse("process(data) @(ok, audit)");
       const pipe = ast.primaryExpressions[0] as AST.PipeExpression;
       expect(pipe.streamEmit?.streams.map((s) => s.name)).toEqual([
         "ok",
         "audit",
       ]);
-      expect(pipe.streamEmit?.streams.every((s) => !s.isDynamic)).toBe(true);
+      expect(pipe.streamEmit?.streams).toHaveLength(2);
     });
 
     it("should parse pipe with stream termination", () => {
-      const ast = parse('final() @"ok"XX');
+      const ast = parse("final() @ok XX");
       const pipe = ast.primaryExpressions[0] as AST.PipeExpression;
       expect(pipe.streamEmit?.terminates).toBe(true);
     });
@@ -497,8 +506,8 @@ run until @"shutdown"`;
 
     it("should parse pipe with multiple outcome matches", () => {
       const source = `fetch(url)
-| .fail => log(url) @"errors"
-| .timeout => retry() @"retries"`;
+| .fail => log(url) @errors
+| .timeout => retry() @retries`;
       const ast = parse(source);
       const pipe = ast.primaryExpressions[0] as AST.PipeExpression;
       expect(pipe.outcomeMatches).toHaveLength(2);
@@ -529,7 +538,7 @@ run until @"shutdown"`;
     });
 
     it("should parse parallel with stream emit", () => {
-      const ast = parse('fetch(a) PP fetch(b) |> merge @"ok"');
+      const ast = parse('fetch(a) PP fetch(b) |> merge @ok');
       const parallel = ast.primaryExpressions[0] as AST.ParallelExpression;
       expect(parallel.gatherPipe.streamEmit).not.toBeNull();
     });
@@ -537,62 +546,59 @@ run until @"shutdown"`;
 
   describe("on handlers", () => {
     it("should parse on handler", () => {
-      const ast = parse('on @"errors" |> |:e:Any| => store(e)');
+      const ast = parse('on @errors |> |:e:Any| => store(e)');
       expect(ast.contingencies).toHaveLength(1);
 
       const handler = ast.contingencies[0] as AST.OnHandler;
       expect(handler.type).toBe("OnHandler");
-      expect(handler.streamPattern).toBe("errors");
+      expect(handler.streamPattern).toEqual({ name: "errors" });
       expect(handler.handler.type).toBe("Lambda");
     });
 
-    it("should parse on handler with wildcard", () => {
-      const ast = parse('on @"api.*" |> |:e:Any| => log(e)');
-      const handler = ast.contingencies[0] as AST.OnHandler;
-      expect(handler.streamPattern).toBe("api.*");
+    it("should reject wildcard stream patterns", () => {
+      const errs = parseErrors('on @"api.*" |> |:e:Any| => log(e)');
+      expect(errs.length).toBeGreaterThan(0);
     });
 
     it("should parse on handler with emit", () => {
-      const ast = parse('on @"errors" |> |:e:Any| => store(e) @"audit"');
+      const ast = parse('on @errors |> |:e:Any| => store(e) @audit');
       const handler = ast.contingencies[0] as AST.OnHandler;
       expect(handler.streamEmit).not.toBeNull();
       expect(handler.streamEmit?.streams[0]).toEqual({
         name: "audit",
-        isDynamic: false,
       });
     });
   });
 
   describe("route declarations", () => {
     it("should parse simple route", () => {
-      const ast = parse('op1()\n\nroute @"ok" |> op2');
+      const ast = parse('op1()\n\nroute @ok |> op2');
       expect(ast.contingencies).toHaveLength(1);
       const route = ast.contingencies[0] as AST.RouteDeclaration;
       expect(route.type).toBe("RouteDeclaration");
-      expect(route.streamPattern).toEqual({ name: "ok", isDynamic: false });
+      expect(route.streamPattern).toEqual({ name: "ok" });
     });
 
     it("should parse route with pipe chain", () => {
-      const ast = parse('op1()\n\nroute @"ok" |> op2 |> op3');
+      const ast = parse('op1()\n\nroute @ok |> op2 |> op3');
       const route = ast.contingencies[0] as AST.RouteDeclaration;
       expect(route.type).toBe("RouteDeclaration");
-      expect(route.streamPattern).toEqual({ name: "ok", isDynamic: false });
+      expect(route.streamPattern).toEqual({ name: "ok" });
       expect(route.pipeline.type).toBe("PipeExpression");
     });
 
-    it("should parse route with dynamic stream binding", () => {
+    it("should parse route with stream identifier", () => {
       const ast = parse("op1()\n\nroute @ mystream |> handler");
       const route = ast.contingencies[0] as AST.RouteDeclaration;
       expect(route.type).toBe("RouteDeclaration");
       expect(route.streamPattern).toEqual({
         name: "mystream",
-        isDynamic: true,
       });
     });
 
     it("should parse route and on handler together", () => {
       const ast = parse(
-        'op1()\n\nroute @"ok" |> op2\non @"fail" |> |:x:Any| => rescue(x)',
+        'op1()\n\nroute @ok |> op2\non @fail |> |:x:Any| => rescue(x)',
       );
       expect(ast.contingencies).toHaveLength(2);
       expect(ast.contingencies[0].type).toBe("RouteDeclaration");
@@ -603,7 +609,7 @@ run until @"shutdown"`;
   describe("complete programs", () => {
     it("should parse test case 1: pure function", () => {
       const source = `f:double n:Int -> Int => multiply(n, 2)
-double(21) @"ok"`;
+double(21) @ok`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(1);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
@@ -611,27 +617,27 @@ double(21) @"ok"`;
 
     it("should parse test case 2: pipe chain", () => {
       const source = `:nums [1, 2, 3, 4, 5]
-nums |> filter(|:v:Any| => gt(v, 2)) |> map(|:v:Any| => multiply(v, 10)) @"ok"`;
+nums |> filter(|:v:Any| => gt(v, 2)) |> map(|:v:Any| => multiply(v, 10)) @ok`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(1);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
     });
 
     it("should parse test case 3: named outcomes", () => {
-      const source = `f:find_user id:Any -> Any ~> @"found", @"not_found" =>
-  lookup(id) @"found"
-  | .empty => @"not_found"
+      const source = `f:find_user id:Any -> Any ~> @found, @not_found =>
+  lookup(id) @found
+  | .empty => @not_found
 
 find_user(42)
-| .not_found => create_guest() @>"found"`;
+| .not_found => create_guest() @>found`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(1);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
     });
 
     it("should parse test case 4: parallel composition", () => {
-      const source = `fetch(url_a) PP fetch(url_b) |> merge @"ok"
-| .fail => log() @"errors"`;
+      const source = `fetch(url_a) PP fetch(url_b) |> merge @ok
+| .fail => log() @errors`;
       const ast = parse(source);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
       expect((ast.primaryExpressions[0] as AST.ParallelExpression).type).toBe(
@@ -640,8 +646,8 @@ find_user(42)
     });
 
     it("should parse test case 5: on handler with wildcard", () => {
-      const source = `on @"errors" |> |:e:Any| => store(e) @"audit"
-on @"api.*"  |> |:e:Any| => log(e)`;
+      const source = `on @errors |> |:e:Any| => store(e) @audit
+on @api_errors  |> |:e:Any| => log(e)`;
       const ast = parse(source);
       expect(ast.contingencies).toHaveLength(2);
     });
@@ -649,14 +655,14 @@ on @"api.*"  |> |:e:Any| => log(e)`;
     it("should parse mixed definitions and primary expression", () => {
       const source = `f:double n:Int -> Int => multiply(n, 2)
 :nums [1, 2, 3]
-nums |> map(|:x:Any| => double(x)) @"results"`;
+nums |> map(|:x:Any| => double(x)) @results`;
       const ast = parse(source);
       expect(ast.definitions).toHaveLength(2);
       expect(ast.primaryExpressions.length).toBeGreaterThan(0);
     });
 
     it("should parse multiple primary expressions", () => {
-      const source = `f:op x:Any -> Any => x @ "ok"
+      const source = `f:op x:Any -> Any => x @ok
 op(1)
 op(2)
 op(3)`;

@@ -2,10 +2,10 @@
 -- Demonstrates conditional routing with re-processing:
 -- negative values are negated and fed back into the same check function.
 
-f:negate x => mul(x, sub(0, 1))
+f:negate x:Int -> Int => mul(x, sub(0, 1))
 
-f:check x =>
-  if gt(x, 0) then x @ "ok" else x @ "negative"
+f:check x:Int -> Void =>
+  if gt(x, 0) then x @ok else x @negative
 
 check(5)
 check(sub(0, 3))
@@ -13,9 +13,9 @@ check(10)
 check(sub(0, 7))
 
 -- Negative values flip sign and re-enter check — the feedback loop
-on @"negative" |> |:x| => check(negate(x))
+on @negative |> |:x:Int| => check(negate(x))
 
-on @"ok" |> |:x| => println("Final OK: #{x}")
+on @ok |> |:x:Int| => println("Final OK: #{x}")
 
 -- Uncomment to trace every stream event:
--- on @"__trace" |> |:ev| => debug(ev, "TRACE")
+-- on @__trace |> |:ev| => debug(ev, "TRACE")

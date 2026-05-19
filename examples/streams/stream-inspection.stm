@@ -3,11 +3,11 @@
 -- Functions emitting to named streams; handlers observe the results.
 
 -- Function definitions (all grouped before any calls)
-f:double x => mul(x, 2) @ "numbers"
-f:triple x => mul(x, 3) @ "numbers"
-f:square x => mul(x, x) @ "squares"
-f:negate x => mul(x, -1) @ "negated"
-f:is_even x => eq(mod(x, 2), 0) @ "checks"
+f:double x:Int -> Void => mul(x, 2) @numbers
+f:triple x:Int -> Void => mul(x, 3) @numbers
+f:square x:Int -> Void => mul(x, x) @squares
+f:negate x:Int -> Void => mul(x, -1) @negated
+f:is_even x:Int -> Void => eq(mod(x, 2), 0) @checks
 
 -- Calls: same destination
 double(7)
@@ -25,10 +25,10 @@ is_even(3)
 is_even(100)
 
 -- Handlers observe all stream activity
-on @"numbers"  |> |:v| => println("numbers:  #{v}")
-on @"squares"  |> |:v| => println("squares:  #{v}")
-on @"negated"  |> |:v| => println("negated:  #{v}")
-on @"checks"   |> |:v| => println("is_even:  #{v}")
+on @numbers  |> |:v:Int| => println("numbers:  #{v}")
+on @squares  |> |:v:Int| => println("squares:  #{v}")
+on @negated  |> |:v:Int| => println("negated:  #{v}")
+on @checks   |> |:v:Bool| => println("is_even:  #{v}")
 
 -- Uncomment to capture all stream activity with full metadata:
--- on @"__trace" |> |:ev| => debug(ev, "TRACE")
+-- on @__trace |> |:ev| => debug(ev, "TRACE")

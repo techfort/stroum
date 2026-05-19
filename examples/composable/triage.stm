@@ -1,13 +1,13 @@
 -- triage.stm
-input:  @"triage.events"
-output: @"triage.valid"
-output: @"triage.invalid"
+input:  @triage_events
+output: @triage_valid
+output: @triage_invalid
 
-f:classify event =>
+f:classify event:Any -> Void =>
   if contains(to_string(event), "error")
-  then event @ "triage.invalid"
-  else event @ "triage.valid"
+  then event @triage_invalid
+  else event @triage_valid
 
 println("triage module loaded")
 
-route @"triage.events" |> classify
+route @triage_events |> classify

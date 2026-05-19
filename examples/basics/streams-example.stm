@@ -1,24 +1,24 @@
 -- Example with streams and outcomes
 
-f:check num =>
+f:check num:Int -> Any =>
   if gt(num, 0) then .ok num
   else .error "value is not positive"
 
-f:save num =>
+f:save num:Int -> Int =>
   println("Saved: #{num}")
   num
 
-f:report_error msg =>
+f:report_error msg:Any -> Any =>
   println("Error: #{msg}")
   msg
 
-f:validate num ~> @"valid", @"errors" =>
+f:validate num:Int -> Void ~> @valid, @errors =>
   check(num)
-  | .ok    => save(num) @ "valid"
-  | .error => report_error(num) @ "errors"
+  | .ok    => save(num) @valid
+  | .error => report_error(num) @errors
 
 validate(42)
 validate(sub(0, 5))
 
-on @"valid" |> |:x| => println("OK: #{x}")
-on @"errors" |> |:e| => println("Invalid: #{e}")
+on @valid |> |:x:Int| => println("OK: #{x}")
+on @errors |> |:e:Any| => println("Invalid: #{e}")

@@ -1,0 +1,107 @@
+-- log-pipeline.stm
+--
+-- An end-to-end pipeline that reads a structured log file record by record,
+-- parses each line into a typed struct, fans the first few entries to a
+-- preview stream for inspection, then routes the remainder by severity to
+-- error and warning sinks.
+--
+-- Primitives demonstrated:
+--   stream:   — typed named stream declarations
+--   src:      — record-by-record file ingestion via read_records
+--   snk:      — named output sinks
+--   stream_info — runtime metadata used to control fan-out
+--   tagged values (.ok / .error) — typed parse results
+--   route / | .tag => — functional outcome pipelines
+
+i:io
+
+-- ── Typed stream declarations ─────────────────────────────────────────────────
+-- Declaring streams explicitly gives them metadata (type, count, lastValue)
+-- queryable at runtime via stream_info.
+
+stream:raw      String   -- raw text lines from the log file
+stream:preview  Any      -- first 3 entries: pre-flight sample
+stream:bulk     Any      -- remaining entries: normal processing path
+stream:errors   Any      -- entries with level ERROR
+stream:warnings Any      -- entries with level WARN
+
+-- ── Data model ────────────────────────────────────────────────────────────────
+
+s:Logentry {
+  level: String
+  ts:    String
+  msg:   String
+}
+
+-- ── Parsing ───────────────────────────────────────────────────────────────────
+-- Returns a tagged value: .ok Logentry on success, .error String on failure.
+-- Callers pattern-match the outcome — no exceptions, no nulls.
+
+f:parse_line line:String -> Any =>
+  :parts split(line, "|")
+  if lt(count(parts), 3) then
+    .error concat("malformed line: ", line)
+  else
+    .ok Logentry {
+      level: nth(parts, 0),
+      ts:    nth(parts, 1),
+      msg:   nth(parts, 2)
+    }
+
+-- ── Fan-out via stream metadata ───────────────────────────────────────────────
+-- stream_info(@raw).count is the number of raw lines emitted so far.
+-- Because handlers fire before the count is incremented, count=0 on the
+-- first item, count=1 on the second, etc.
+-- The first 3 entries (counts 0-2) go to @preview; the rest to @bulk.
+
+f:fan_entry entry:Any -> Any =>
+  :info stream_info(@raw)
+  if lt(info.count, 3) then
+    entry @preview
+  else
+    entry @bulk
+
+-- ── Severity routing ──────────────────────────────────────────────────────────
+-- Splits bulk entries across severity-specific streams.
+-- INFO entries are not emitted anywhere — they fall through and are dropped.
+
+f:route_severity entry:Any -> Any =>
+  if eq(entry.level, "ERROR") then
+    entry @errors
+  else if eq(entry.level, "WARN") then
+    entry @warnings
+  else
+    entry
+
+-- ── Output formatters ─────────────────────────────────────────────────────────
+
+f:show_preview e:Any -> Void =>
+  println("PREVIEW  [#{e.level}]  #{e.ts}  #{e.msg}")
+
+f:show_error e:Any -> Void =>
+  println("ERROR    #{e.ts}  #{e.msg}")
+
+f:show_warning e:Any -> Void =>
+  println("WARN     #{e.ts}  #{e.msg}")
+
+-- ── Source ────────────────────────────────────────────────────────────────────
+-- read_records is a finite callback source: it emits one line per callback
+-- invocation and completes when the file is exhausted. No run until needed.
+
+src: @raw read_records("examples/e2e/sample.log")
+
+-- ── Pipelines ─────────────────────────────────────────────────────────────────
+-- Each route declaration is a pure functional pipeline subscription.
+-- Outcome matches dispatch on the tagged value returned by parse_line.
+
+route @raw |> parse_line
+  | .ok    => fan_entry
+  | .error => println
+
+route @bulk |> route_severity
+
+-- ── Sinks ─────────────────────────────────────────────────────────────────────
+
+snk: @preview  show_preview
+snk: @errors   show_error
+snk: @warnings show_warning

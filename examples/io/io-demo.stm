@@ -6,7 +6,7 @@ i:process
 i:timer
 
 -- Helper: log a labelled value
-f:log label value =>
+f:log label:String value:Any -> Void =>
   println("#{label}#{value}")
 
 -- Write a temp file then read it back

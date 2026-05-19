@@ -45,7 +45,7 @@ describe("detectContext", () => {
 
 describe("collectSymbols", () => {
   it("collects function declarations", () => {
-    const module = parse("f:double n => mul(n, 2)");
+    const module = parse("f:double n:Int -> Int => mul(n, 2)");
     const syms = collectSymbols(module);
     expect(syms).toContainEqual({
       kind: "function",
@@ -55,7 +55,7 @@ describe("collectSymbols", () => {
   });
 
   it("collects multi-param functions", () => {
-    const module = parse("f:add a b => add(a, b)");
+    const module = parse("f:add a:Any b:Any -> Any => add(a, b)");
     const syms = collectSymbols(module);
     const fn = syms.find((s) => s.name === "add");
     expect(fn?.detail).toBe("f:add a b");
@@ -79,7 +79,7 @@ describe("collectSymbols", () => {
 
   it("collects multiple symbols from the same file", () => {
     const module = parse(
-      "f:double n => mul(n, 2)\nf:triple n => mul(n, 3)\n:scale 10",
+      "f:double n:Int -> Int => mul(n, 2)\nf:triple n:Int -> Int => mul(n, 3)\n:scale 10",
     );
     const syms = collectSymbols(module);
     expect(syms.map((s) => s.name)).toEqual(["double", "triple", "scale"]);
@@ -162,13 +162,13 @@ describe("buildCompletions", () => {
 
 describe("getCompletions", () => {
   it("returns stdlib items when cursor is after |>", () => {
-    const module = parse("f:double n => mul(n, 2)");
+    const module = parse("f:double n:Int -> Int => mul(n, 2)");
     const items = getCompletions(module, "double(5) |>", true);
     expect(items.map((i) => i.label)).toContain("println");
   });
 
   it("returns user-defined function after |>", () => {
-    const module = parse("f:double n => mul(n, 2)");
+    const module = parse("f:double n:Int -> Int => mul(n, 2)");
     const items = getCompletions(module, "5 |>", true);
     expect(items.map((i) => i.label)).toContain("double");
   });
@@ -221,7 +221,7 @@ describe("getHover", () => {
   });
 
   it("returns user function signature", () => {
-    const module = parse("f:double n => mul(n, 2)");
+    const module = parse("f:double n:Int -> Int => mul(n, 2)");
     const hover = getHover("double", module);
     expect(hover?.signature).toBe("f:double n");
     expect(hover?.doc).toBe("User-defined function");
@@ -249,7 +249,7 @@ describe("getHover", () => {
 
   it("prefers stdlib over a user function with the same name", () => {
     // If a user shadowed a stdlib name, stdlib takes priority in hover
-    const module = parse("f:mul a b => add(a, b)");
+    const module = parse("f:mul a:Any b:Any -> Any => add(a, b)");
     const hover = getHover("mul", module);
     expect(hover?.doc).toBe("Multiply two numbers");
   });

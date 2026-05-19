@@ -4,7 +4,7 @@
 :name "world"
 :count 3
 
-f:main name count x =>
+f:main name:String count:Int x:Int -> Void =>
   println("Hello #{name}!")
   println("#{count} items processed")
   println("The value is #{x} and its double is #{mul(x, 2)}")

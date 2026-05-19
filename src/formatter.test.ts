@@ -48,34 +48,34 @@ describe("format: bindings", () => {
 
 describe("format: functions", () => {
   it("formats a single-param function inline", () => {
-    expect(fmt("f:double n => mul(n, 2)")).toBe("f:double n => mul(n, 2)\n");
+    expect(fmt("f:double n:Int -> Int => mul(n, 2)")).toBe("f:double n:Int -> Int => mul(n, 2)\n");
   });
 
   it("formats a multi-param function inline", () => {
-    expect(fmt("f:add a b => add(a, b)")).toBe("f:add a b => add(a, b)\n");
+    expect(fmt("f:add a:Any b:Any -> Any => add(a, b)")).toBe("f:add a:Any b:Any -> Any => add(a, b)\n");
   });
 
   it("formats a recursive function", () => {
     const src =
-      "rec f:fact n => if eq(n, 0) then 1 else mul(n, fact(sub(n, 1)))";
+      "rec f:fact n:Int -> Int => if eq(n, 0) then 1 else mul(n, fact(sub(n, 1)))";
     const out = fmt(src);
-    expect(out).toMatch(/^rec f:fact n =>/);
+    expect(out).toMatch(/^rec f:fact n:Int -> Int =>/);
   });
 
   it("formats a function with a pipe body inline (pipes are always inline)", () => {
-    const src = "f:pipeline x => x |> double |> triple |> print";
+    const src = "f:pipeline x:Any -> Any => x |> double |> triple |> print";
     const out = fmt(src);
-    expect(out).toBe("f:pipeline x => x |> double |> triple |> print\n");
+    expect(out).toBe("f:pipeline x:Any -> Any => x |> double |> triple |> print\n");
   });
 
   it("formats a two-stage pipe inline", () => {
-    const src = "f:greet name => name |> println";
+    const src = "f:greet name:String -> Any => name |> println";
     const out = fmt(src);
-    expect(out).toBe("f:greet name => name |> println\n");
+    expect(out).toBe("f:greet name:String -> Any => name |> println\n");
   });
 
   it("preserves no-param functions", () => {
-    const out = fmt("f:hello => println");
+    const out = fmt("f:hello -> Void => println");
     expect(out).toMatch(/^f:hello/);
   });
 });
@@ -109,7 +109,7 @@ describe("format: call expressions", () => {
 
 describe("format: if expressions", () => {
   it("formats a short if expression inline", () => {
-    const out = fmt("f:abs n => if lt(n, 0) then mul(n, -1) else n");
+    const out = fmt("f:abs n:Int -> Int => if lt(n, 0) then mul(n, -1) else n");
     expect(out).toContain("if lt(n, 0) then mul(n, -1) else n");
   });
 });
@@ -143,8 +143,8 @@ describe("format: interpolated strings", () => {
 
 describe("format: lambdas", () => {
   it("formats a single-param lambda", () => {
-    const out = fmt("f:apply lst => map(lst, |:x| => mul(x, 2))");
-    expect(out).toContain("|:x| => mul(x, 2)");
+    const out = fmt("f:apply lst:Any -> Any => map(lst, |:x:Int| => mul(x, 2))");
+    expect(out).toContain("|:x:Int| => mul(x, 2)");
   });
 });
 
@@ -152,14 +152,14 @@ describe("format: lambdas", () => {
 
 describe("format: multiple declarations", () => {
   it("separates declarations with blank lines", () => {
-    const src = "f:double n => mul(n, 2)\nf:triple n => mul(n, 3)";
+    const src = "f:double n:Int -> Int => mul(n, 2)\nf:triple n:Int -> Int => mul(n, 3)";
     const out = fmt(src);
     expect(out).toContain("\n\n");
   });
 
   it("puts imports before definitions", () => {
     // Import must come first in source — parser loops on import-after-definition
-    const src = "i:core\nf:double n => mul(n, 2)";
+    const src = "i:core\nf:double n:Int -> Int => mul(n, 2)";
     const out = fmt(src);
     const importIdx = out.indexOf("i:core");
     const defIdx = out.indexOf("f:double");
@@ -171,7 +171,7 @@ describe("format: multiple declarations", () => {
 
 describe("format: idempotency", () => {
   it("formatting twice gives same result as formatting once", () => {
-    const src = "i:core\nf:double n => mul(n, 2)\n:x 42\ndouble(x) |> print";
+    const src = "i:core\nf:double n:Int -> Int => mul(n, 2)\n:x 42\ndouble(x) |> print";
     const once = fmt(src);
     const twice = fmt(once.trimEnd());
     expect(twice).toBe(once);

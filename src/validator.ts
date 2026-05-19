@@ -464,6 +464,7 @@ export class Validator {
       case "NumberLiteral":
       case "StringLiteral":
       case "BooleanLiteral":
+      case "StreamSymbol":
         break;
       case "InterpolatedStringLiteral":
         for (const seg of expr.segments) {
@@ -732,6 +733,8 @@ export class Validator {
         break;
       case "TaggedExpression":
         this.walkExpression(expr.value, visitor);
+        break;
+      case "StreamSymbol":
         break;
     }
   }

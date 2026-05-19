@@ -1,12 +1,12 @@
 -- Example with parallel composition and stream handlers
 
-f:compute_a x => mul(x, x) @ "results"
-f:compute_b x => add(x, 10) @ "results"
-f:merge result => println("Result: #{result}")
+f:compute_a x:Int -> Void => mul(x, x) @results
+f:compute_b x:Int -> Void => add(x, 10) @results
+f:merge result:Any -> Void => println("Result: #{result}")
 
 -- Parallel computation from two sources
-compute_a(5) PP compute_b(5) |> merge @ "processed"
+compute_a(5) PP compute_b(5) |> merge @processed
 
 -- Stream handlers
-on @"results" |> |:v| => println("Stream value: #{v}")
-on @"processed" |> |:v| => println("Processed: #{v}")
+on @results |> |:v:Any| => println("Stream value: #{v}")
+on @processed |> |:v:Any| => println("Processed: #{v}")
