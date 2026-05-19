@@ -50,6 +50,14 @@
         "language": "stroum",
         "scopeName": "source.stroum",
         "path": "./syntaxes/stroum.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.stroum.codeblock",
+        "path": "./syntaxes/stroum-markdown-injection.tmLanguage.json",
+        "injectTo": ["text.html.markdown"],
+        "embeddedLanguages": {
+          "meta.embedded.block.stroum": "stroum"
+        }
       }
     ],
     "configurationDefaults": {
