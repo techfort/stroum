@@ -457,7 +457,7 @@ export class Transpiler {
       this.transpileIndentedBody(func.body);
     } else {
       const expr = this.transpileExpression(func.body);
-      this.emit(`return ${expr};`);
+      this.emit(`return ${expr};`, func.body.location);
     }
     this.currentFn = null;
 
@@ -487,10 +487,10 @@ export class Transpiler {
         this.transpileBindingDeclaration(stmt);
       } else if (i === lastExprIdx) {
         const expr = this.transpileExpression(stmt);
-        this.emit(`return ${expr};`);
+        this.emit(`return ${expr};`, stmt.location);
       } else {
         const expr = this.transpileExpression(stmt);
-        this.emit(`await ${expr};`);
+        this.emit(`await ${expr};`, stmt.location);
       }
     }
   }

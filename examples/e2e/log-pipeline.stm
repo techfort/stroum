@@ -15,16 +15,6 @@
 
 i:io
 
--- ── Typed stream declarations ─────────────────────────────────────────────────
--- Declaring streams explicitly gives them metadata (type, count, lastValue)
--- queryable at runtime via stream_info.
-
-stream:raw      String   -- raw text lines from the log file
-stream:preview  Logentry -- first 3 entries: pre-flight sample
-stream:bulk     Logentry -- remaining entries: normal processing path
-stream:errors   Logentry -- entries with level ERROR
-stream:warnings Logentry -- entries with level WARN
-
 -- ── Data model ────────────────────────────────────────────────────────────────
 
 s:Logentry {
@@ -34,6 +24,16 @@ s:Logentry {
 }
 
 t:Parselineresult = .ok Logentry | .error String
+
+-- ── Typed stream declarations ─────────────────────────────────────────────────
+-- Declaring streams explicitly gives them metadata (type, count, lastValue)
+-- queryable at runtime via stream_info.
+
+stream:raw      String   -- raw text lines from the log file
+stream:preview  Logentry -- first 3 entries: pre-flight sample
+stream:bulk     Logentry -- remaining entries: normal processing path
+stream:errors   Logentry -- entries with level ERROR
+stream:warnings Logentry -- entries with level WARN
 
 -- ── Parsing ───────────────────────────────────────────────────────────────────
 -- Returns a Parselineresult: .ok Logentry on success, .error String on failure.

@@ -169,7 +169,7 @@ Stroum is:
 - **Stream-oriented** — side effects route through named string channels
 - **Immutable** — all bindings are single-assignment
 
-See [PRIMER.md](PRIMER.md) for the full language reference.
+See [GUIDE.md](GUIDE.md) for a technical introduction to the language and its design. See [REFERENCE.md](REFERENCE.md) for the full syntax and stdlib reference.
 
 ### Key Operators
 
@@ -300,7 +300,8 @@ stroum/
 ├── tsconfig.json
 ├── jest.config.js
 ├── README.md
-├── PRIMER.md                       # Language reference
+├── GUIDE.md                           # Technical introduction and design guide
+├── REFERENCE.md                       # Language reference
 └── SCHEMA-INFERENCE.md
 ```
 

@@ -38,8 +38,9 @@ Every Stroum file is a dataflow declaration. Its sections appear top-to-bottom i
 
 ```
 imports              (i:)
-stream declarations  (stream:)
 struct definitions   (s:)
+type declarations    (t:)
+stream declarations  (stream:)
 function definitions (f:)
 bindings             (:)
 source declarations  (src:)
@@ -56,16 +57,16 @@ There can be **multiple** primary expressions — each runs sequentially as the 
 -- imports
 i:io
 
--- streams (named, typed)
-stream:raw     String
-stream:clean   Any
-stream:errors  String
-
--- struct definitions
+-- struct definitions: data shapes first
 s:Record { id: Int, body: String }
 
+-- streams: now the types in stream declarations are already defined
+stream:raw     String
+stream:clean   Record
+stream:errors  String
+
 -- function definitions
-f:double x => mul(x, 2)
+f:double x:Int -> Int => mul(x, 2)
 
 -- sources: wire data into streams
 src: @raw read_records("input.csv")
@@ -89,7 +90,7 @@ on @raw |> |:v| => v @clean
 Functions are declared with the `f:` sigil.
 
 ```stroum
-f:name param1 param2 => body
+f:name param1:Type param2:Type -> ReturnType => body
 ```
 
 ### Numeric literals
@@ -100,7 +101,7 @@ Integer and float literals may be negative — the minus sign is part of the lit
 :x -42
 :pi -3.14
 
-f:negate n => mul(n, -1)
+f:negate n:Int -> Int => mul(n, -1)
 ```
 
 ### String literals and escape sequences
@@ -131,9 +132,9 @@ println("Hello, #{name}!")
 ### Single expression body
 
 ```stroum
-f:greet name => concat("Hello, ", name)
+f:greet name:String -> String => concat("Hello, ", name)
 
-f:square x => mul(x, x)
+f:square x:Int -> Int => mul(x, x)
 ```
 
 ### Indented body (multiple statements)
@@ -141,7 +142,7 @@ f:square x => mul(x, x)
 Indent the body to sequence bindings and expressions. The last expression is the return value. Pipes must be written **inline** on a single line — `|>` cannot start a continuation line.
 
 ```stroum
-f:process x =>
+f:process x:Int -> String =>
   :step add(x, 1)
   :scaled mul(step, 2)
   to_string(scaled)
@@ -150,7 +151,7 @@ f:process x =>
 Each line is a separate statement. Use intermediate bindings to break long computations across lines, or write the full pipeline inline:
 
 ```stroum
-f:process x => add(x, 1) |> mul(2) |> to_string
+f:process x:Int -> String => add(x, 1) |> mul(_, 2) |> to_string
 ```
 
 ### Recursive functions
@@ -158,7 +159,7 @@ f:process x => add(x, 1) |> mul(2) |> to_string
 Use the `rec` keyword before `f:` to allow self-reference.
 
 ```stroum
-rec f:factorial n =>
+rec f:factorial n:Int -> Int =>
   if eq(n, 0) then 1
   else mul(n, factorial(sub(n, 1)))
 ```
@@ -168,10 +169,9 @@ rec f:factorial n =>
 Zero-arg functions act as named actions or entry points.
 
 ```stroum
-f:run =>
+f:run -> Void =>
   println("starting...")
-  |> process(42)
-  |> println
+  process(42) |> println
 
 run()
 ```
@@ -181,7 +181,7 @@ run()
 Declare which streams a function may emit on using `~>`.
 
 ```stroum
-f:validate x ~> @ok, @fail =>
+f:validate x:Int ~> @ok, @fail =>
   if gt(x, 0) then x @ok else x @fail
 ```
 
@@ -242,7 +242,7 @@ value |> clamp(0, _, 100)      -- clamp between 0 and 100
 ### Chaining example
 
 ```stroum
-f:pipeline input =>
+f:pipeline input:String -> Void =>
   input
   |> validate        -- bare name: validate(input)
   |> add(_, 1)       -- placeholder: add(validated, 1)
@@ -270,7 +270,7 @@ value @audit |> transform           -- emit then continue the pipeline
 Use `if/then/else` to route to different streams conditionally.
 
 ```stroum
-f:validate x =>
+f:validate x:Int -> Int =>
   if gt(x, 0) then x @ok else x @fail
 ```
 
@@ -343,7 +343,7 @@ route @ok |> process |> save
 
 ```stroum
 -- Entry point emits success or failure
-f:validate x =>
+f:validate x:Int -> Int =>
   if gt(x, 0) then x @ok else x @fail
 
 validate(input)
@@ -392,9 +392,13 @@ src: @orders file("orders.csv")
 **Open-ended (callback) source** — emits multiple times until stopped; requires `run until` to bound the program:
 
 ```stroum
-src: @changes watch_file("data.csv")
-src: @lines   read_records("data.csv")         -- one record per line
-src: @fields  read_records("data.csv", ",")    -- comma-separated records
+src: @changes  watch_file("data.csv")
+src: @lines    read_records("data.csv")         -- one record per line
+src: @fields   read_records("data.csv", ",")    -- comma-separated records
+src: @items    from_list([1, 2, 3])             -- emit list items one at a time
+src: @ticks    interval(1000)                   -- emit once per second (i:timer)
+src: @data     http_poll("https://api/v1", 5000) -- poll URL every 5 s (i:io)
+src: @input    stdin_lines()                    -- stream stdin line by line (i:io)
 
 run until signal
 ```
@@ -440,16 +444,71 @@ run until signal
 
 ## 9. Tagged Values
 
-Tagged values attach a named outcome label to a result. This is Stroum's typed branching mechanism — the functional equivalent of discriminated unions (F# Result, Elixir tagged tuples).
+Tagged values attach a label to a result and let callers branch on that label. The tag is any identifier you choose — `.ok` and `.error` are common conventions for success/failure, but tags can express any classification: `.low`, `.medium`, `.high`; `.purchase`, `.refund`, `.chargeback`; `.warm`, `.cold`, `.stale`. There is no fixed set.
+
+### Producer: `.tag value`
+
+Wrap any value with a tag using the `.` prefix:
+
+```stroum
+.ok 42
+.error "not found"
+.low temp
+.critical alert
+.purchase event
+```
+
+For multi-word tags, use a string literal:
+
+```stroum
+."just right" x
+."too hot" temp
+```
+
+### Consumer: `| .tag => handler`
+
+Match on tags with the `|` operator. The handler receives the **unwrapped inner value** — not the tagged wrapper:
+
+```stroum
+result
+| .ok    => process    -- process receives the unwrapped value
+| .error => log_error  -- log_error receives the unwrapped error string
+```
+
+Handlers follow the same rules as pipe stages:
+- Bare name: `| .ok => println` → `println(innerValue)`
+- Placeholder: `| .ok => format(_, "pts")` → `format(innerValue, "pts")`
+- Lambda: `| .error => |:e| => println(concat("Error: ", e))`
+
+### Classification example
+
+Tags are not limited to binary ok/error. Any meaningful vocabulary works:
+
+```stroum
+t:Priority = .low String | .medium String | .high String | .critical String
+
+f:triage message:String -> Priority =>
+  if contains(message, "outage") then .critical message
+  else if contains(message, "error") then .high message
+  else if contains(message, "warn")  then .medium message
+  else                                    .low message
+
+f:handle_alert message:String -> Void =>
+  triage(message)
+  | .critical => page_oncall
+  | .high     => open_ticket
+  | .medium   => log_sink
+  | .low      => null_sink
+```
 
 ### Type aliases for tagged unions
 
-When union types are available, declare tagged outcome shapes explicitly with `t:`:
+Declare the full shape of a tagged union with `t:`:
 
 ```stroum
-t:Parselineresult = .ok Logentry | .error String
+t:ParseResult = .ok Logentry | .error String
 
-f:parse_line line:String -> Parselineresult =>
+f:parse_line line:String -> ParseResult =>
   :parts split(line, "|")
   if lt(count(parts), 3) then
     .error concat("malformed line: ", line)
@@ -461,79 +520,29 @@ f:parse_line line:String -> Parselineresult =>
     }
 ```
 
-This keeps outcome contracts visible at the function signature level while preserving normal `| .tag => ...` matching.
+The return type declares every possible tag, making the contract visible at the signature level.
 
-### Producer: `.tag value`
+### Tagging with stream emission
 
-Wrap any value with a tag using the `.` prefix:
-
-```stroum
-.ok 42             -- produces { outcome: "ok", value: 42 }
-.fail "not found" -- produces { outcome: "fail", value: "not found" }
-```
-
-Tags are plain identifiers. For multi-word tags, use a string literal:
+Tags compose with stream emission — the tagged value can be both emitted and matched downstream:
 
 ```stroum
-."just right" x
-."too hot" temp
-```
-
-### Consumer: `| .tag => handler`
-
-Match on outcome tags with the `|` operator. The handler receives the **unwrapped inner value**:
-
-```stroum
-evaluate(score)
-| .distinction => on_distinction    -- on_distinction receives the score, not the wrapper
-| .pass        => on_pass
-| .fail        => on_fail
-```
-
-Handlers follow the same rules as pipe stages:
-- Bare name: `| .ok => println` → `println(innerValue)`
-- Placeholder: `| .ok => format(_, "pts")` → `format(innerValue, "pts")`
-- Lambda: `| .fail => |:n| => println(concat("Failed: ", to_string(n)))`
-
-### Producer in functions
-
-```stroum
-f:evaluate score =>
-  if gte(score, 90) then .distinction score
-  else if gte(score, 70) then .pass score
-  else .fail score
-```
-
-### Tagging inside conditionals with stream emit
-
-Tags compose with stream emission — emit the tagged value for downstream stream handlers to match on:
-
-```stroum
-f:classify x =>
+f:classify x:Int -> Int =>
   if gt(x, 0) then .positive x @results
   else .negative x @results
 ```
 
-### Stream routing with tagged values
+### Route-level outcome matching
 
-A tagged value can be emitted wholesale onto a stream. A `route` handler or a dispatch function pattern-matches the tag:
+Outcome matches work directly inside `route` declarations:
 
 ```stroum
-f:dispatch result =>
-  result
-  | .distinction => on_distinction
-  | .pass        => on_pass
-  | .fail        => on_fail
-
--- Emit tagged values onto a stream
-evaluate(85) @scores
-evaluate(38) @scores
-
--- The route picks up each tagged value and dispatches by outcome
-route @scores |> dispatch
+route @raw |> parse_line
+  | .ok    => process
+  | .error => println
 ```
 
-Because `dispatch` receives a tagged value and matches on it, it works identically whether called inline or as a route target.
+This is the idiomatic pattern for separating the happy path from error handling at the pipeline level, without any explicit dispatch function.
 
 ---
 
@@ -546,15 +555,15 @@ if condition then expr else expr
 Conditionals are expressions — they produce a value.
 
 ```stroum
-f:sign x => if gt(x, 0) then 1 else -1
+f:sign x:Int -> Int => if gt(x, 0) then 1 else -1
 
-f:abs x => if gt(x, 0) then x else mul(x, -1)
+f:abs x:Int -> Int => if gt(x, 0) then x else mul(x, -1)
 ```
 
 Chain with `else if`:
 
 ```stroum
-f:classify n =>
+f:classify n:Int -> String =>
   if gt(n, 100) then "large"
   else if gt(n, 10) then "medium"
   else "small"
@@ -563,7 +572,7 @@ f:classify n =>
 Conditionals can route to streams:
 
 ```stroum
-f:route_by_sign x =>
+f:route_by_sign x:Int -> Int =>
   if gt(x, 0) then x @positive else x @negative
 ```
 
@@ -627,7 +636,7 @@ Instantiate with a record literal:
 Access fields with postfix dot syntax:
 
 ```stroum
-f:is_adult user => gt(user.age, 18)
+f:is_adult user:User -> Bool => gt(user.age, 18)
 ```
 
 ---
@@ -657,10 +666,10 @@ The following modules are **not** auto-imported. Add the corresponding `i:` decl
 
 | Module | Import | Purpose |
 |---|---|---|
-| `io` | `i:io` | File system, path operations, streaming file sources |
+| `io` | `i:io` | File system, path operations, streaming sources (`read_records`, `stdin_lines`, `http_poll`) |
 | `process` | `i:process` | Shell commands, environment, process control |
-| `timer` | `i:timer` | Delays, timestamps, elapsed time |
-| `formats` | `i:formats` | CSV/JSON parsing and schema inference |
+| `timer` | `i:timer` | Delays, timestamps, elapsed time, `interval` source |
+| `formats` | `i:formats` | CSV/JSON/Parquet/Avro parsing and schema inference |
 
 ```stroum
 i:io
@@ -685,7 +694,7 @@ now() |> to_string |> println
 | Comparison | `eq`, `neq`, `gt`, `gte`, `lt`, `lte` |
 | Logic | `and`, `or`, `not` |
 | Strings | `concat`, `length`, `upper`, `lower`, `trim`, `split`, `join`, `starts_with`, `ends_with`, `contains` |
-| Lists | `map`, `filter`, `reduce`, `head`, `tail`, `take`, `drop`, `reverse`, `sort`, `is_empty` |
+| Lists | `map`, `filter`, `reduce`, `head`, `tail`, `nth`, `take`, `drop`, `reverse`, `sort`, `is_empty`, `count`, `each`, `zip`, `flatten`, `from_list` |
 | I/O | `print`, `println`, `debug`, `trace` |
 | Sinks | `null_sink`, `log_sink` |
 | Streams | `stream_info` |
@@ -698,8 +707,10 @@ now() |> to_string |> println
 | Function | Signature | Description |
 |---|---|---|
 | `read_file` | `path` | Read file contents as a string |
+| `file` | `path` | Alias for `read_file` |
 | `write_file` | `path content` | Write string to file; returns `path` |
 | `append_file` | `path content` | Append string to file; returns `path` |
+| `jsonl_file` | `path value` | Append `value` serialised as a JSON line |
 | `file_exists` | `path` | Returns boolean |
 | `delete_file` | `path` | Delete file; returns `path` |
 | `list_dir` | `path` | Returns list of entry names |
@@ -712,6 +723,8 @@ now() |> to_string |> println
 | `path_ext` | `path` | File extension (e.g. `.txt`) |
 | `watch_file` | `path callback` | Call `callback` with file contents on each change |
 | `read_records` | `path [sep]` | Stream file records one at a time; default separator `\n` |
+| `stdin_lines` | — | Open-ended source — emits each stdin line as it arrives |
+| `http_poll` | `url ms` | Open-ended source — polls `url` every `ms` milliseconds and emits the response body |
 | `file_sink` | `path` | Sink factory — appends each stream value as a string |
 | `jsonl_sink` | `path` | Sink factory — appends each stream value as a JSON line |
 | `http_sink` | `url` | Sink factory — POSTs each stream value as JSON; throws on non-2xx |
@@ -737,6 +750,16 @@ now() |> to_string |> println
 | `timestamp` | — | Current time as ISO 8601 string |
 | `elapsed` | `start` | Milliseconds since `start` (from `now()`) |
 | `format_date` | `ms locale` | Format epoch ms as a locale date string |
+
+### `formats` — `i:formats`
+
+| Function | Signature | Description |
+|---|---|---|
+| `infer_schema` | `path` | Infer and print the schema of a CSV or JSON file |
+| `read_csv` | `path` | Parse a CSV file; returns a list of row objects |
+| `read_json` | `path` | Parse a JSON file; returns the decoded value |
+| `read_parquet` | `path` | Parse a Parquet file; returns a list of row objects |
+| `read_avro` | `path` | Parse an Avro file; returns a list of records |
 
 ### `debug`
 
@@ -806,16 +829,20 @@ Output: `✓`/`✗` per test with a diff on `assert_eq` failures. Exits with cod
 
 ```stroum
 -- Function
-f:name params => body
+f:name param:Type -> ReturnType => body
 
 -- Recursive function
-rec f:name params => body
+rec f:name param:Type -> ReturnType => body
+
+-- Struct (define before type aliases and streams that reference it)
+s:Name { field: Type }
+
+-- Type alias (tagged union — tags are any identifiers you choose)
+t:Result    = .ok Int | .error String
+t:Priority  = .low String | .medium String | .high String | .critical String
 
 -- Binding
 :name value
-
--- Struct
-s:Name { field: Type }
 
 -- Pipe (bare name — idiomatic)
 value |> transform |> validate |> println
@@ -829,14 +856,17 @@ value @stream_name
 -- Stream fan-out
 value @(stream_a, stream_b)
 
--- Tagged value — producer
+-- Tagged value — producer (tag is any identifier)
 .ok result
+.critical alert
+.purchase event
 ."multi word" result
 
 -- Tagged value — consumer
 expr
-| .ok   => handler
-| .fail => |:v| => println(v)
+| .ok       => handler
+| .critical => page_oncall
+| .low      => null_sink
 
 -- Conditional
 if cond then a else b
@@ -846,9 +876,6 @@ if cond then a else b
 
 -- On handler
 on @stream |> |:x| => handler(x)
-
--- Route (happy path)
-route @stream |> step1 |> step2
 
 -- Route
 route @stream |> step1 |> step2
@@ -908,11 +935,33 @@ stroum run examples/demo.stm --watch
 
 Re-runs the program whenever the source file changes. Uses a 300 ms debounce; kills the previous child process before restarting. Press `Ctrl+C` to stop watching.
 
+### Runtime error display
+
+When a handler throws at runtime, Stroum intercepts the error and displays a formatted diagnostic instead of a raw Node.js stack dump:
+
+```
+═══════════════════════════════════════════════════════════════
+  STROUM RUNTIME ERROR
+═══════════════════════════════════════════════════════════════
+
+  Stream:  @nums
+  Value:   3
+
+  Error:   boom: cannot process the number three
+
+  Trace:
+    at explode (examples/demo.stm:6:3)
+    ...
+═══════════════════════════════════════════════════════════════
+```
+
+The trace is remapped from generated TypeScript back to the original `.stm` source line via the embedded source maps.
+
 ### Source maps
 
 `stroum compile` writes a V3 source map (`.ts.map`) alongside the generated `.ts` file. The map records which generated TypeScript line corresponds to which `.stm` line.
 
-`stroum run` enables source maps end-to-end: it passes `--sourceMap` to the TypeScript compiler and `--enable-source-maps` to Node, so runtime stack traces point to `.stm` line numbers.
+`stroum run` enables source maps end-to-end: it passes `--sourceMap` to the TypeScript compiler and `--enable-source-maps` to Node. The runtime then chains the maps to surface `.stm` locations in error traces.
 
 ### REPL
 
