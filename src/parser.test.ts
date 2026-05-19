@@ -77,6 +77,53 @@ describe("Parser", () => {
     });
   });
 
+  describe("type declarations", () => {
+    it("should parse type signature declaration", () => {
+      const ast = parse("t:Transformer Input -> Output");
+
+      expect(ast.typeDeclarations).toHaveLength(1);
+      const decl = ast.typeDeclarations[0] as AST.TypeSignatureDeclaration;
+      expect(decl.type).toBe("TypeSignatureDeclaration");
+      expect(decl.name).toBe("Transformer");
+
+      const fnType = decl.typeExpression as AST.FunctionTypeExpression;
+      expect(fnType.type).toBe("FunctionTypeExpression");
+      expect((fnType.from as AST.NamedTypeExpression).name).toBe("Input");
+      expect((fnType.to as AST.NamedTypeExpression).name).toBe("Output");
+    });
+
+    it("should parse tagged union type alias declaration", () => {
+      const ast = parse("t:Parselineresult = .ok Logentry | .error String");
+
+      expect(ast.typeDeclarations).toHaveLength(1);
+      const decl = ast.typeDeclarations[0] as AST.TypeAliasDeclaration;
+      expect(decl.type).toBe("TypeAliasDeclaration");
+      expect(decl.name).toBe("Parselineresult");
+      expect(decl.typeParams).toEqual([]);
+
+      const union = decl.typeExpression as AST.UnionTypeExpression;
+      expect(union.type).toBe("UnionTypeExpression");
+      expect(union.variants).toHaveLength(2);
+      expect(union.variants[0].tag).toBe("ok");
+      expect(
+        (union.variants[0].payload as AST.NamedTypeExpression).name,
+      ).toBe("Logentry");
+      expect(union.variants[1].tag).toBe("error");
+      expect(
+        (union.variants[1].payload as AST.NamedTypeExpression).name,
+      ).toBe("String");
+    });
+
+    it("should parse generic type alias parameters", () => {
+      const ast = parse("t:Result[A] = .ok A | .error String");
+
+      expect(ast.typeDeclarations).toHaveLength(1);
+      const decl = ast.typeDeclarations[0] as AST.TypeAliasDeclaration;
+      expect(decl.name).toBe("Result");
+      expect(decl.typeParams).toEqual(["A"]);
+    });
+  });
+
   describe("source and runtime declarations", () => {
     it("should parse source declaration after a bare import without treating it as a selective import", () => {
       const ast = parse('i:timer\nsrc: @ticks watch_file("watched.txt")');

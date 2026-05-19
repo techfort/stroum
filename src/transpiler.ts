@@ -55,6 +55,15 @@ export class Transpiler {
 
     this.emit("");
 
+    // Transpile type declarations
+    for (const typeDecl of module.typeDeclarations) {
+      this.transpileTypeDeclaration(typeDecl);
+    }
+
+    if (module.typeDeclarations.length > 0) {
+      this.emit("");
+    }
+
     // Transpile struct declarations (as TypeScript interfaces)
     for (const def of module.definitions) {
       if (def.type === "StructDeclaration") {
@@ -353,6 +362,58 @@ export class Transpiler {
     this.emit("");
   }
 
+  private transpileTypeDeclaration(typeDecl: AST.TypeDeclaration): void {
+    const tsType = this.transpileTypeExpression(typeDecl.typeExpression);
+
+    if (typeDecl.type === "TypeAliasDeclaration") {
+      const typeParams =
+        typeDecl.typeParams.length > 0
+          ? `<${typeDecl.typeParams.join(", ")}>`
+          : "";
+      this.emit(`type ${typeDecl.name}${typeParams} = ${tsType};`, typeDecl.location);
+      return;
+    }
+
+    this.emit(`type ${typeDecl.name} = ${tsType};`, typeDecl.location);
+  }
+
+  private transpileTypeExpression(typeExpr: AST.TypeExpression): string {
+    switch (typeExpr.type) {
+      case "NamedTypeExpression": {
+        if (typeExpr.name === "List" && typeExpr.params.length === 1) {
+          return `Array<${this.transpileTypeExpression(typeExpr.params[0])}>`;
+        }
+
+        const baseName = this.stroumTypeToTs(typeExpr.name);
+        if (typeExpr.params.length === 0) {
+          return baseName;
+        }
+
+        const params = typeExpr.params
+          .map((p) => this.transpileTypeExpression(p))
+          .join(", ");
+        return `${baseName}<${params}>`;
+      }
+      case "FunctionTypeExpression": {
+        const from = this.transpileTypeExpression(typeExpr.from);
+        const to = this.transpileTypeExpression(typeExpr.to);
+        return `(arg: ${from}) => ${to}`;
+      }
+      case "UnionTypeExpression": {
+        return typeExpr.variants
+          .map((variant) => {
+            const payload = variant.payload
+              ? this.transpileTypeExpression(variant.payload)
+              : "null";
+            return `{ outcome: ${JSON.stringify(variant.tag)}; value: ${payload} }`;
+          })
+          .join(" | ");
+      }
+      default:
+        return "any";
+    }
+  }
+
   private routeMetaArg(): string {
     if (this.currentFn) {
       const argsObj = this.currentFn.params.map((p) => `${p}: ${p}`).join(", ");
@@ -535,7 +596,7 @@ export class Transpiler {
     // Handle outcome matches
     if (pipe.outcomeMatches.length > 0) {
       result = `(async () => {
-        let __value = ${result};
+        let __value: any = ${result};
 ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")}
         return __value;
       })()`;
@@ -603,7 +664,7 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
     // Handle outcome matches
     if (pipe.outcomeMatches.length > 0) {
       result = `(async () => {
-        let __value = ${result};
+        let __value: any = ${result};
 ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")}
         return __value;
       })()`;

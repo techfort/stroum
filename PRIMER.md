@@ -442,6 +442,27 @@ run until signal
 
 Tagged values attach a named outcome label to a result. This is Stroum's typed branching mechanism — the functional equivalent of discriminated unions (F# Result, Elixir tagged tuples).
 
+### Type aliases for tagged unions
+
+When union types are available, declare tagged outcome shapes explicitly with `t:`:
+
+```stroum
+t:Parselineresult = .ok Logentry | .error String
+
+f:parse_line line:String -> Parselineresult =>
+  :parts split(line, "|")
+  if lt(count(parts), 3) then
+    .error concat("malformed line: ", line)
+  else
+    .ok Logentry {
+      level: nth(parts, 0),
+      ts:    nth(parts, 1),
+      msg:   nth(parts, 2)
+    }
+```
+
+This keeps outcome contracts visible at the function signature level while preserving normal `| .tag => ...` matching.
+
 ### Producer: `.tag value`
 
 Wrap any value with a tag using the `.` prefix:
@@ -829,8 +850,8 @@ on @stream |> |:x| => handler(x)
 -- Route (happy path)
 route @stream |> step1 |> step2
 
--- Route (dynamic name)
-route @ binding |> step1 |> step2
+-- Route
+route @stream |> step1 |> step2
 
 -- Parallel
 a(x) PP b(x) |> gather
