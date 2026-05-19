@@ -596,7 +596,7 @@ export class Transpiler {
     // Handle outcome matches
     if (pipe.outcomeMatches.length > 0) {
       result = `(async () => {
-        let __value = ${result};
+        let __value: any = ${result};
 ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")}
         return __value;
       })()`;
@@ -664,7 +664,7 @@ ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")
     // Handle outcome matches
     if (pipe.outcomeMatches.length > 0) {
       result = `(async () => {
-        let __value = ${result};
+        let __value: any = ${result};
 ${pipe.outcomeMatches.map((m) => this.transpileOutcomeMatchInline(m)).join("\n")}
         return __value;
       })()`;
