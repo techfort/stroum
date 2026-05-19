@@ -38,9 +38,9 @@ Every Stroum file is a dataflow declaration. Its sections appear top-to-bottom i
 
 ```
 imports              (i:)
+struct definitions   (s:)
 type declarations    (t:)
 stream declarations  (stream:)
-struct definitions   (s:)
 function definitions (f:)
 bindings             (:)
 source declarations  (src:)
@@ -57,13 +57,13 @@ There can be **multiple** primary expressions — each runs sequentially as the 
 -- imports
 i:io
 
--- streams (named, typed)
-stream:raw     String
-stream:clean   Any
-stream:errors  String
-
--- struct definitions
+-- struct definitions: data shapes first
 s:Record { id: Int, body: String }
+
+-- streams: now the types in stream declarations are already defined
+stream:raw     String
+stream:clean   Record
+stream:errors  String
 
 -- function definitions
 f:double x:Int -> Int => mul(x, 2)
@@ -444,16 +444,71 @@ run until signal
 
 ## 9. Tagged Values
 
-Tagged values attach a named outcome label to a result. This is Stroum's typed branching mechanism — the functional equivalent of discriminated unions (F# Result, Elixir tagged tuples).
+Tagged values attach a label to a result and let callers branch on that label. The tag is any identifier you choose — `.ok` and `.error` are common conventions for success/failure, but tags can express any classification: `.low`, `.medium`, `.high`; `.purchase`, `.refund`, `.chargeback`; `.warm`, `.cold`, `.stale`. There is no fixed set.
+
+### Producer: `.tag value`
+
+Wrap any value with a tag using the `.` prefix:
+
+```stroum
+.ok 42
+.error "not found"
+.low temp
+.critical alert
+.purchase event
+```
+
+For multi-word tags, use a string literal:
+
+```stroum
+."just right" x
+."too hot" temp
+```
+
+### Consumer: `| .tag => handler`
+
+Match on tags with the `|` operator. The handler receives the **unwrapped inner value** — not the tagged wrapper:
+
+```stroum
+result
+| .ok    => process    -- process receives the unwrapped value
+| .error => log_error  -- log_error receives the unwrapped error string
+```
+
+Handlers follow the same rules as pipe stages:
+- Bare name: `| .ok => println` → `println(innerValue)`
+- Placeholder: `| .ok => format(_, "pts")` → `format(innerValue, "pts")`
+- Lambda: `| .error => |:e| => println(concat("Error: ", e))`
+
+### Classification example
+
+Tags are not limited to binary ok/error. Any meaningful vocabulary works:
+
+```stroum
+t:Priority = .low String | .medium String | .high String | .critical String
+
+f:triage message:String -> Priority =>
+  if contains(message, "outage") then .critical message
+  else if contains(message, "error") then .high message
+  else if contains(message, "warn")  then .medium message
+  else                                    .low message
+
+f:handle_alert message:String -> Void =>
+  triage(message)
+  | .critical => page_oncall
+  | .high     => open_ticket
+  | .medium   => log_sink
+  | .low      => null_sink
+```
 
 ### Type aliases for tagged unions
 
-Declare tagged outcome shapes explicitly with `t:`:
+Declare the full shape of a tagged union with `t:`:
 
 ```stroum
-t:Parselineresult = .ok Logentry | .error String
+t:ParseResult = .ok Logentry | .error String
 
-f:parse_line line:String -> Parselineresult =>
+f:parse_line line:String -> ParseResult =>
   :parts split(line, "|")
   if lt(count(parts), 3) then
     .error concat("malformed line: ", line)
@@ -465,52 +520,11 @@ f:parse_line line:String -> Parselineresult =>
     }
 ```
 
-This keeps outcome contracts visible at the function signature level while preserving normal `| .tag => ...` matching.
+The return type declares every possible tag, making the contract visible at the signature level.
 
-### Producer: `.tag value`
+### Tagging with stream emission
 
-Wrap any value with a tag using the `.` prefix:
-
-```stroum
-.ok 42             -- produces { outcome: "ok", value: 42 }
-.fail "not found" -- produces { outcome: "fail", value: "not found" }
-```
-
-Tags are plain identifiers. For multi-word tags, use a string literal:
-
-```stroum
-."just right" x
-."too hot" temp
-```
-
-### Consumer: `| .tag => handler`
-
-Match on outcome tags with the `|` operator. The handler receives the **unwrapped inner value**:
-
-```stroum
-evaluate(score)
-| .distinction => on_distinction    -- on_distinction receives the score, not the wrapper
-| .pass        => on_pass
-| .fail        => on_fail
-```
-
-Handlers follow the same rules as pipe stages:
-- Bare name: `| .ok => println` → `println(innerValue)`
-- Placeholder: `| .ok => format(_, "pts")` → `format(innerValue, "pts")`
-- Lambda: `| .fail => |:n| => println(concat("Failed: ", to_string(n)))`
-
-### Producer in functions
-
-```stroum
-f:evaluate score:Int -> Any =>
-  if gte(score, 90) then .distinction score
-  else if gte(score, 70) then .pass score
-  else .fail score
-```
-
-### Tagging inside conditionals with stream emit
-
-Tags compose with stream emission — emit the tagged value for downstream stream handlers to match on:
+Tags compose with stream emission — the tagged value can be both emitted and matched downstream:
 
 ```stroum
 f:classify x:Int -> Int =>
@@ -518,26 +532,17 @@ f:classify x:Int -> Int =>
   else .negative x @results
 ```
 
-### Stream routing with tagged values
+### Route-level outcome matching
 
-A tagged value can be emitted wholesale onto a stream. A `route` handler or a dispatch function pattern-matches the tag:
+Outcome matches work directly inside `route` declarations:
 
 ```stroum
-f:dispatch result:Any -> Any =>
-  result
-  | .distinction => on_distinction
-  | .pass        => on_pass
-  | .fail        => on_fail
-
--- Emit tagged values onto a stream
-evaluate(85) @scores
-evaluate(38) @scores
-
--- The route picks up each tagged value and dispatches by outcome
-route @scores |> dispatch
+route @raw |> parse_line
+  | .ok    => process
+  | .error => println
 ```
 
-Because `dispatch` receives a tagged value and matches on it, it works identically whether called inline or as a route target.
+This is the idiomatic pattern for separating the happy path from error handling at the pipeline level, without any explicit dispatch function.
 
 ---
 
@@ -829,14 +834,15 @@ f:name param:Type -> ReturnType => body
 -- Recursive function
 rec f:name param:Type -> ReturnType => body
 
--- Type alias (tagged union)
-t:Result = .ok Int | .error String
+-- Struct (define before type aliases and streams that reference it)
+s:Name { field: Type }
+
+-- Type alias (tagged union — tags are any identifiers you choose)
+t:Result    = .ok Int | .error String
+t:Priority  = .low String | .medium String | .high String | .critical String
 
 -- Binding
 :name value
-
--- Struct
-s:Name { field: Type }
 
 -- Pipe (bare name — idiomatic)
 value |> transform |> validate |> println
@@ -850,14 +856,17 @@ value @stream_name
 -- Stream fan-out
 value @(stream_a, stream_b)
 
--- Tagged value — producer
+-- Tagged value — producer (tag is any identifier)
 .ok result
+.critical alert
+.purchase event
 ."multi word" result
 
 -- Tagged value — consumer
 expr
-| .ok   => handler
-| .fail => |:v| => println(v)
+| .ok       => handler
+| .critical => page_oncall
+| .low      => null_sink
 
 -- Conditional
 if cond then a else b
